@@ -29,14 +29,18 @@ function greeting() {
 async function loadBriefing() {
   setRefreshStatus('Refreshing…');
   try {
-    const [data, reg] = await Promise.all([
+    const [data, reg, compliance, cal] = await Promise.all([
       apiFetch('/data/morning-briefing'),
       apiFetch('/data/regulatory').catch(() => null),
+      apiFetch('/data/compliance-dates').catch(() => null),
+      apiFetch('/data/calendar').catch(() => null),
     ]);
     if (!data) return;
     renderKPIs(data);
     renderAR(data.ar);
     renderDeadlines(data.pipeline.upcoming);
+    renderCompliance(compliance);
+    renderCalendar(cal);
     renderPipeline(data.pipeline);
     renderRegulatory(reg);
     setRefreshStatus(`Updated ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`);
@@ -150,6 +154,89 @@ function renderDeadlines(upcoming) {
       <div class="deadline-date">${d.due_date ? new Date(d.due_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : ''}</div>
     </div>
   `).join('');
+
+  body.innerHTML = `<div class="deadline-list">${items}</div>`;
+}
+
+// ---------------------------------------------------------------------------
+// Key Compliance Dates
+// ---------------------------------------------------------------------------
+
+function renderCompliance(data) {
+  const body = document.getElementById('compliance-body');
+  if (!data || !data.items || data.items.length === 0) {
+    body.innerHTML = '<p class="empty-state">No upcoming compliance dates.</p>';
+    return;
+  }
+
+  const items = data.items.map(item => {
+    const d = item.days_until;
+    let badgeCls, badgeText;
+    if (d < 0)       { badgeCls = 'badge--danger';  badgeText = `${Math.abs(d)}d overdue`; }
+    else if (d <= 7)  { badgeCls = 'badge--danger';  badgeText = `${d}d`; }
+    else if (d <= 30) { badgeCls = 'badge--warning'; badgeText = `${d}d`; }
+    else              { badgeCls = 'badge--muted';   badgeText = `${d}d`; }
+
+    const due = new Date(item.due_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    return `
+      <div class="deadline-item">
+        <span class="deadline-badge ${badgeCls}">${badgeText}</span>
+        <div class="deadline-info">
+          <div class="deadline-client">${item.obligation}</div>
+          <div class="deadline-meta">${item.category} · ${item.frequency}</div>
+        </div>
+        <div class="deadline-date">${due}</div>
+      </div>`;
+  }).join('');
+
+  body.innerHTML = `<div class="deadline-list">${items}</div>`;
+}
+
+// ---------------------------------------------------------------------------
+// Calendar Events
+// ---------------------------------------------------------------------------
+
+function renderCalendar(data) {
+  const body = document.getElementById('calendar-body');
+  if (!data) {
+    body.innerHTML = '<p class="empty-state">Calendar unavailable.</p>';
+    return;
+  }
+  if (data.error && !data.events.length) {
+    body.innerHTML = `<p class="empty-state">Calendar not shared yet.</p>`;
+    return;
+  }
+  if (!data.events || data.events.length === 0) {
+    body.innerHTML = '<p class="empty-state">No events in the next 14 days.</p>';
+    return;
+  }
+
+  const items = data.events.map(ev => {
+    let label, dateStr;
+    if (ev.all_day) {
+      const d = new Date(ev.start + 'T00:00:00');
+      dateStr = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+      label   = 'All day';
+    } else {
+      const d = new Date(ev.start);
+      dateStr = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+      label   = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    }
+    const today = new Date(); today.setHours(0,0,0,0);
+    const evDay = new Date(ev.all_day ? ev.start + 'T00:00:00' : ev.start);
+    evDay.setHours(0,0,0,0);
+    const daysUntil = Math.round((evDay - today) / 86400000);
+    const badgeCls  = daysUntil === 0 ? 'badge--danger' : daysUntil <= 2 ? 'badge--warning' : 'badge--muted';
+
+    return `
+      <div class="deadline-item">
+        <span class="deadline-badge ${badgeCls}">${daysUntil === 0 ? 'Today' : daysUntil + 'd'}</span>
+        <div class="deadline-info">
+          <div class="deadline-client">${ev.title}</div>
+          <div class="deadline-meta">${dateStr} · ${label}${ev.location ? ' · ' + ev.location : ''}</div>
+        </div>
+      </div>`;
+  }).join('');
 
   body.innerHTML = `<div class="deadline-list">${items}</div>`;
 }

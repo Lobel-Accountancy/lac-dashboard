@@ -59,11 +59,14 @@ function renderKPIs(data) {
   document.getElementById('kpi-forecast6').textContent = fmt$(forecast6);
 
   // Methodology note
+  const hasBudget = (data.actuals || []).some(m => m.budgeted > 0) ||
+                    (data.forecast || []).some(m => m.budgeted > 0);
   document.getElementById('methodology-note').textContent =
     data.avg_fee > 0
       ? `Fee estimates use the historical average of ${fmt$(data.avg_fee)} per engagement from AR Aging. ` +
         `Stage probabilities: Proposal 25%, In Progress 75%, Review 90%. ` +
-        `Capacity limit: ${p.capacity} engagements/month.`
+        `Capacity limit: ${p.capacity} engagements/month.` +
+        (hasBudget ? ' Green line = budgeted revenue from Budget & Projections tab.' : '')
       : 'No historical AR data found — forecasts will be $0 until AR Aging data is available.';
 }
 
@@ -78,10 +81,14 @@ function renderRevenueChart(data) {
   const forecastLabels = data.forecast.map(m => m.label);
   const allLabels = [...actualLabels, ...forecastLabels];
 
-  const actualData   = [...data.actuals.map(m => m.billed),   ...new Array(6).fill(null)];
+  const actualData   = [...data.actuals.map(m => m.billed),    ...new Array(6).fill(null)];
   const forecastData = [...new Array(6).fill(null), ...data.forecast.map(m => m.projected)];
+  const budgetData   = [
+    ...data.actuals.map(m => m.budgeted || null),
+    ...data.forecast.map(m => m.budgeted || null),
+  ];
+  const hasBudget = budgetData.some(v => v && v > 0);
 
-  // "Divider" dataset — a thin vertical bar at the boundary, just a style trick
   const ctx = document.getElementById('chartRevenue').getContext('2d');
   charts['chartRevenue'] = new Chart(ctx, {
     data: {
@@ -95,7 +102,7 @@ function renderRevenueChart(data) {
           borderColor:     NAVY,
           borderWidth: 1,
           borderRadius: 3,
-          order: 1,
+          order: 2,
         },
         {
           type: 'bar',
@@ -105,9 +112,22 @@ function renderRevenueChart(data) {
           borderColor:     BLUE,
           borderWidth: 2,
           borderRadius: 3,
-          borderDash: [4, 4],
-          order: 1,
+          order: 2,
         },
+        ...(hasBudget ? [{
+          type: 'line',
+          label: 'Budget',
+          data: budgetData,
+          borderColor:     GREEN,
+          backgroundColor: 'transparent',
+          borderWidth: 2,
+          borderDash: [5, 4],
+          pointRadius: 3,
+          pointBackgroundColor: GREEN,
+          fill: false,
+          tension: 0.1,
+          order: 1,
+        }] : []),
       ],
     },
     options: {
