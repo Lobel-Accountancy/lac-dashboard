@@ -29,12 +29,16 @@ function greeting() {
 async function loadBriefing() {
   setRefreshStatus('Refreshing…');
   try {
-    const data = await apiFetch('/data/morning-briefing');
+    const [data, reg] = await Promise.all([
+      apiFetch('/data/morning-briefing'),
+      apiFetch('/data/regulatory').catch(() => null),
+    ]);
     if (!data) return;
     renderKPIs(data);
     renderAR(data.ar);
     renderDeadlines(data.pipeline.upcoming);
     renderPipeline(data.pipeline);
+    renderRegulatory(reg);
     setRefreshStatus(`Updated ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`);
   } catch (err) {
     setRefreshStatus(`Error: ${err.message}`);
@@ -171,4 +175,62 @@ function renderPipeline(pipeline) {
   `).join('');
 
   body.innerHTML = `<div class="stage-grid">${chips}</div>`;
+}
+
+// ---------------------------------------------------------------------------
+// Regulatory updates
+// ---------------------------------------------------------------------------
+
+function renderRegulatory(data) {
+  const body  = document.getElementById('reg-body');
+  const label = document.getElementById('reg-digest-label');
+
+  if (!data || !data.items) {
+    body.innerHTML = '<span class="empty-state">No data available.</span>';
+    return;
+  }
+
+  if (data.last_digest) {
+    label.textContent = `Last digest: ${data.last_digest}`;
+  }
+
+  if (!data.items.length) {
+    body.innerHTML = '<span class="empty-state">No new items since last digest.</span>';
+    return;
+  }
+
+  const SOURCE_COLORS = {
+    'PCAOB':       '#7C3AED',
+    'AICPA Tax':   '#1D4ED8',
+    'AICPA Audit': '#1A7A4A',
+  };
+
+  const rows = data.items.map(item => {
+    const color  = SOURCE_COLORS[item.source] || '#5A6B7C';
+    const urgent = item.urgent
+      ? `<span style="display:inline-block;padding:1px 6px;border-radius:8px;
+           background:#FEF3C7;color:#92400E;font-size:10px;font-weight:700;
+           margin-left:6px;vertical-align:middle;">PRIORITY</span>`
+      : '';
+    return `
+      <div style="display:flex;align-items:baseline;gap:10px;padding:9px 0;
+           border-bottom:1px solid var(--border);">
+        <span style="display:inline-block;min-width:82px;padding:2px 7px;
+          border-radius:10px;font-size:10px;font-weight:700;text-align:center;
+          background:${color}18;color:${color};flex-shrink:0;">
+          ${item.source}
+        </span>
+        <span style="flex:1;font-size:13px;line-height:1.4;">
+          <a href="${item.url}" target="_blank" rel="noopener"
+             style="color:var(--text);text-decoration:none;">
+            ${item.title}
+          </a>${urgent}
+        </span>
+        <span style="font-size:11px;color:var(--text2);white-space:nowrap;flex-shrink:0;">
+          ${item.found}
+        </span>
+      </div>`;
+  }).join('');
+
+  body.innerHTML = `<div style="padding:0 4px;">${rows}</div>`;
 }
