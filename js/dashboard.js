@@ -178,18 +178,41 @@ function renderCompliance(data) {
     else              { badgeCls = 'badge--muted';   badgeText = `${d}d`; }
 
     const due = new Date(item.due_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    const esc = s => String(s||'').replace(/'/g, "\\'").replace(/"/g, '&quot;');
     return `
-      <div class="deadline-item">
+      <div class="deadline-item" id="comp-${esc(item.obligation).replace(/\s+/g,'_').slice(0,30)}">
         <span class="deadline-badge ${badgeCls}">${badgeText}</span>
         <div class="deadline-info">
           <div class="deadline-client">${item.obligation}</div>
           <div class="deadline-meta">${item.category} · ${item.frequency}</div>
         </div>
-        <div class="deadline-date">${due}</div>
+        <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
+          <div class="deadline-date">${due}</div>
+          <button onclick="markComplianceDone('${esc(item.obligation)}')"
+            style="font-size:11px;padding:3px 8px;background:#1A7A4A;color:white;border:none;
+                   border-radius:4px;cursor:pointer;white-space:nowrap;">Done</button>
+        </div>
       </div>`;
   }).join('');
 
   body.innerHTML = `<div class="deadline-list">${items}</div>`;
+}
+
+async function markComplianceDone(obligation) {
+  const res = await apiFetch('/data/compliance-complete', {
+    method: 'POST',
+    body: JSON.stringify({ obligation }),
+  });
+  if (res && res.success) {
+    // Remove the item from the list
+    const id = 'comp-' + obligation.replace(/'/g, '').replace(/\s+/g, '_').slice(0, 30);
+    const el = document.getElementById(id);
+    if (el) {
+      el.style.opacity = '0.4';
+      el.style.textDecoration = 'line-through';
+      setTimeout(() => el.remove(), 800);
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------
