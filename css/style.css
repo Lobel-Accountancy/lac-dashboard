@@ -38,20 +38,22 @@ body {
   color: white;
   display: flex;
   align-items: center;
-  padding: 0 24px;
-  height: 56px;
-  gap: 16px;
+  padding: 0 20px;
+  height: 52px;
+  gap: 8px;
   position: sticky;
   top: 0;
   z-index: 100;
+  overflow: visible;
 }
 
 .nav-brand {
-  font-size: 18px;
+  font-size: 17px;
   font-weight: 700;
   letter-spacing: 0.04em;
   color: white;
   flex-shrink: 0;
+  margin-right: 4px;
 }
 
 .nav-subtitle {
@@ -60,21 +62,32 @@ body {
   flex-shrink: 0;
 }
 
-.nav-spacer { flex: 1; }
+.nav-links {
+  display: flex;
+  gap: 2px;
+  flex-shrink: 1;
+  min-width: 0;
+}
+
+.nav-spacer { flex: 1; min-width: 8px; }
 
 .nav-user {
-  font-size: 13px;
+  font-size: 12px;
   color: rgba(255,255,255,.85);
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .nav-logout {
   background: transparent;
   border: 1px solid rgba(255,255,255,.45);
   color: rgba(255,255,255,.95);
-  padding: 4px 12px;
+  padding: 4px 10px;
   border-radius: 4px;
   cursor: pointer;
-  font-size: 13px;
+  font-size: 12px;
+  flex-shrink: 0;
+  white-space: nowrap;
   transition: background .15s;
 }
 .nav-logout:hover { background: rgba(255,255,255,.1); }
