@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LAC Engagement Budget</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .budget-toolbar {
+      display: flex; align-items: center; gap: 12px; margin-bottom: 24px;
+      flex-wrap: wrap;
+    }
+    .budget-toolbar label {
+      font-size: 12px; font-weight: 600; text-transform: uppercase;
+      letter-spacing: .05em; color: var(--text2);
+    }
+    .client-select {
+      padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px;
+      font-size: 14px; color: var(--text); background: white;
+      min-width: 220px; cursor: pointer;
+    }
+    .client-select:focus { outline: none; border-color: var(--navy); }
+
+    /* Summary cards */
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 12px; margin-bottom: 24px;
+    }
+    .summary-card {
+      background: white; border: 1px solid var(--border);
+      border-radius: 8px; padding: 14px 16px;
+    }
+    .summary-card .sc-label {
+      font-size: 10px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .06em; color: var(--text2); margin-bottom: 6px;
+    }
+    .summary-card .sc-value {
+      font-size: 22px; font-weight: 700; color: var(--navy);
+    }
+    .summary-card .sc-value--warn { color: #C0392B; }
+    .summary-card .sc-value--good { color: #1A7A4A; }
+
+    /* Budget table */
+    .budget-table-wrap {
+      background: white; border: 1px solid var(--border);
+      border-radius: 8px; overflow: hidden;
+    }
+    .budget-table {
+      width: 100%; border-collapse: collapse; font-size: 13px;
+    }
+    .budget-table th {
+      padding: 9px 12px; background: #FAFBFC;
+      border-bottom: 2px solid var(--border);
+      font-size: 10px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .05em; color: var(--text2);
+      white-space: nowrap;
+    }
+    .budget-table td {
+      padding: 9px 12px; border-bottom: 1px solid var(--border);
+    }
+    .budget-table tr:last-child td { border-bottom: none; }
+    .budget-table tr:hover td { background: #FAFBFC; }
+    .num { text-align: right; font-variant-numeric: tabular-nums; }
+    .var-neg { color: #C0392B; font-weight: 600; }
+    .var-pos { color: #1A7A4A; }
+    .pct-bar-wrap {
+      display: flex; align-items: center; gap: 8px;
+    }
+    .pct-bar {
+      flex: 1; height: 6px; background: #E0E6ED; border-radius: 3px;
+      overflow: hidden; min-width: 60px;
+    }
+    .pct-bar-fill {
+      height: 100%; border-radius: 3px; background: var(--navy);
+      transition: width .3s;
+    }
+    .pct-bar-fill--over { background: #C0392B; }
+    .pct-label { font-size: 11px; color: var(--text2); white-space: nowrap; }
+
+    /* Budget hrs input */
+    .budget-input {
+      width: 70px; padding: 4px 6px; border: 1px solid var(--border);
+      border-radius: 4px; font-size: 13px; text-align: right;
+      color: var(--text);
+    }
+    .budget-input:focus { outline: none; border-color: var(--navy); }
+    .budget-input.dirty { border-color: #D97706; background: #FFFBEB; }
+
+    /* Save bar */
+    .save-bar {
+      display: flex; align-items: center; gap: 12px;
+      padding: 14px 16px; background: #FFFBEB;
+      border-top: 1px solid #FCD34D;
+    }
+    .save-bar[hidden] { display: none; }
+    .btn-save {
+      padding: 8px 20px; background: var(--navy); color: white;
+      border: none; border-radius: 6px; font-size: 13px; font-weight: 600;
+      cursor: pointer;
+    }
+    .btn-save:hover { background: #131e2d; }
+    .btn-save:disabled { opacity: .5; cursor: not-allowed; }
+    .save-msg { font-size: 13px; color: #92400E; }
+
+    /* Toast */
+    .toast {
+      position: fixed; bottom: 24px; right: 24px;
+      background: var(--navy); color: white;
+      padding: 12px 20px; border-radius: 8px;
+      font-size: 13px; font-weight: 600;
+      box-shadow: 0 4px 16px rgba(0,0,0,.15);
+      transform: translateY(80px); opacity: 0;
+      transition: transform .25s, opacity .25s;
+      z-index: 1000;
+    }
+    .toast.show { transform: translateY(0); opacity: 1; }
+    .toast.toast--error { background: #C0392B; }
+
+    .sync-note { font-size: 11px; color: var(--text2); margin-top: 4px; }
+  </style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-brand">LAC</div>
+  <div style="display:flex;gap:4px;margin:0 16px;">
+    <a style="color:rgba(255,255,255,.65);text-decoration:none;font-size:13px;padding:4px 10px;border-radius:4px;" href="index.html">Briefing</a>
+    <a style="color:rgba(255,255,255,.65);text-decoration:none;font-size:13px;padding:4px 10px;border-radius:4px;" href="bi.html">Analytics</a>
+    <a style="color:rgba(255,255,255,.65);text-decoration:none;font-size:13px;padding:4px 10px;border-radius:4px;" href="clients.html">Clients</a>
+    <a style="color:rgba(255,255,255,.65);text-decoration:none;font-size:13px;padding:4px 10px;border-radius:4px;" href="forecast.html">Forecast</a>
+    <a style="color:white;background:rgba(255,255,255,.15);text-decoration:none;font-size:13px;padding:4px 10px;border-radius:4px;" href="budget.html">Budget</a>
+  </div>
+  <div class="nav-spacer"></div>
+  <div class="nav-user" id="nav-user"></div>
+  <button class="nav-logout" onclick="logout()">Sign out</button>
+</nav>
+
+<main class="main">
+  <div class="greeting">Engagement Budget</div>
+  <div class="date-line">Set hour budgets by work area · Actuals sync nightly from Clockify</div>
+
+  <div class="error-banner" id="error-banner" hidden></div>
+
+  <div class="budget-toolbar">
+    <label for="client-select">Client</label>
+    <select class="client-select" id="client-select" onchange="onClientChange()">
+      <option value="">— Select client —</option>
+    </select>
+    <span class="sync-note" id="sync-note"></span>
+  </div>
+
+  <!-- Summary cards -->
+  <div class="summary-grid" id="summary-grid" hidden>
+    <div class="summary-card">
+      <div class="sc-label">Budget Hrs</div>
+      <div class="sc-value" id="s-budget-hrs">—</div>
+    </div>
+    <div class="summary-card">
+      <div class="sc-label">Actual Hrs</div>
+      <div class="sc-value" id="s-actual-hrs">—</div>
+    </div>
+    <div class="summary-card">
+      <div class="sc-label">Hrs Remaining</div>
+      <div class="sc-value" id="s-hrs-rem">—</div>
+    </div>
+    <div class="summary-card">
+      <div class="sc-label">Budget $</div>
+      <div class="sc-value" id="s-budget-usd">—</div>
+    </div>
+    <div class="summary-card">
+      <div class="sc-label">Billed to Date</div>
+      <div class="sc-value" id="s-actual-usd">—</div>
+    </div>
+    <div class="summary-card">
+      <div class="sc-label">Variance $</div>
+      <div class="sc-value" id="s-var-usd">—</div>
+    </div>
+    <div class="summary-card">
+      <div class="sc-label">Realization</div>
+      <div class="sc-value" id="s-real">—</div>
+    </div>
+  </div>
+
+  <!-- Budget table -->
+  <div class="budget-table-wrap" id="budget-table-wrap" hidden>
+    <table class="budget-table" id="budget-table">
+      <thead>
+        <tr>
+          <th style="text-align:left;width:34%">Work Area</th>
+          <th class="num">Budget Hrs</th>
+          <th class="num">Actual Hrs</th>
+          <th class="num">Var Hrs</th>
+          <th class="num">Budget $</th>
+          <th class="num">Actual $</th>
+          <th class="num">Var $</th>
+          <th style="min-width:120px">% Complete</th>
+        </tr>
+      </thead>
+      <tbody id="budget-tbody"></tbody>
+    </table>
+    <div class="save-bar" id="save-bar" hidden>
+      <button class="btn-save" id="btn-save" onclick="saveAll()">Save Changes</button>
+      <span class="save-msg" id="save-msg">Unsaved changes</span>
+    </div>
+  </div>
+
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script src="js/auth.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  if (!requireAuth()) return;
+  const payload = jwtPayload(getJWT());
+  const name = (payload?.email || '').split('@')[0];
+  document.getElementById('nav-user').textContent = name;
+  loadClients();
+});
+
+// ---------------------------------------------------------------------------
+// State
+// ---------------------------------------------------------------------------
+
+let _currentClient = '';
+let _rowData = [];        // {work_area, budget_hrs, actual_hrs, ...}
+let _dirtyMap = {};       // work_area -> new budget_hrs
+let _hourlyRate = 225;
+
+// ---------------------------------------------------------------------------
+// Clients dropdown
+// ---------------------------------------------------------------------------
+
+async function loadClients() {
+  const data = await apiFetch('/budget/clients');
+  if (!data) return;
+  const sel = document.getElementById('client-select');
+  data.clients.forEach(c => {
+    const opt = document.createElement('option');
+    opt.value = c; opt.textContent = c;
+    sel.appendChild(opt);
+  });
+}
+
+function onClientChange() {
+  const client = document.getElementById('client-select').value;
+  if (!client) return;
+  _currentClient = client;
+  _dirtyMap = {};
+  loadBudget(client);
+}
+
+// ---------------------------------------------------------------------------
+// Budget data
+// ---------------------------------------------------------------------------
+
+async function loadBudget(client) {
+  document.getElementById('summary-grid').hidden = true;
+  document.getElementById('budget-table-wrap').hidden = true;
+  document.getElementById('sync-note').textContent = 'Loading…';
+
+  const data = await apiFetch(`/budget/data?client=${encodeURIComponent(client)}`);
+  if (!data) return;
+
+  _rowData     = data.rows;
+  _hourlyRate  = data.hourly_rate || 225;
+
+  renderSummary(data);
+  renderTable(data.rows);
+
+  document.getElementById('summary-grid').hidden = false;
+  document.getElementById('budget-table-wrap').hidden = false;
+  document.getElementById('sync-note').textContent =
+    `Clockify actuals cached ${data.cached_age}s ago`;
+}
+
+// ---------------------------------------------------------------------------
+// Summary cards
+// ---------------------------------------------------------------------------
+
+function renderSummary(d) {
+  setText('s-budget-hrs', d.total_budget_hrs.toFixed(1) + ' h');
+  setText('s-actual-hrs', d.total_actual_hrs.toFixed(1) + ' h');
+
+  const remEl = document.getElementById('s-hrs-rem');
+  remEl.textContent = d.hrs_remaining.toFixed(1) + ' h';
+  remEl.className = 'sc-value' + (d.hrs_remaining < 0 ? ' sc-value--warn' : '');
+
+  setText('s-budget-usd', fmt$(d.budget_usd));
+  setText('s-actual-usd', fmt$(d.actual_usd));
+
+  const varEl = document.getElementById('s-var-usd');
+  varEl.textContent = fmt$(d.var_usd);
+  varEl.className = 'sc-value' + (d.var_usd < 0 ? ' sc-value--warn' : ' sc-value--good');
+
+  setText('s-real', d.realization_rate.toFixed(1) + '%');
+}
+
+function setText(id, val) {
+  document.getElementById(id).textContent = val;
+}
+
+// ---------------------------------------------------------------------------
+// Table
+// ---------------------------------------------------------------------------
+
+function renderTable(rows) {
+  const tbody = document.getElementById('budget-tbody');
+  tbody.innerHTML = rows.map((r, i) => {
+    const pct    = Math.min(r.pct_complete, 150);
+    const over   = pct > 100;
+    const varCls = r.var_hrs < 0 ? 'var-neg' : 'var-pos';
+    return `
+      <tr data-idx="${i}">
+        <td>${r.work_area}</td>
+        <td class="num">
+          <input class="budget-input" type="number" min="0" step="0.5"
+            value="${r.budget_hrs}"
+            data-area="${r.work_area}"
+            oninput="onBudgetInput(this, ${i})">
+        </td>
+        <td class="num">${r.actual_hrs.toFixed(1)}</td>
+        <td class="num ${varCls}">${r.var_hrs >= 0 ? '+' : ''}${r.var_hrs.toFixed(1)}</td>
+        <td class="num">${fmt$(r.budget_usd)}</td>
+        <td class="num">${fmt$(r.actual_usd)}</td>
+        <td class="num ${varCls}">${r.var_usd >= 0 ? '+' : ''}${fmt$(r.var_usd)}</td>
+        <td>
+          <div class="pct-bar-wrap">
+            <div class="pct-bar">
+              <div class="pct-bar-fill ${over ? 'pct-bar-fill--over' : ''}"
+                   style="width:${pct}%"></div>
+            </div>
+            <span class="pct-label">${r.pct_complete.toFixed(0)}%</span>
+          </div>
+        </td>
+      </tr>`;
+  }).join('');
+}
+
+function onBudgetInput(input, idx) {
+  const area = input.dataset.area;
+  const val  = parseFloat(input.value) || 0;
+  _dirtyMap[area] = val;
+  input.classList.add('dirty');
+  document.getElementById('save-bar').hidden = false;
+  document.getElementById('save-msg').textContent =
+    `${Object.keys(_dirtyMap).length} unsaved change(s)`;
+}
+
+// ---------------------------------------------------------------------------
+// Save
+// ---------------------------------------------------------------------------
+
+async function saveAll() {
+  const entries = Object.entries(_dirtyMap);
+  if (!entries.length) return;
+
+  const btn = document.getElementById('btn-save');
+  btn.disabled = true;
+  btn.textContent = 'Saving…';
+
+  let saved = 0;
+  let failed = 0;
+
+  for (const [work_area, budget_hrs] of entries) {
+    const res = await apiFetch('/budget/save', {
+      method: 'POST',
+      body: JSON.stringify({ client: _currentClient, work_area, budget_hrs }),
+    });
+    if (res && res.success) {
+      saved++;
+    } else {
+      failed++;
+    }
+  }
+
+  btn.disabled = false;
+  btn.textContent = 'Save Changes';
+
+  if (failed === 0) {
+    _dirtyMap = {};
+    document.getElementById('save-bar').hidden = true;
+    document.querySelectorAll('.budget-input.dirty').forEach(el => el.classList.remove('dirty'));
+    showToast(`Budget saved for ${_currentClient}`);
+    // Reload to show updated data
+    setTimeout(() => loadBudget(_currentClient), 800);
+  } else {
+    showToast(`${failed} save(s) failed — check connection`, true);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function fmt$(n) {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency', currency: 'USD', maximumFractionDigits: 0
+  }).format(n || 0);
+}
+
+function showToast(msg, isError = false) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast' + (isError ? ' toast--error' : '');
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+</script>
+</body>
+</html>
