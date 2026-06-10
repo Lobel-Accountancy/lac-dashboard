@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Your Client Portal — Lobel Accountancy</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --navy:   #1B2A3F;
+      --blue:   #2E6DA4;
+      --bg:     #F0F2F5;
+      --white:  #FFFFFF;
+      --border: #E0E6ED;
+      --text:   #1B2A3F;
+      --text2:  #5A6B7C;
+      --text3:  #8BA7C4;
+      --green:  #1A7A4A;
+      --green-bg: #E6F4EC;
+      --red:    #C0392B;
+      --red-bg: #FDECEA;
+      --amber:  #92400E;
+      --amber-bg: #FEF3C7;
+      --radius: 10px;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    /* Nav */
+    .nav {
+      background: var(--navy);
+      padding: 0 24px;
+      height: 56px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .nav-brand  { color: white; font-size: 16px; font-weight: 700; flex: 1; }
+    .nav-sub    { color: var(--text3); font-size: 12px; }
+    .nav-logout {
+      background: transparent;
+      border: 1px solid rgba(255,255,255,.25);
+      color: white; padding: 5px 14px;
+      border-radius: 4px; cursor: pointer; font-size: 13px;
+      transition: background .15s;
+    }
+    .nav-logout:hover { background: rgba(255,255,255,.1); }
+
+    /* Main */
+    .main { max-width: 780px; margin: 0 auto; padding: 32px 20px 64px; }
+    .welcome    { font-size: 24px; font-weight: 700; margin-bottom: 4px; }
+    .welcome-sub{ font-size: 14px; color: var(--text2); margin-bottom: 28px; }
+
+    /* Loading */
+    #loading-screen { text-align: center; padding: 60px 20px; color: var(--text2); }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner {
+      width: 32px; height: 32px; border: 3px solid var(--border);
+      border-top-color: var(--navy); border-radius: 50%;
+      animation: spin .7s linear infinite; margin: 0 auto 16px;
+    }
+
+    /* Action banner */
+    .action-banner {
+      background: var(--amber-bg);
+      border: 1px solid #D97706;
+      border-radius: var(--radius);
+      padding: 16px 20px;
+      margin-bottom: 24px;
+      display: flex;
+      gap: 14px;
+      align-items: flex-start;
+      font-size: 14px;
+      color: var(--amber);
+      line-height: 1.6;
+    }
+    .action-icon {
+      background: #D97706;
+      color: white;
+      width: 22px; height: 22px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: 13px;
+      flex-shrink: 0; margin-top: 1px;
+    }
+
+    /* Section */
+    .section-title {
+      font-size: 16px; font-weight: 600; margin-bottom: 14px; color: var(--navy);
+    }
+    .section { margin-bottom: 32px; }
+
+    /* Matter cards */
+    .matter-card {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px 20px;
+      display: flex;
+      gap: 16px;
+      align-items: flex-start;
+      margin-bottom: 10px;
+      box-shadow: 0 1px 3px rgba(0,0,0,.06);
+    }
+    .matter-card--action { border-left: 4px solid #D97706; }
+    .matter-icon {
+      font-size: 20px; color: var(--blue); flex-shrink: 0;
+      width: 28px; text-align: center; margin-top: 1px;
+    }
+    .matter-body   { flex: 1; }
+    .matter-type   { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+    .matter-label  { font-size: 13px; color: var(--text2); margin-bottom: 6px; }
+    .matter-due    { font-size: 12px; color: var(--text3); }
+    .due-badge {
+      display: inline-block; padding: 1px 7px; border-radius: 10px;
+      background: var(--amber-bg); color: var(--amber);
+      font-size: 11px; font-weight: 600; margin-left: 6px;
+    }
+    .matter-status-tag, .matter-action-tag {
+      flex-shrink: 0; padding: 4px 10px; border-radius: 20px;
+      font-size: 11px; font-weight: 600; white-space: nowrap; margin-top: 2px;
+    }
+    .matter-action-tag       { background: var(--amber-bg); color: var(--amber); }
+    .matter-status-tag--progress { background: #EFF6FF; color: #1E40AF; }
+    .matter-status-tag--review   { background: #F0FDF4; color: var(--green); }
+    .matter-status-tag--done     { background: var(--green-bg); color: var(--green); }
+
+    /* Balance card */
+    .balance-card {
+      background: var(--white); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 24px;
+      margin-bottom: 16px;
+      box-shadow: 0 1px 3px rgba(0,0,0,.06);
+    }
+    .balance-amount        { font-size: 36px; font-weight: 700; color: var(--navy); }
+    .balance-amount--overdue { color: var(--red); }
+    .balance-paid          { font-size: 24px; font-weight: 700; color: var(--green); }
+    .balance-label         { font-size: 14px; color: var(--text2); margin-top: 4px; }
+    .overdue-tag {
+      display: inline-block; padding: 2px 8px; border-radius: 10px;
+      background: var(--red-bg); color: var(--red);
+      font-size: 12px; font-weight: 600; margin-left: 8px;
+    }
+    .balance-note          { font-size: 13px; color: var(--text2); margin-top: 12px; line-height: 1.6; }
+    .balance-note a        { color: var(--blue); }
+
+    /* Invoice table */
+    .portal-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .portal-table th {
+      text-align: left; padding: 8px 10px;
+      font-size: 11px; font-weight: 600; text-transform: uppercase;
+      letter-spacing: .05em; color: var(--text2);
+      border-bottom: 2px solid var(--border); background: #FAFBFC;
+    }
+    .portal-table td { padding: 10px 10px; border-bottom: 1px solid var(--border); }
+    .portal-table tr:last-child td { border-bottom: none; }
+    .portal-table .row-paid td { color: var(--text3); }
+    .num          { text-align: right; font-variant-numeric: tabular-nums; }
+    .inv-num      { font-family: 'SF Mono','Fira Code',monospace; font-size: 12px; }
+    .inv-badge {
+      display: inline-block; padding: 2px 8px; border-radius: 10px;
+      font-size: 11px; font-weight: 600;
+    }
+    .inv-badge--paid    { background: var(--green-bg); color: var(--green); }
+    .inv-badge--open    { background: #EFF6FF; color: #1E40AF; }
+    .inv-badge--overdue { background: var(--red-bg); color: var(--red); }
+
+    /* Contact footer */
+    .contact-card {
+      background: var(--navy); color: white;
+      border-radius: var(--radius); padding: 24px 28px;
+      display: flex; gap: 32px; flex-wrap: wrap;
+    }
+    .contact-card h3     { font-size: 14px; font-weight: 600; margin-bottom: 8px; color: white; }
+    .contact-card p      { font-size: 13px; color: var(--text3); line-height: 1.7; }
+    .contact-card a      { color: #8BA7C4; text-decoration: none; }
+    .contact-card a:hover{ color: white; }
+    .contact-col         { flex: 1; min-width: 180px; }
+
+    .portal-empty { color: var(--text3); font-size: 13px; padding: 8px 0; }
+
+    @media (max-width: 600px) {
+      .matter-card { flex-direction: column; }
+      .balance-amount { font-size: 28px; }
+    }
+  </style>
+</head>
+<body>
+
+<nav class="nav">
+  <div>
+    <div class="nav-brand">Lobel Accountancy Corporation</div>
+    <div class="nav-sub">Client Portal</div>
+  </div>
+  <button class="nav-logout" onclick="portalLogout()">Sign out</button>
+</nav>
+
+<main class="main">
+  <div class="welcome">Welcome, <span id="welcome-name"></span></div>
+  <div class="welcome-sub" id="date-sub"></div>
+
+  <!-- Action required banner -->
+  <div class="action-banner" id="action-banner" hidden></div>
+
+  <!-- Loading state -->
+  <div id="loading-screen">
+    <div class="spinner"></div>
+    Loading your portal…
+  </div>
+
+  <!-- Portal content (shown after load) -->
+  <div id="portal-content" hidden>
+
+    <!-- Engagements -->
+    <div class="section">
+      <div class="section-title">Your Engagements</div>
+      <div id="matters-list"></div>
+    </div>
+
+    <!-- Invoices -->
+    <div class="section">
+      <div class="section-title">Invoices &amp; Billing</div>
+      <div class="balance-card" id="balance-summary"></div>
+      <div class="balance-card" style="padding:0;overflow:hidden" id="invoice-table"></div>
+    </div>
+
+    <!-- Contact -->
+    <div class="section">
+      <div class="contact-card">
+        <div class="contact-col">
+          <h3>Contact Us</h3>
+          <p>
+            Jeffrey Lobel, CPA, CFE<br>
+            <a href="mailto:jlobel@lobelaccountancy.com">jlobel@lobelaccountancy.com</a><br>
+            <a href="tel:9493451925">(949) 345-1925</a>
+          </p>
+        </div>
+        <div class="contact-col">
+          <h3>Billing</h3>
+          <p>
+            <a href="mailto:billing@lobelaccountancy.com">billing@lobelaccountancy.com</a><br>
+            Payment questions or remittances
+          </p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<script src="js/portal-auth.js"></script>
+<script src="js/portal.js"></script>
+<script>
+  document.getElementById('date-sub').textContent = new Date().toLocaleDateString('en-US', {
+    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+  });
+</script>
+</body>
+</html>

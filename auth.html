@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LAC — Sign in</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="auth-wrap">
+  <div class="auth-card">
+    <div class="auth-header">
+      <h1>Lobel Accountancy Corporation</h1>
+      <p>Practice Management System</p>
+    </div>
+    <div class="auth-body" id="auth-body">
+      <!-- filled by JS -->
+    </div>
+  </div>
+</div>
+
+<script src="js/auth.js"></script>
+<script>
+const AUTH_URL_BASE = AUTH_URL; // from auth.js
+
+function showForm() {
+  document.getElementById('auth-body').innerHTML = `
+    <div class="auth-title">Sign in</div>
+    <div class="auth-desc">Enter your email and we'll send you a one-click sign-in link.</div>
+    <label class="form-label" for="email-input">Email address</label>
+    <input class="form-input" id="email-input" type="email" placeholder="you@lobelaccountancy.com" autocomplete="email">
+    <button class="btn-primary" id="submit-btn" onclick="requestLink()">Send sign-in link</button>
+    <div id="msg"></div>
+  `;
+  document.getElementById('email-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') requestLink();
+  });
+}
+
+async function requestLink() {
+  const email = document.getElementById('email-input').value.trim();
+  const btn   = document.getElementById('submit-btn');
+  const msg   = document.getElementById('msg');
+
+  if (!email) {
+    showMsg('error', 'Please enter your email address.');
+    return;
+  }
+
+  btn.disabled    = true;
+  btn.textContent = 'Sending…';
+  msg.innerHTML   = '';
+
+  try {
+    const res = await fetch(`${AUTH_URL_BASE}/auth/request`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    });
+    const data = await res.json();
+
+    if (!res.ok) {
+      showMsg('error', data.error || 'Something went wrong.');
+      btn.disabled    = false;
+      btn.textContent = 'Send sign-in link';
+    } else {
+      showMsg('success', 'Check your email — a sign-in link is on its way.');
+      btn.textContent = 'Link sent';
+    }
+  } catch {
+    showMsg('error', 'Could not reach the auth server. Try again in a moment.');
+    btn.disabled    = false;
+    btn.textContent = 'Send sign-in link';
+  }
+}
+
+function showMsg(type, text) {
+  const el = document.getElementById('msg');
+  if (el) el.innerHTML = `<div class="auth-message auth-message--${type}">${text}</div>`;
+}
+
+async function verifyToken(token) {
+  document.getElementById('auth-body').innerHTML = `
+    <div class="auth-spinner">
+      <div class="spinner-ring"></div>
+      Signing you in…
+    </div>
+  `;
+
+  try {
+    const res = await fetch(`${AUTH_URL_BASE}/auth/verify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token }),
+    });
+    const data = await res.json();
+
+    if (!res.ok) {
+      document.getElementById('auth-body').innerHTML = `
+        <div class="auth-message auth-message--error">${data.error || 'Sign-in failed.'}</div>
+        <button class="btn-primary" style="margin-top:16px" onclick="showForm()">Try again</button>
+      `;
+    } else {
+      setJWT(data.jwt);
+      window.location.href = 'index.html';
+    }
+  } catch {
+    document.getElementById('auth-body').innerHTML = `
+      <div class="auth-message auth-message--error">Could not reach the auth server.</div>
+      <button class="btn-primary" style="margin-top:16px" onclick="showForm()">Try again</button>
+    `;
+  }
+}
+
+// On load: if there's a token in URL, verify it; otherwise show login form.
+(function init() {
+  // If already authenticated, go straight to dashboard
+  if (isJWTValid(getJWT())) {
+    window.location.href = 'index.html';
+    return;
+  }
+
+  const params = new URLSearchParams(window.location.search);
+  const token  = params.get('token');
+
+  if (token) {
+    verifyToken(token);
+  } else {
+    showForm();
+  }
+})();
+</script>
+</body>
+</html>

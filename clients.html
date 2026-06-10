@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LAC Client Health</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    /* Nav links */
+    .nav-links { display: flex; gap: 4px; margin: 0 16px; }
+    .nav-link {
+      color: rgba(255,255,255,.65);
+      text-decoration: none;
+      font-size: 13px;
+      padding: 4px 10px;
+      border-radius: 4px;
+      transition: color .15s, background .15s;
+    }
+    .nav-link:hover       { color: white; background: rgba(255,255,255,.1); }
+    .nav-link--active     { color: white; background: rgba(255,255,255,.15); }
+
+    /* Health dots */
+    .health-dot {
+      display: inline-block;
+      width: 9px; height: 9px;
+      border-radius: 50%;
+      margin-right: 7px;
+      vertical-align: middle;
+      flex-shrink: 0;
+    }
+    .health-dot--needs_attention { background: #C0392B; }
+    .health-dot--at_risk         { background: #D4880A; }
+    .health-dot--healthy         { background: #1A7A4A; }
+
+    /* Controls */
+    .controls-bar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+    .search-input {
+      padding: 8px 14px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 14px;
+      color: var(--text);
+      outline: none;
+      width: 240px;
+      transition: border-color .15s;
+    }
+    .search-input:focus { border-color: var(--blue); }
+
+    .filter-btns { display: flex; gap: 6px; flex-wrap: wrap; }
+    .filter-btn {
+      padding: 6px 14px;
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      background: var(--surface);
+      color: var(--text-2);
+      transition: all .15s;
+    }
+    .filter-btn:hover           { border-color: var(--navy); color: var(--navy); }
+    .filter-btn--active         { background: var(--navy); color: white; border-color: var(--navy); }
+
+    /* Client table */
+    .client-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    .client-table th {
+      text-align: left;
+      padding: 10px 12px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-2);
+      border-bottom: 2px solid var(--border);
+      background: #FAFBFC;
+      user-select: none;
+      white-space: nowrap;
+    }
+    .client-table th[data-col] { cursor: pointer; }
+    .client-table th[data-col]:hover { color: var(--navy); }
+    .client-table th.sort-asc::after  { content: ' ↑'; color: var(--navy); }
+    .client-table th.sort-desc::after { content: ' ↓'; color: var(--navy); }
+
+    .client-table td {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: middle;
+    }
+    .client-row { cursor: pointer; transition: background .1s; }
+    .client-row:hover td { background: #F5F8FF; }
+    .client-row:last-child td { border-bottom: none; }
+
+    .client-name { font-weight: 500; color: var(--navy); }
+    .text-muted  { color: var(--text-3); }
+    .empty-cell  { padding: 24px; text-align: center; color: var(--text-3); }
+
+    /* Detail panel */
+    .detail-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.25);
+      z-index: 200;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .2s;
+    }
+    .detail-overlay.open { opacity: 1; pointer-events: auto; }
+
+    .detail-panel {
+      position: fixed;
+      top: 0; right: 0;
+      width: 460px;
+      max-width: 100vw;
+      height: 100vh;
+      background: white;
+      z-index: 201;
+      box-shadow: -6px 0 32px rgba(0,0,0,.12);
+      transform: translateX(100%);
+      transition: transform .22s ease;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .detail-panel.open { transform: translateX(0); }
+
+    .detail-header {
+      background: var(--navy);
+      padding: 20px 24px;
+      flex-shrink: 0;
+    }
+    .detail-name  { font-size: 18px; font-weight: 700; color: white; margin-bottom: 4px; }
+    .detail-meta  { font-size: 12px; color: var(--navy-muted); display: flex; gap: 12px; align-items: center; }
+    .detail-close {
+      position: absolute;
+      top: 16px; right: 16px;
+      background: rgba(255,255,255,.15);
+      border: none;
+      color: white;
+      width: 28px; height: 28px;
+      border-radius: 50%;
+      font-size: 18px;
+      line-height: 1;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .detail-close:hover { background: rgba(255,255,255,.25); }
+
+    .detail-body { overflow-y: auto; flex: 1; padding: 0 0 24px; }
+
+    .detail-section { padding: 20px 24px 0; }
+    .detail-section + .detail-section { border-top: 1px solid var(--border); margin-top: 20px; padding-top: 20px; }
+    .detail-section-title {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-2);
+      margin-bottom: 14px;
+    }
+
+    .detail-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 4px; }
+    .detail-stat-val { font-size: 18px; font-weight: 700; color: var(--navy); }
+    .detail-stat-lbl { font-size: 11px; color: var(--text-3); margin-top: 2px; }
+
+    /* Matter items */
+    .matter-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .matter-item:last-child { border-bottom: none; }
+    .matter-type  { font-weight: 500; font-size: 13px; }
+    .matter-stage { font-size: 12px; color: var(--text-2); }
+    .matter-due   { font-size: 12px; text-align: right; }
+
+    /* Summary KPIs */
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 14px;
+      margin-bottom: 20px;
+    }
+
+    @media (max-width: 768px) {
+      .summary-grid { grid-template-columns: repeat(2, 1fr); }
+      .detail-panel { width: 100vw; }
+      .controls-bar { flex-direction: column; align-items: flex-start; }
+      .search-input { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-brand">LAC</div>
+  <div class="nav-links">
+    <a class="nav-link" href="index.html">Briefing</a>
+    <a class="nav-link" href="bi.html">Analytics</a>
+    <a class="nav-link nav-link--active" href="clients.html">Clients</a>
+    <a class="nav-link"                  href="forecast.html">Forecast</a>
+  </div>
+  <div class="nav-spacer"></div>
+  <div class="nav-user" id="nav-user"></div>
+  <button class="nav-logout" onclick="logout()">Sign out</button>
+</nav>
+
+<main class="main">
+  <div class="greeting">Client Health</div>
+  <div class="date-line" id="date-line"></div>
+
+  <div class="error-banner" id="error-banner" hidden></div>
+
+  <!-- Summary KPIs -->
+  <div class="summary-grid">
+    <div class="kpi-card">
+      <div class="kpi-label">Total Clients</div>
+      <div class="kpi-value" id="sum-total">—</div>
+    </div>
+    <div class="kpi-card kpi-card--danger">
+      <div class="kpi-label">Needs Attention</div>
+      <div class="kpi-value" id="sum-attention">—</div>
+      <div class="kpi-sub">AR 30+ days overdue</div>
+    </div>
+    <div class="kpi-card" style="border-left:4px solid #D4880A">
+      <div class="kpi-label">At Risk</div>
+      <div class="kpi-value" id="sum-risk">—</div>
+      <div class="kpi-sub">AR 1–30 days overdue</div>
+    </div>
+    <div class="kpi-card" style="border-left:4px solid #1A7A4A">
+      <div class="kpi-label">Healthy</div>
+      <div class="kpi-value" id="sum-healthy">—</div>
+      <div class="kpi-sub">No overdue invoices</div>
+    </div>
+  </div>
+
+  <!-- Controls -->
+  <div class="controls-bar">
+    <input class="search-input" id="search" placeholder="Search clients…" oninput="applyFilter()">
+    <div class="filter-btns">
+      <button class="filter-btn filter-btn--active" data-filter="all"              onclick="setFilter('all')">All</button>
+      <button class="filter-btn"                    data-filter="needs_attention"  onclick="setFilter('needs_attention')">Needs Attention</button>
+      <button class="filter-btn"                    data-filter="at_risk"          onclick="setFilter('at_risk')">At Risk</button>
+      <button class="filter-btn"                    data-filter="healthy"          onclick="setFilter('healthy')">Healthy</button>
+    </div>
+  </div>
+
+  <!-- Table -->
+  <div class="card">
+    <div style="overflow-x:auto">
+      <table class="client-table">
+        <thead>
+          <tr>
+            <th data-col="health"      onclick="sortClients('health');    renderTable()">Status</th>
+            <th data-col="name"        onclick="sortClients('name');      renderTable()">Client</th>
+            <th data-col="outstanding" onclick="sortClients('outstanding');renderTable()" class="num">Outstanding AR</th>
+            <th data-col="overdue"     onclick="sortClients('overdue');   renderTable()">Oldest Overdue</th>
+            <th data-col="matters"     onclick="sortClients('matters');   renderTable()" class="num">Matters</th>
+            <th data-col="deadline"    onclick="sortClients('deadline');  renderTable()">Next Deadline</th>
+          </tr>
+        </thead>
+        <tbody id="client-tbody">
+          <tr><td colspan="6" class="empty-cell">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="refresh-bar">
+    <span id="refresh-status"></span>
+    <button class="btn-refresh" onclick="loadClients()">↻ Refresh</button>
+  </div>
+</main>
+
+<!-- Detail panel -->
+<div class="detail-overlay" id="detail-overlay" onclick="closeDetail()"></div>
+<div class="detail-panel" id="detail-panel">
+  <div class="detail-header">
+    <div class="detail-name" id="detail-name"></div>
+    <div class="detail-meta">
+      <span id="detail-health"></span>
+      <span id="detail-email"></span>
+    </div>
+    <button class="detail-close" onclick="closeDetail()">×</button>
+  </div>
+  <div class="detail-body" id="detail-body"></div>
+</div>
+
+<script src="js/auth.js"></script>
+<script src="js/clients.js"></script>
+<script>
+  document.getElementById('date-line').textContent = new Date().toLocaleDateString('en-US', {
+    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LAC Morning Briefing</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-brand">LAC</div>
+  <div style="display:flex;gap:4px;margin:0 16px;">
+    <a style="color:white;background:rgba(255,255,255,.15);text-decoration:none;font-size:13px;padding:4px 10px;border-radius:4px;" href="index.html">Briefing</a>
+    <a style="color:rgba(255,255,255,.65);text-decoration:none;font-size:13px;padding:4px 10px;border-radius:4px;" href="bi.html">Analytics</a>
+    <a style="color:rgba(255,255,255,.65);text-decoration:none;font-size:13px;padding:4px 10px;border-radius:4px;" href="clients.html">Clients</a>
+    <a style="color:rgba(255,255,255,.65);text-decoration:none;font-size:13px;padding:4px 10px;border-radius:4px;" href="forecast.html">Forecast</a>
+  </div>
+  <div class="nav-spacer"></div>
+  <div class="nav-user" id="nav-user"></div>
+  <button class="nav-logout" onclick="logout()">Sign out</button>
+</nav>
+
+<main class="main">
+  <div class="greeting" id="greeting"></div>
+  <div class="date-line" id="date-line"></div>
+
+  <div class="error-banner" id="error-banner" hidden></div>
+
+  <!-- KPI row -->
+  <div class="kpi-grid" id="kpi-grid">
+    <div class="kpi-card"><div class="kpi-label">Total AR Outstanding</div><div class="kpi-value">—</div></div>
+    <div class="kpi-card"><div class="kpi-label">Overdue</div><div class="kpi-value">—</div></div>
+    <div class="kpi-card"><div class="kpi-label">Active Matters</div><div class="kpi-value">—</div></div>
+  </div>
+
+  <!-- Content: AR + Deadlines side by side -->
+  <div class="content-grid">
+    <div class="card">
+      <div class="card-header">Overdue Invoices</div>
+      <div class="card-body" id="ar-body"><span class="empty-state">Loading…</span></div>
+    </div>
+    <div class="card">
+      <div class="card-header">Upcoming Deadlines <span style="font-weight:400;color:#8BA7C4;font-size:12px;">next 30 days</span></div>
+      <div class="card-body" id="deadlines-body"><span class="empty-state">Loading…</span></div>
+    </div>
+  </div>
+
+  <!-- Pipeline -->
+  <div class="card card--full">
+    <div class="card-header">Pipeline by Stage</div>
+    <div class="card-body" id="pipeline-body"><span class="empty-state">Loading…</span></div>
+  </div>
+
+  <div class="refresh-bar">
+    <span id="refresh-status"></span>
+    <button class="btn-refresh" onclick="loadBriefing()">↻ Refresh</button>
+  </div>
+</main>
+
+<script src="js/auth.js"></script>
+<script src="js/dashboard.js"></script>
+<script>
+  // Set the date line once (no need to wait for data)
+  document.getElementById('date-line').textContent = new Date().toLocaleDateString('en-US', {
+    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+  });
+</script>
+</body>
+</html>

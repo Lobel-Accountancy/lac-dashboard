@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lobel Accountancy — Client Portal</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #F0F2F5;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      color: #1B2A3F;
+    }
+    .card {
+      width: 100%;
+      max-width: 420px;
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 4px 32px rgba(0,0,0,.10);
+      overflow: hidden;
+    }
+    .card-header {
+      background: #1B2A3F;
+      padding: 28px 32px;
+    }
+    .card-header h1  { color: white; font-size: 20px; font-weight: 700; }
+    .card-header p   { color: #8BA7C4; font-size: 13px; margin-top: 4px; }
+    .card-body       { padding: 32px; }
+    .card-title      { font-size: 17px; font-weight: 600; margin-bottom: 8px; }
+    .card-desc       { font-size: 13px; color: #5A6B7C; margin-bottom: 24px; line-height: 1.6; }
+    label            { display: block; font-size: 11px; font-weight: 700; text-transform: uppercase;
+                       letter-spacing: .06em; color: #5A6B7C; margin-bottom: 6px; }
+    input[type=email]{
+      width: 100%; padding: 11px 14px; border: 1px solid #E0E6ED;
+      border-radius: 6px; font-size: 14px; color: #1B2A3F; outline: none;
+      transition: border-color .15s;
+    }
+    input[type=email]:focus { border-color: #2E6DA4; }
+    .btn {
+      display: block; width: 100%; padding: 13px; background: #1B2A3F; color: white;
+      border: none; border-radius: 6px; font-size: 14px; font-weight: 600;
+      cursor: pointer; margin-top: 16px; transition: background .15s;
+    }
+    .btn:hover:not(:disabled)  { background: #131e2d; }
+    .btn:disabled              { opacity: .6; cursor: not-allowed; }
+    .msg {
+      margin-top: 16px; padding: 12px 14px; border-radius: 6px;
+      font-size: 13px; line-height: 1.5;
+    }
+    .msg--success { background: #E6F4EC; color: #1A7A4A; }
+    .msg--error   { background: #FDECEA; color: #C0392B; }
+    .msg--info    { background: #EEF2F7; color: #5A6B7C; }
+    .spinner-wrap { display: flex; align-items: center; gap: 10px; color: #5A6B7C; font-size: 14px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner {
+      width: 20px; height: 20px; border: 2px solid #E0E6ED;
+      border-top-color: #1B2A3F; border-radius: 50%;
+      animation: spin .7s linear infinite; flex-shrink: 0;
+    }
+    .footer {
+      margin-top: 24px; font-size: 12px; color: #8BA7C4; text-align: center; line-height: 1.7;
+    }
+    .footer a { color: #8BA7C4; }
+  </style>
+</head>
+<body>
+<div class="card">
+  <div class="card-header">
+    <h1>Lobel Accountancy Corporation</h1>
+    <p>Client Portal</p>
+  </div>
+  <div class="card-body" id="body"></div>
+</div>
+
+<script src="js/portal-auth.js"></script>
+<script>
+const AUTH_URL_BASE = AUTH_URL;
+
+function showForm() {
+  document.getElementById('body').innerHTML = `
+    <div class="card-title">Sign in to your portal</div>
+    <div class="card-desc">Enter the email address on file with Lobel Accountancy.
+      We'll send you a one-click sign-in link.</div>
+    <label for="email">Email address</label>
+    <input type="email" id="email" placeholder="you@example.com" autocomplete="email">
+    <button class="btn" id="btn" onclick="requestLink()">Send sign-in link</button>
+    <div id="msg"></div>
+    <div class="footer">
+      Lobel Accountancy Corporation<br>
+      <a href="mailto:jlobel@lobelaccountancy.com">jlobel@lobelaccountancy.com</a> · (949) 345-1925
+    </div>`;
+  document.getElementById('email').addEventListener('keydown', e => {
+    if (e.key === 'Enter') requestLink();
+  });
+}
+
+async function requestLink() {
+  const email = document.getElementById('email').value.trim();
+  const btn   = document.getElementById('btn');
+  const msg   = document.getElementById('msg');
+  if (!email) { msg.innerHTML = '<div class="msg msg--error">Please enter your email address.</div>'; return; }
+  btn.disabled = true;
+  btn.textContent = 'Sending…';
+  msg.innerHTML = '';
+  try {
+    const res  = await fetch(`${AUTH_URL_BASE}/portal/auth/request`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      msg.innerHTML = `<div class="msg msg--error">${data.error || 'Something went wrong.'}</div>`;
+      btn.disabled = false; btn.textContent = 'Send sign-in link';
+    } else {
+      msg.innerHTML = `<div class="msg msg--success">
+        Check your email — a sign-in link is on its way.<br>
+        <small style="opacity:.8">It expires in 15 minutes.</small></div>`;
+      btn.textContent = 'Link sent';
+    }
+  } catch {
+    msg.innerHTML = `<div class="msg msg--error">Could not reach the server. Please try again.</div>`;
+    btn.disabled = false; btn.textContent = 'Send sign-in link';
+  }
+}
+
+async function verifyToken(token) {
+  document.getElementById('body').innerHTML = `
+    <div class="spinner-wrap"><div class="spinner"></div> Signing you in…</div>`;
+  try {
+    const res  = await fetch(`${AUTH_URL_BASE}/portal/auth/verify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      document.getElementById('body').innerHTML = `
+        <div class="msg msg--error">${data.error || 'Sign-in failed.'}</div>
+        <button class="btn" style="margin-top:16px" onclick="showForm()">Try again</button>`;
+    } else {
+      setPortalJWT(data.jwt);
+      window.location.href = 'index.html';
+    }
+  } catch {
+    document.getElementById('body').innerHTML = `
+      <div class="msg msg--error">Could not reach the server.</div>
+      <button class="btn" style="margin-top:16px" onclick="showForm()">Try again</button>`;
+  }
+}
+
+(function init() {
+  if (isPortalJWTValid(getPortalJWT())) { window.location.href = 'index.html'; return; }
+  const token = new URLSearchParams(window.location.search).get('token');
+  if (token) verifyToken(token); else showForm();
+})();
+</script>
+</body>
+</html>

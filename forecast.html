@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LAC Forecast</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .nav-links { display: flex; gap: 4px; margin: 0 16px; }
+    .nav-link {
+      color: rgba(255,255,255,.65);
+      text-decoration: none;
+      font-size: 13px;
+      padding: 4px 10px;
+      border-radius: 4px;
+      transition: color .15s, background .15s;
+    }
+    .nav-link:hover       { color: white; background: rgba(255,255,255,.1); }
+    .nav-link--active     { color: white; background: rgba(255,255,255,.15); }
+
+    .chart-wrap            { position: relative; width: 100%; }
+    .chart-wrap--tall      { height: 300px; }
+    .chart-wrap--medium    { height: 240px; }
+
+    .bi-grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+
+    .forecast-kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 14px;
+      margin-bottom: 20px;
+    }
+
+    /* Probability bar in table */
+    .prob-bar {
+      height: 6px;
+      background: var(--border);
+      border-radius: 3px;
+      overflow: hidden;
+      min-width: 60px;
+    }
+    .prob-fill {
+      height: 100%;
+      background: var(--navy);
+      border-radius: 3px;
+      transition: width .4s ease;
+    }
+
+    /* Methodology note */
+    .methodology-note {
+      font-size: 12px;
+      color: var(--text-3);
+      background: var(--muted-bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 10px 14px;
+      margin-bottom: 20px;
+      line-height: 1.6;
+    }
+
+    /* Divider label between actuals/forecast */
+    .chart-label-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      color: var(--text-3);
+      margin-bottom: 4px;
+      padding: 0 2px;
+    }
+
+    data-table tfoot tr td { padding-top: 10px; }
+
+    @media (max-width: 768px) {
+      .forecast-kpi-grid { grid-template-columns: repeat(2, 1fr); }
+      .bi-grid-2         { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-brand">LAC</div>
+  <div class="nav-links">
+    <a class="nav-link"          href="index.html">Briefing</a>
+    <a class="nav-link"          href="bi.html">Analytics</a>
+    <a class="nav-link"          href="clients.html">Clients</a>
+    <a class="nav-link nav-link--active" href="forecast.html">Forecast</a>
+  </div>
+  <div class="nav-spacer"></div>
+  <div class="nav-user" id="nav-user"></div>
+  <button class="nav-logout" onclick="logout()">Sign out</button>
+</nav>
+
+<main class="main">
+  <div class="greeting">Revenue Forecast &amp; Capacity</div>
+  <div class="date-line" id="date-line"></div>
+
+  <div class="error-banner" id="error-banner" hidden></div>
+
+  <!-- Methodology note -->
+  <div class="methodology-note" id="methodology-note">Loading methodology…</div>
+
+  <!-- KPI row -->
+  <div class="forecast-kpi-grid">
+    <div class="kpi-card">
+      <div class="kpi-label">Pipeline Est. Value</div>
+      <div class="kpi-value" id="kpi-pipeline-value">—</div>
+      <div class="kpi-sub">Avg fee × active count</div>
+    </div>
+    <div class="kpi-card" style="border-left:4px solid var(--navy)">
+      <div class="kpi-label">Weighted Forecast</div>
+      <div class="kpi-value" id="kpi-weighted">—</div>
+      <div class="kpi-sub">Stage-probability adjusted</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">6-Month Forecast</div>
+      <div class="kpi-value" id="kpi-forecast6">—</div>
+      <div class="kpi-sub">Due in next 6 months</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Avg Engagement Fee</div>
+      <div class="kpi-value" id="kpi-avg-fee">—</div>
+      <div class="kpi-sub">Historical average (AR)</div>
+    </div>
+  </div>
+
+  <!-- Revenue: actuals + forecast -->
+  <div class="card card--full" style="margin-bottom:16px">
+    <div class="card-header">
+      Revenue — 6-Month Actuals + 6-Month Forecast
+      <span style="font-weight:400;color:var(--text-3);font-size:12px;margin-left:8px;">
+        Navy = billed &nbsp;·&nbsp; Blue = projected
+      </span>
+    </div>
+    <div class="card-body">
+      <div class="chart-label-row">
+        <span>← Past 6 months (actual)</span>
+        <span>Next 6 months (forecast) →</span>
+      </div>
+      <div class="chart-wrap chart-wrap--tall">
+        <canvas id="chartRevenue"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- Pipeline by stage + Workload -->
+  <div class="bi-grid-2">
+    <div class="card">
+      <div class="card-header">
+        Pipeline Value by Stage
+        <span style="font-weight:400;color:var(--text-3);font-size:12px;margin-left:8px;">
+          Navy = weighted &nbsp;·&nbsp; Blue = est. total
+        </span>
+      </div>
+      <div class="card-body">
+        <div class="chart-wrap chart-wrap--medium">
+          <canvas id="chartPipelineStage"></canvas>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header">
+        Monthly Workload — Next 6 Months
+        <span style="font-weight:400;color:var(--text-3);font-size:12px;margin-left:8px;">
+          Red dashed line = capacity limit
+        </span>
+      </div>
+      <div class="card-body">
+        <div class="chart-wrap chart-wrap--medium">
+          <canvas id="chartWorkload"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Stage detail table -->
+  <div class="card card--full">
+    <div class="card-header">Pipeline Stage Detail</div>
+    <div class="card-body" id="stage-table">
+      <span class="empty-state">Loading…</span>
+    </div>
+  </div>
+
+  <div class="refresh-bar">
+    <span id="refresh-status"></span>
+    <button class="btn-refresh" onclick="loadForecast()">↻ Refresh</button>
+  </div>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/forecast.js"></script>
+<script>
+  document.getElementById('date-line').textContent = new Date().toLocaleDateString('en-US', {
+    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+  });
+</script>
+</body>
+</html>
