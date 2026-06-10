@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LAC Documents</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .doc-toolbar {
+      display: flex; align-items: center; gap: 12px; margin-bottom: 24px; flex-wrap: wrap;
+    }
+    .doc-count-chip {
+      display: inline-flex; align-items: center; justify-content: center;
+      background: #C0392B; color: white; font-size: 11px; font-weight: 700;
+      border-radius: 10px; min-width: 20px; height: 20px; padding: 0 6px;
+      margin-left: 6px;
+    }
+    .doc-list { display: flex; flex-direction: column; gap: 10px; }
+    .doc-card {
+      background: white; border: 1px solid var(--border);
+      border-radius: 8px; padding: 16px 20px;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px 16px;
+      align-items: start;
+    }
+    .doc-card:hover { border-color: var(--navy); }
+    .doc-card-left { min-width: 0; }
+    .doc-card-right {
+      display: flex; gap: 8px; align-items: center; flex-shrink: 0;
+    }
+    .doc-client {
+      font-size: 15px; font-weight: 700; color: var(--navy);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .doc-type-badge {
+      display: inline-block; padding: 2px 8px; border-radius: 10px;
+      font-size: 10px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .05em; margin-right: 6px;
+    }
+    .badge-proposal          { background: #EDE9FE; color: #5B21B6; }
+    .badge-engagement_letter { background: #DBEAFE; color: #1D4ED8; }
+    .badge-rep_letter        { background: #D1FAE5; color: #065F46; }
+    .badge-invoice_1         { background: #FEF3C7; color: #92400E; }
+    .badge-invoice_2         { background: #FEE2E2; color: #991B1B; }
+    .doc-meta {
+      font-size: 11px; color: var(--text2); margin-top: 4px;
+    }
+    .doc-trigger {
+      font-size: 11px; color: var(--text2); font-style: italic; margin-top: 2px;
+    }
+    .doc-amount {
+      font-size: 13px; font-weight: 600; color: var(--navy);
+      white-space: nowrap;
+    }
+    .btn-approve {
+      padding: 7px 16px; background: #1A7A4A; color: white;
+      border: none; border-radius: 6px; font-size: 12px; font-weight: 600;
+      cursor: pointer; white-space: nowrap;
+    }
+    .btn-approve:hover { background: #145f3a; }
+    .btn-approve:disabled { opacity: .5; cursor: not-allowed; }
+    .btn-reject {
+      padding: 7px 12px; background: white; color: #C0392B;
+      border: 1px solid #C0392B; border-radius: 6px; font-size: 12px;
+      font-weight: 600; cursor: pointer; white-space: nowrap;
+    }
+    .btn-reject:hover { background: #FEF2F2; }
+    .btn-reject:disabled { opacity: .5; cursor: not-allowed; }
+    .processing-msg {
+      font-size: 12px; color: var(--text2); font-style: italic;
+    }
+    .empty-docs {
+      text-align: center; padding: 48px 24px; color: var(--text2); font-size: 14px;
+    }
+    .empty-docs .check { font-size: 36px; margin-bottom: 12px; }
+
+    /* Toast */
+    .toast {
+      position: fixed; bottom: 24px; right: 24px;
+      background: var(--navy); color: white;
+      padding: 12px 20px; border-radius: 8px;
+      font-size: 13px; font-weight: 600;
+      box-shadow: 0 4px 16px rgba(0,0,0,.15);
+      transform: translateY(80px); opacity: 0;
+      transition: transform .25s, opacity .25s;
+      z-index: 1000;
+    }
+    .toast.show { transform: translateY(0); opacity: 1; }
+    .toast.toast--error { background: #C0392B; }
+    .toast.toast--ok { background: #1A7A4A; }
+
+    .section-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 16px;
+    }
+    .section-title {
+      font-size: 14px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .06em; color: var(--text2);
+    }
+    .btn-refresh-sm {
+      font-size: 12px; color: var(--text2); background: none; border: none;
+      cursor: pointer; padding: 0;
+    }
+    .btn-refresh-sm:hover { color: var(--navy); }
+  </style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-brand">LAC</div>
+  <div style="display:flex;gap:4px;margin:0 16px;">
+    <a style="color:rgba(255,255,255,.65);text-decoration:none;font-size:13px;padding:4px 10px;border-radius:4px;" href="index.html">Briefing</a>
+    <a style="color:rgba(255,255,255,.65);text-decoration:none;font-size:13px;padding:4px 10px;border-radius:4px;" href="bi.html">Analytics</a>
+    <a style="color:rgba(255,255,255,.65);text-decoration:none;font-size:13px;padding:4px 10px;border-radius:4px;" href="clients.html">Clients</a>
+    <a style="color:rgba(255,255,255,.65);text-decoration:none;font-size:13px;padding:4px 10px;border-radius:4px;" href="forecast.html">Forecast</a>
+    <a style="color:rgba(255,255,255,.65);text-decoration:none;font-size:13px;padding:4px 10px;border-radius:4px;" href="budget.html">Budget</a>
+    <a style="color:white;background:rgba(255,255,255,.15);text-decoration:none;font-size:13px;padding:4px 10px;border-radius:4px;" href="docs.html">Documents</a>
+  </div>
+  <div class="nav-spacer"></div>
+  <div class="nav-user" id="nav-user"></div>
+  <button class="nav-logout" onclick="logout()">Sign out</button>
+</nav>
+
+<main class="main">
+  <div class="greeting">Document Approvals</div>
+  <div class="date-line">Review and approve generated client documents before they are sent</div>
+
+  <div class="error-banner" id="error-banner" hidden></div>
+
+  <div class="section-header">
+    <span class="section-title">
+      Pending
+      <span class="doc-count-chip" id="pending-count" hidden>0</span>
+    </span>
+    <button class="btn-refresh-sm" onclick="loadDocs()">↻ Refresh</button>
+  </div>
+
+  <div id="pending-list">
+    <div class="empty-docs">
+      <div>Loading…</div>
+    </div>
+  </div>
+
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script src="js/auth.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  if (!requireAuth()) return;
+  const payload = jwtPayload(getJWT());
+  const name = (payload?.email || '').split('@')[0];
+  document.getElementById('nav-user').textContent = name;
+  loadDocs();
+});
+
+// ---------------------------------------------------------------------------
+// Data
+// ---------------------------------------------------------------------------
+
+async function loadDocs() {
+  const data = await apiFetch('/docs/pending');
+  if (!data) return;
+  renderPending(data.pending || []);
+}
+
+// ---------------------------------------------------------------------------
+// Render
+// ---------------------------------------------------------------------------
+
+const BADGE_CLASS = {
+  proposal:          'badge-proposal',
+  engagement_letter: 'badge-engagement_letter',
+  rep_letter:        'badge-rep_letter',
+  invoice_1:         'badge-invoice_1',
+  invoice_2:         'badge-invoice_2',
+};
+
+function renderPending(items) {
+  const el = document.getElementById('pending-list');
+  const countEl = document.getElementById('pending-count');
+
+  if (items.length === 0) {
+    countEl.hidden = true;
+    el.innerHTML = `
+      <div class="empty-docs">
+        <div class="check">&#10003;</div>
+        <div>No documents pending approval.</div>
+        <div style="margin-top:6px;font-size:12px;">
+          The nightly stage poller will queue new documents as deals progress.
+        </div>
+      </div>`;
+    return;
+  }
+
+  countEl.textContent = items.length;
+  countEl.hidden = false;
+
+  el.innerHTML = `<div class="doc-list">${items.map(item => {
+    const badgeCls = BADGE_CLASS[item.doc_type] || '';
+    const created = item.created ? new Date(item.created).toLocaleDateString('en-US', {
+      month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+    }) : '';
+    const amountStr = item.amount
+      ? ` · ${new Intl.NumberFormat('en-US', {style:'currency',currency:'USD',maximumFractionDigits:0}).format(item.amount)}`
+      : '';
+    return `
+      <div class="doc-card" id="card-${item.id}">
+        <div class="doc-card-left">
+          <div class="doc-client">
+            <span class="doc-type-badge ${badgeCls}">${item.label}</span>${item.client}
+          </div>
+          <div class="doc-trigger">${item.trigger || ''}</div>
+          <div class="doc-meta">${created}${amountStr}</div>
+        </div>
+        <div class="doc-card-right" id="actions-${item.id}">
+          <button class="btn-approve" onclick="approve('${item.id}', '${escHtml(item.client)}', '${escHtml(item.label)}')">
+            Approve &amp; Send
+          </button>
+          <button class="btn-reject" onclick="reject('${item.id}')">
+            Dismiss
+          </button>
+        </div>
+      </div>`;
+  }).join('')}</div>`;
+}
+
+// ---------------------------------------------------------------------------
+// Actions
+// ---------------------------------------------------------------------------
+
+async function approve(id, client, label) {
+  const actionsEl = document.getElementById(`actions-${id}`);
+  actionsEl.innerHTML = '<span class="processing-msg">Generating &amp; sending…</span>';
+
+  const res = await apiFetch('/docs/approve', {
+    method: 'POST',
+    body: JSON.stringify({ id }),
+  });
+
+  if (res && res.success) {
+    showToast(`Sent: ${label} for ${client}`, 'ok');
+    document.getElementById(`card-${id}`).remove();
+    // Update count
+    const remaining = document.querySelectorAll('[id^="card-"]').length;
+    const countEl = document.getElementById('pending-count');
+    if (remaining === 0) {
+      loadDocs();
+    } else {
+      countEl.textContent = remaining;
+    }
+  } else {
+    actionsEl.innerHTML = `
+      <span style="font-size:12px;color:#C0392B;">Error — check logs</span>
+      <button class="btn-reject" onclick="reject('${id}')">Dismiss</button>`;
+    showToast('Generation failed — check server logs', 'error');
+  }
+}
+
+async function reject(id) {
+  const res = await apiFetch('/docs/reject', {
+    method: 'POST',
+    body: JSON.stringify({ id }),
+  });
+  if (res && res.success) {
+    document.getElementById(`card-${id}`).remove();
+    const remaining = document.querySelectorAll('[id^="card-"]').length;
+    if (remaining === 0) loadDocs();
+    else document.getElementById('pending-count').textContent = remaining;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function escHtml(str) {
+  return String(str || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+}
+
+function showToast(msg, type = 'default') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast' + (type === 'error' ? ' toast--error' : type === 'ok' ? ' toast--ok' : '');
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 4000);
+}
+</script>
+</body>
+</html>
