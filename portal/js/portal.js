@@ -1,27 +1,57 @@
+let isStaff = false;
+
 document.addEventListener('DOMContentLoaded', () => {
   if (!requirePortalAuth()) return;
   const p = jwtPayload(getPortalJWT());
-  if (p?.client_name) {
-    document.getElementById('welcome-name').textContent = p.client_name;
-  }
+  isStaff = p?.role === 'staff';
+  document.getElementById('welcome-name').textContent = isStaff ? 'Jeffrey' : (p?.client_name || '');
   loadPortal();
 });
 
-async function loadPortal() {
+async function loadPortal(selectedClient) {
   try {
-    const data = await portalFetch('/portal/me');
+    const qs = selectedClient ? `?client=${encodeURIComponent(selectedClient)}` : '';
+    const data = await portalFetch(`/portal/me${qs}`);
     if (!data) return;
+
+    if (isStaff && data.all_clients) {
+      renderClientSwitcher(data.all_clients, data.client_name);
+    }
+
     renderActionBanner(data);
-    renderMatters(data.matters);
+    renderMatters(data.matters || []);
     renderInvoices(data);
     document.getElementById('loading-screen').hidden = true;
     document.getElementById('portal-content').hidden = false;
   } catch (err) {
     document.getElementById('loading-screen').innerHTML =
-      `<p style="color:#C0392B">Unable to load your portal: ${err.message}</p>
-       <p style="margin-top:12px;font-size:13px;">Please try refreshing or contact us at
+      `<p style="color:#C0392B">Unable to load portal: ${err.message}</p>
+       <p style="margin-top:12px;font-size:13px;">Please try refreshing or contact
        <a href="mailto:jlobel@lobelaccountancy.com">jlobel@lobelaccountancy.com</a>.</p>`;
   }
+}
+
+function renderClientSwitcher(clients, active) {
+  const existing = document.getElementById('client-switcher');
+  if (existing) existing.remove();
+
+  const bar = document.createElement('div');
+  bar.id = 'client-switcher';
+  bar.style.cssText = 'background:#1B2A3F;padding:10px 24px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;';
+  bar.innerHTML = `
+    <span style="color:rgba(255,255,255,.6);font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;white-space:nowrap;">
+      Viewing client:
+    </span>
+    <select onchange="loadPortal(this.value)"
+      style="background:#2E3D52;color:white;border:1px solid rgba(255,255,255,.2);
+             border-radius:6px;padding:5px 10px;font-size:13px;cursor:pointer;min-width:200px;">
+      ${clients.map(c =>
+        `<option value="${c}" ${c === active ? 'selected' : ''}>${c}</option>`
+      ).join('')}
+    </select>
+    <span style="color:rgba(255,255,255,.4);font-size:12px;">Staff view — all clients visible</span>`;
+
+  document.querySelector('nav.nav').insertAdjacentElement('afterend', bar);
 }
 
 // ---------------------------------------------------------------------------

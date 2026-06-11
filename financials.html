@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <link rel="icon" type="image/jpeg" href="favicon.jpg">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LAC Financials</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    /* ---- Month tab bar ---- */
+    .month-bar {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin-bottom: 24px;
+    }
+    .month-btn {
+      padding: 6px 18px;
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      background: var(--surface);
+      color: var(--text-2);
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all .15s;
+    }
+    .month-btn:hover  { border-color: var(--blue); color: var(--blue); }
+    .month-btn.active { background: var(--navy); border-color: var(--navy); color: white; }
+
+    /* ---- Statement grid ---- */
+    .stmt-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      align-items: start;
+    }
+    @media (max-width: 900px) { .stmt-grid { grid-template-columns: 1fr; } }
+
+    /* ---- Statement table ---- */
+    .stmt-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+    .stmt-title {
+      padding: 14px 20px;
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      color: var(--navy);
+      border-bottom: 1px solid var(--border);
+      background: #FAFBFC;
+    }
+    .stmt-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    .stmt-table td {
+      padding: 6px 16px;
+      border-bottom: 1px solid #F0F2F5;
+      color: var(--text);
+    }
+    .stmt-table tr:last-child td { border-bottom: none; }
+
+    /* Label column */
+    .stmt-table td:first-child { width: 65%; }
+    /* Value column */
+    .stmt-table td:last-child {
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+
+    /* Section header rows */
+    .row-section td {
+      padding-top: 14px;
+      padding-bottom: 4px;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: var(--text-2);
+      border-bottom: 1px solid var(--border);
+      background: #FAFBFC;
+    }
+
+    /* Total rows */
+    .row-total td {
+      font-weight: 700;
+      color: var(--navy);
+      border-top: 1px solid var(--border);
+      border-bottom: 2px solid var(--navy);
+      background: #F7F9FC;
+    }
+
+    /* Net income row — coloured */
+    .row-net-pos td { font-weight: 700; color: var(--ok);     background: var(--ok-bg); }
+    .row-net-neg td { font-weight: 700; color: var(--danger); background: var(--danger-bg); }
+
+    /* Zero values muted */
+    .val-zero { color: var(--text-3) !important; }
+
+    /* Negative values */
+    .val-neg { color: var(--danger); }
+
+    /* ---- Empty / loading ---- */
+    .fin-empty {
+      text-align: center; padding: 60px 24px;
+      color: var(--text-2); font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-left">
+    <div class="nav-brand">LAC</div>
+    <div class="nav-links">
+      <a class="nav-link" href="index.html">Briefing</a>
+      <a class="nav-link" href="bi.html">Analytics</a>
+      <a class="nav-link" href="clients.html">Clients</a>
+      <a class="nav-link" href="forecast.html">Forecast</a>
+      <a class="nav-link" href="budget.html">Budget</a>
+      <a class="nav-link active" href="financials.html">Financials</a>
+      <a class="nav-link" href="docs.html">Documents</a>
+      <a class="nav-link" href="emails.html">Emails</a>
+      <a class="nav-link" href="drive.html">Drive</a>
+      <a class="nav-link" href="bookmarks.html">Bookmarks</a>
+    </div>
+  </div>
+  <div class="nav-right">
+    <span class="nav-user" id="nav-user"></span>
+    <button class="nav-logout" onclick="logout()">Sign out</button>
+  </div>
+</nav>
+
+<main class="main">
+  <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:6px;">
+    <h2 style="font-size:22px;font-weight:600;color:var(--navy);">Financials</h2>
+    <span style="font-size:12px;color:var(--text-3);">GAAP Basis · FY2026</span>
+  </div>
+  <p class="date-line">Published 5 days after month-end close</p>
+
+  <div class="error-banner" id="error-banner" hidden></div>
+
+  <div class="month-bar" id="month-bar"></div>
+
+  <div id="fin-body">
+    <div class="fin-empty">Loading…</div>
+  </div>
+</main>
+
+<script src="js/auth.js"></script>
+<script src="js/financials.js"></script>
+</body>
+</html>
