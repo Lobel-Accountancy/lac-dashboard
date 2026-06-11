@@ -6,13 +6,16 @@ function setPortalJWT(token)  { localStorage.setItem(PORTAL_JWT_KEY, token); }
 function clearPortalJWT()     { localStorage.removeItem(PORTAL_JWT_KEY); }
 
 function jwtPayload(token) {
-  try { return JSON.parse(atob(token.split('.')[1])); } catch { return null; }
+  try {
+    const b64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+    return JSON.parse(atob(b64));
+  } catch { return null; }
 }
 
 function isPortalJWTValid(token) {
   if (!token) return false;
   const p = jwtPayload(token);
-  return p && p.role === 'client' && p.exp * 1000 > Date.now();
+  return p && (p.role === 'client' || p.role === 'staff') && p.exp * 1000 > Date.now();
 }
 
 function requirePortalAuth() {
