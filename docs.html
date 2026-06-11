@@ -54,6 +54,12 @@
       font-size: 13px; font-weight: 600; color: var(--navy);
       white-space: nowrap;
     }
+    .btn-view {
+      padding: 7px 14px; background: white; color: var(--navy);
+      border: 1px solid var(--border); border-radius: 6px; font-size: 12px;
+      font-weight: 600; cursor: pointer; white-space: nowrap; text-decoration: none;
+    }
+    .btn-view:hover { background: var(--muted-bg); border-color: var(--navy); }
     .btn-approve {
       padding: 7px 16px; background: #1A7A4A; color: white;
       border: none; border-radius: 6px; font-size: 12px; font-weight: 600;
@@ -213,6 +219,9 @@ function renderPending(items) {
     const amountStr = item.amount
       ? ` · ${new Intl.NumberFormat('en-US', {style:'currency',currency:'USD',maximumFractionDigits:0}).format(item.amount)}`
       : '';
+    const viewBtn = item.template_link
+      ? `<a class="btn-view" href="${item.template_link}" target="_blank" rel="noopener">View</a>`
+      : '';
     return `
       <div class="doc-card" id="card-${item.id}">
         <div class="doc-card-left">
@@ -223,6 +232,7 @@ function renderPending(items) {
           <div class="doc-meta">${created}${amountStr}</div>
         </div>
         <div class="doc-card-right" id="actions-${item.id}">
+          ${viewBtn}
           <button class="btn-approve" onclick="approve('${item.id}', '${escHtml(item.client)}', '${escHtml(item.label)}')">
             Approve &amp; Send
           </button>
