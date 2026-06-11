@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <link rel="icon" type="image/jpeg" href="favicon.jpg">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LAC Drive</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .nav-links { display: flex; gap: 4px; margin: 0 16px; }
+    .nav-link {
+      color: rgba(255,255,255,.65);
+      text-decoration: none;
+      font-size: 13px;
+      padding: 4px 10px;
+      border-radius: 4px;
+      transition: color .15s, background .15s;
+    }
+    .nav-link:hover    { color: white; background: rgba(255,255,255,.1); }
+    .nav-link--active  { color: white; background: rgba(255,255,255,.15); }
+
+    /* ---- Breadcrumb ---- */
+    .drive-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px 0 12px;
+      border-bottom: 2px solid var(--border);
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+    .breadcrumb {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 13px;
+      flex-wrap: wrap;
+    }
+    .breadcrumb-item {
+      color: var(--blue);
+      cursor: pointer;
+      font-weight: 500;
+    }
+    .breadcrumb-item:hover { text-decoration: underline; }
+    .breadcrumb-item.current {
+      color: var(--text);
+      cursor: default;
+      font-weight: 600;
+    }
+    .breadcrumb-item.current:hover { text-decoration: none; }
+    .breadcrumb-sep { color: var(--text-3); }
+
+    .drive-actions { display: flex; align-items: center; gap: 8px; }
+
+    .btn-upload {
+      display: inline-block;
+      background: var(--navy);
+      color: white;
+      border: none;
+      border-radius: 4px;
+      padding: 6px 14px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity .15s;
+    }
+    .btn-upload:hover { opacity: .85; }
+
+    /* ---- Upload progress ---- */
+    .upload-status {
+      background: var(--muted-bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 10px 14px;
+      font-size: 13px;
+      color: var(--text-2);
+      margin-bottom: 12px;
+    }
+    .upload-status.success { background: var(--ok-bg); color: var(--ok); border-color: #A7D7BA; }
+    .upload-status.error   { background: var(--danger-bg); color: var(--danger); border-color: #F5C6C2; }
+
+    /* ---- File list ---- */
+    .file-list { display: flex; flex-direction: column; gap: 2px; }
+
+    .file-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 12px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      cursor: pointer;
+      transition: background .1s;
+      text-decoration: none;
+      color: inherit;
+    }
+    .file-row:hover { background: #f5f7fa; }
+
+    .file-type-badge {
+      flex-shrink: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 52px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+    }
+
+    .file-name {
+      flex: 1;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .file-row:hover .file-name { color: var(--blue); }
+
+    .file-modified {
+      font-size: 12px;
+      color: var(--text-3);
+      white-space: nowrap;
+      flex-shrink: 0;
+      min-width: 80px;
+      text-align: right;
+    }
+
+    .file-size {
+      font-size: 12px;
+      color: var(--text-3);
+      white-space: nowrap;
+      flex-shrink: 0;
+      min-width: 60px;
+      text-align: right;
+    }
+
+    .load-more-wrap { text-align: center; margin-top: 12px; }
+    .btn-load-more {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 7px 20px;
+      font-size: 13px;
+      color: var(--text-2);
+      cursor: pointer;
+    }
+    .btn-load-more:hover { background: var(--muted-bg); }
+  </style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-left">
+    <div class="nav-brand">LAC</div>
+    <div class="nav-links">
+      <a class="nav-link" href="index.html">Briefing</a>
+      <a class="nav-link" href="bi.html">Analytics</a>
+      <a class="nav-link" href="clients.html">Clients</a>
+      <a class="nav-link" href="forecast.html">Forecast</a>
+      <a class="nav-link" href="budget.html">Budget</a>
+      <a class="nav-link" href="docs.html">Documents</a>
+      <a class="nav-link" href="emails.html">Emails</a>
+      <a class="nav-link nav-link--active" href="drive.html">Drive</a>
+      <a class="nav-link" href="bookmarks.html">Bookmarks</a>
+    </div>
+  </div>
+  <div class="nav-right">
+    <span class="nav-user" id="nav-user"></span>
+    <button class="nav-logout" onclick="logout()">Sign out</button>
+  </div>
+</nav>
+
+<main class="main">
+  <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:4px;">
+    <h2 style="font-size:20px;font-weight:700;color:var(--navy);">Google Drive</h2>
+  </div>
+
+  <div class="drive-toolbar">
+    <div class="breadcrumb" id="breadcrumb"></div>
+    <div class="drive-actions">
+      <label class="btn-upload" for="upload-input">+ Upload</label>
+      <input type="file" id="upload-input" multiple hidden onchange="handleUpload(this.files)">
+      <button class="btn-refresh" onclick="reloadFolder()">↻ Refresh</button>
+    </div>
+  </div>
+
+  <div id="upload-status" class="upload-status" hidden></div>
+  <div id="error-banner" class="error-banner" hidden></div>
+  <div id="file-list"><span class="empty-state">Loading…</span></div>
+  <div class="load-more-wrap" id="load-more-wrap" hidden>
+    <button class="btn-load-more" onclick="loadMore()">Load more</button>
+  </div>
+</main>
+
+<script src="js/auth.js"></script>
+<script src="js/drive.js"></script>
+</body>
+</html>

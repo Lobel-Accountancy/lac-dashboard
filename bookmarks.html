@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <link rel="icon" type="image/jpeg" href="favicon.jpg">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LAC Bookmarks</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .nav-links { display: flex; gap: 4px; margin: 0 16px; }
+    .nav-link {
+      color: rgba(255,255,255,.65);
+      text-decoration: none;
+      font-size: 13px;
+      padding: 4px 10px;
+      border-radius: 4px;
+      transition: color .15s, background .15s;
+    }
+    .nav-link:hover    { color: white; background: rgba(255,255,255,.1); }
+    .nav-link--active  { color: white; background: rgba(255,255,255,.15); }
+
+    .bookmark-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 14px;
+      margin-top: 4px;
+    }
+
+    .bookmark-card {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      padding: 24px 16px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      text-decoration: none;
+      color: var(--text);
+      transition: box-shadow .15s, transform .1s, border-color .15s;
+      cursor: pointer;
+    }
+    .bookmark-card:hover {
+      box-shadow: 0 4px 16px rgba(0,0,0,.12);
+      transform: translateY(-2px);
+      border-color: var(--blue);
+    }
+
+    .bookmark-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      font-weight: 800;
+      color: white;
+      letter-spacing: -0.02em;
+    }
+
+    .bookmark-name {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--navy);
+      text-align: center;
+    }
+
+    .bookmark-url {
+      font-size: 11px;
+      color: var(--text-3);
+      text-align: center;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      width: 100%;
+    }
+  </style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-left">
+    <div class="nav-brand">LAC</div>
+    <div class="nav-links">
+      <a class="nav-link" href="index.html">Briefing</a>
+      <a class="nav-link" href="bi.html">Analytics</a>
+      <a class="nav-link" href="clients.html">Clients</a>
+      <a class="nav-link" href="forecast.html">Forecast</a>
+      <a class="nav-link" href="budget.html">Budget</a>
+      <a class="nav-link" href="docs.html">Documents</a>
+      <a class="nav-link" href="emails.html">Emails</a>
+      <a class="nav-link" href="drive.html">Drive</a>
+      <a class="nav-link nav-link--active" href="bookmarks.html">Bookmarks</a>
+    </div>
+  </div>
+  <div class="nav-right">
+    <span class="nav-user" id="nav-user"></span>
+    <button class="nav-logout" onclick="logout()">Sign out</button>
+  </div>
+</nav>
+
+<main class="main">
+  <h2 style="font-size:20px;font-weight:700;color:var(--navy);margin-bottom:20px;">Bookmarks</h2>
+
+  <div class="bookmark-grid">
+
+    <a class="bookmark-card" href="https://www.chase.com/business/business-sbw-1" target="_blank" rel="noopener">
+      <div class="bookmark-icon" style="background:#117ACA;">Ch</div>
+      <span class="bookmark-name">Chase</span>
+      <span class="bookmark-url">chase.com/business</span>
+    </a>
+
+    <a class="bookmark-card" href="https://dochub.com" target="_blank" rel="noopener">
+      <div class="bookmark-icon" style="background:#E8490F;">Dh</div>
+      <span class="bookmark-name">DocHub</span>
+      <span class="bookmark-url">dochub.com</span>
+    </a>
+
+    <a class="bookmark-card" href="https://www.linkedin.com" target="_blank" rel="noopener">
+      <div class="bookmark-icon" style="background:#0A66C2;">in</div>
+      <span class="bookmark-name">LinkedIn</span>
+      <span class="bookmark-url">linkedin.com</span>
+    </a>
+
+    <a class="bookmark-card" href="https://app.apollo.io" target="_blank" rel="noopener">
+      <div class="bookmark-icon" style="background:#1C1C2E;">Ap</div>
+      <span class="bookmark-name">Apollo.io</span>
+      <span class="bookmark-url">app.apollo.io</span>
+    </a>
+
+    <a class="bookmark-card" href="https://zapier.com" target="_blank" rel="noopener">
+      <div class="bookmark-icon" style="background:#FF4A00;">Za</div>
+      <span class="bookmark-name">Zapier</span>
+      <span class="bookmark-url">zapier.com</span>
+    </a>
+
+    <a class="bookmark-card" href="https://tactiq.io" target="_blank" rel="noopener">
+      <div class="bookmark-icon" style="background:#7C3AED;">Tq</div>
+      <span class="bookmark-name">Tactiq</span>
+      <span class="bookmark-url">tactiq.io</span>
+    </a>
+
+    <a class="bookmark-card" href="https://dart.deloitte.com" target="_blank" rel="noopener">
+      <div class="bookmark-icon" style="background:#86BC25;">De</div>
+      <span class="bookmark-name">Deloitte Dart</span>
+      <span class="bookmark-url">dart.deloitte.com</span>
+    </a>
+
+  </div>
+</main>
+
+<script src="js/auth.js"></script>
+<script>
+  if (!requireAuth()) { /* redirected */ } else {
+    const p = jwtPayload(getJWT());
+    document.getElementById('nav-user').textContent = (p?.email || '').split('@')[0];
+  }
+</script>
+</body>
+</html>
