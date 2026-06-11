@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <link rel="icon" type="image/jpeg" href="favicon.jpg">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LAC Email</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .nav-links { display: flex; gap: 4px; margin: 0 16px; }
+    .nav-link {
+      color: rgba(255,255,255,.65);
+      text-decoration: none;
+      font-size: 13px;
+      padding: 4px 10px;
+      border-radius: 4px;
+      transition: color .15s, background .15s;
+    }
+    .nav-link:hover    { color: white; background: rgba(255,255,255,.1); }
+    .nav-link--active  { color: white; background: rgba(255,255,255,.15); }
+
+    /* ---- Alias tab bar ---- */
+    .alias-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 16px 0 12px;
+      border-bottom: 2px solid var(--border);
+      margin-bottom: 16px;
+    }
+    .alias-btn {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      background: var(--surface);
+      color: var(--text-2);
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all .15s;
+    }
+    .alias-btn:hover  { border-color: var(--blue); color: var(--blue); }
+    .alias-btn.active {
+      background: var(--navy);
+      border-color: var(--navy);
+      color: white;
+    }
+    .alias-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 18px;
+      height: 18px;
+      padding: 0 5px;
+      border-radius: 9px;
+      font-size: 11px;
+      font-weight: 700;
+      background: var(--danger);
+      color: white;
+    }
+    .alias-btn.active .alias-badge  { background: rgba(255,255,255,.25); }
+    .alias-badge[data-count="0"]    { display: none; }
+
+    /* ---- Email list ---- */
+    .email-list { display: flex; flex-direction: column; gap: 2px; }
+
+    .email-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 12px 14px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      cursor: pointer;
+      transition: background .1s;
+    }
+    .email-item:hover { background: #f5f7fa; }
+    .email-item.expanded { background: #f8fafc; }
+
+    .email-avatar {
+      flex-shrink: 0;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      font-weight: 700;
+      color: white;
+      margin-top: 1px;
+    }
+
+    .email-body { flex: 1; min-width: 0; }
+
+    .email-top {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 2px;
+    }
+    .email-from {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .email-date {
+      font-size: 11px;
+      color: var(--text-3);
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .email-subject {
+      font-size: 13px;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-bottom: 3px;
+    }
+    .email-snippet {
+      font-size: 12px;
+      color: var(--text-2);
+      line-height: 1.5;
+    }
+    .email-snippet.collapsed {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* ---- Status bar ---- */
+    .email-status {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+    .email-status-text { font-size: 12px; color: var(--text-3); }
+
+    .btn-refresh {
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 4px 10px;
+      font-size: 12px;
+      color: var(--text-2);
+      cursor: pointer;
+      transition: background .15s;
+    }
+    .btn-refresh:hover { background: var(--muted-bg); }
+
+    .error-banner {
+      background: var(--danger-bg);
+      color: var(--danger);
+      padding: 10px 14px;
+      border-radius: var(--radius);
+      font-size: 13px;
+      margin-bottom: 12px;
+    }
+  </style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-left">
+    <div class="nav-brand">LAC</div>
+    <div class="nav-links">
+      <a class="nav-link" href="index.html">Briefing</a>
+      <a class="nav-link" href="bi.html">Analytics</a>
+      <a class="nav-link" href="clients.html">Clients</a>
+      <a class="nav-link" href="forecast.html">Forecast</a>
+      <a class="nav-link" href="budget.html">Budget</a>
+      <a class="nav-link" href="docs.html">Documents</a>
+      <a class="nav-link nav-link--active" href="emails.html">Emails</a>
+    </div>
+  </div>
+  <div class="nav-right">
+    <span class="nav-user" id="nav-user"></span>
+    <button class="nav-logout" onclick="logout()">Sign out</button>
+  </div>
+</nav>
+
+<main class="main">
+  <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:4px;">
+    <h2 style="font-size:20px;font-weight:700;color:var(--navy);">Inbox</h2>
+  </div>
+
+  <div class="alias-bar">
+    <button class="alias-btn active" id="tab-jlobel" onclick="switchAlias('jlobel')">
+      jlobel@ <span class="alias-badge" id="count-jlobel" data-count="0">0</span>
+    </button>
+    <button class="alias-btn" id="tab-info" onclick="switchAlias('info')">
+      info@ <span class="alias-badge" id="count-info" data-count="0">0</span>
+    </button>
+    <button class="alias-btn" id="tab-billing" onclick="switchAlias('billing')">
+      billing@ <span class="alias-badge" id="count-billing" data-count="0">0</span>
+    </button>
+    <div style="flex:1;"></div>
+    <span id="refresh-status" style="font-size:12px;color:var(--text-3);"></span>
+    <button class="btn-refresh" onclick="loadEmails(true)">↻ Refresh</button>
+  </div>
+
+  <div id="error-banner" class="error-banner" hidden></div>
+  <div id="email-list"><span class="empty-state">Loading…</span></div>
+</main>
+
+<script src="js/auth.js"></script>
+<script src="js/emails.js"></script>
+</body>
+</html>
