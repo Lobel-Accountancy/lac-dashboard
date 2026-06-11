@@ -1,10 +1,13 @@
 const REFRESH_INTERVAL = 2 * 60 * 1000;
 let currentAlias = 'jlobel';
+let emailData    = [];
 
 const AVATAR_COLORS = [
   '#1B2A3F','#2563EB','#059669','#D97706','#7C3AED',
   '#DB2777','#0891B2','#65A30D','#EA580C','#6366F1',
 ];
+
+const SIGNATURE = `\n\n--\nJeffrey Lobel, CPA\nLobel Accountancy Corporation\n(949) 345-1925\njlobel@lobelaccountancy.com`;
 
 function avatarColor(str) {
   let h = 0;
@@ -39,11 +42,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
 function switchAlias(key) {
   currentAlias = key;
-
   ['jlobel', 'info', 'billing'].forEach(k => {
     document.getElementById(`tab-${k}`).classList.toggle('active', k === key);
   });
-
   loadEmails();
 }
 
@@ -59,7 +60,6 @@ async function loadEmails(force = false) {
     const data = await apiFetch(`/data/emails?alias=${currentAlias}`);
     if (!data) return;
 
-    // Update badge counts on all tabs
     const counts = data.counts || {};
     for (const [key, count] of Object.entries(counts)) {
       const badge = document.getElementById(`count-${key}`);
@@ -69,7 +69,6 @@ async function loadEmails(force = false) {
       }
     }
 
-    // Clear any previous error
     const errBanner = document.getElementById('error-banner');
     if (data.error) {
       errBanner.textContent = `Could not fetch emails: ${data.error}`;
@@ -78,7 +77,8 @@ async function loadEmails(force = false) {
       errBanner.hidden = true;
     }
 
-    renderEmails(data.emails || []);
+    emailData = data.emails || [];
+    renderEmails(emailData);
 
     const now = new Date();
     statusEl.textContent = `Updated ${now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`;
@@ -104,20 +104,20 @@ function renderEmails(emails) {
   container.innerHTML = emails.map((e, i) => {
     const color = avatarColor(e.from_email || e.from_name || String(i));
     const abbr  = initials(e.from_name || e.from_email || '?');
-    const safeSubject = escHtml(e.subject);
-    const safeFrom    = escHtml(e.from_name);
-    const safeSnippet = escHtml(e.snippet);
 
     return `
       <div class="email-item" id="email-${i}" onclick="toggleEmail(${i})">
         <div class="email-avatar" style="background:${color}">${abbr}</div>
         <div class="email-body">
           <div class="email-top">
-            <span class="email-from">${safeFrom}</span>
+            <span class="email-from">${escHtml(e.from_name)}</span>
             <span class="email-date">${escHtml(e.date)}</span>
           </div>
-          <div class="email-subject">${safeSubject}</div>
-          <div class="email-snippet collapsed" id="snippet-${i}">${safeSnippet}</div>
+          <div class="email-subject">${escHtml(e.subject)}</div>
+          <div class="email-snippet collapsed" id="snippet-${i}">${escHtml(e.snippet)}</div>
+          <div class="reply-row" id="reply-row-${i}" hidden>
+            <button class="btn-reply" onclick="event.stopPropagation();openReply(${i})">↩ Reply</button>
+          </div>
         </div>
       </div>`;
   }).join('');
@@ -126,9 +126,80 @@ function renderEmails(emails) {
 function toggleEmail(i) {
   const item    = document.getElementById(`email-${i}`);
   const snippet = document.getElementById(`snippet-${i}`);
+  const replyRow = document.getElementById(`reply-row-${i}`);
   const expanded = item.classList.toggle('expanded');
   snippet.classList.toggle('collapsed', !expanded);
+  replyRow.hidden = !expanded;
 }
+
+// ---------------------------------------------------------------------------
+// Reply modal
+// ---------------------------------------------------------------------------
+
+function openReply(i) {
+  const e = emailData[i];
+  if (!e) return;
+
+  const toAddr  = e.reply_to || e.from_email;
+  const subject = e.subject.toLowerCase().startsWith('re:') ? e.subject : `Re: ${e.subject}`;
+
+  document.getElementById('reply-to').value      = toAddr;
+  document.getElementById('reply-subject').value = subject;
+  document.getElementById('reply-body').value    = SIGNATURE;
+  document.getElementById('reply-message-id').value = e.message_id || '';
+  document.getElementById('reply-error').textContent = '';
+  document.getElementById('reply-send-btn').disabled = false;
+  document.getElementById('reply-send-btn').textContent = 'Send';
+
+  // Place cursor at start so user types above signature
+  const ta = document.getElementById('reply-body');
+  ta.focus();
+  ta.setSelectionRange(0, 0);
+  ta.scrollTop = 0;
+
+  document.getElementById('reply-modal').hidden = false;
+}
+
+function closeReply() {
+  document.getElementById('reply-modal').hidden = true;
+}
+
+async function sendReply() {
+  const to         = document.getElementById('reply-to').value.trim();
+  const subject    = document.getElementById('reply-subject').value.trim();
+  const body       = document.getElementById('reply-body').value;
+  const inReplyTo  = document.getElementById('reply-message-id').value.trim();
+  const errEl      = document.getElementById('reply-error');
+  const sendBtn    = document.getElementById('reply-send-btn');
+
+  if (!body.trim()) {
+    errEl.textContent = 'Message body is required.';
+    return;
+  }
+
+  sendBtn.disabled = true;
+  sendBtn.textContent = 'Sending…';
+  errEl.textContent = '';
+
+  try {
+    await apiFetch('/data/email/reply', {
+      method: 'POST',
+      body: JSON.stringify({ to, subject, body, in_reply_to: inReplyTo, alias: currentAlias }),
+    });
+    closeReply();
+  } catch (err) {
+    errEl.textContent = err.message;
+    sendBtn.disabled = false;
+    sendBtn.textContent = 'Send';
+  }
+}
+
+// Close modal on backdrop click
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('reply-modal').addEventListener('click', e => {
+    if (e.target === e.currentTarget) closeReply();
+  });
+});
 
 function escHtml(str) {
   return (str || '')
