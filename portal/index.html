@@ -171,6 +171,48 @@
     .inv-badge--open    { background: #EFF6FF; color: #1E40AF; }
     .inv-badge--overdue { background: var(--red-bg); color: var(--red); }
 
+    /* PBC */
+    .pbc-tabs { display:flex; gap:2px; margin-bottom:16px; flex-wrap:wrap; }
+    .pbc-tab {
+      padding:6px 16px; border-radius:6px 6px 0 0; font-size:12px; font-weight:600;
+      cursor:pointer; border:1px solid var(--border); border-bottom:none;
+      background:#F8FAFC; color:var(--text2);
+    }
+    .pbc-tab.active { background:white; color:var(--navy); border-bottom:1px solid white; margin-bottom:-1px; }
+    .pbc-section-panel { border:1px solid var(--border); border-radius:0 var(--radius) var(--radius) var(--radius); background:white; padding:16px; }
+    .pbc-prog { display:flex; align-items:center; gap:10px; margin-bottom:16px; }
+    .pbc-prog-bar { flex:1; height:8px; background:var(--border); border-radius:4px; overflow:hidden; }
+    .pbc-prog-fill { height:100%; background:var(--green); border-radius:4px; }
+    .pbc-prog-label { font-size:12px; color:var(--text2); white-space:nowrap; }
+    .pbc-row {
+      display:grid; grid-template-columns:90px 1fr 100px 110px;
+      gap:8px; align-items:start; padding:10px 0;
+      border-bottom:1px solid #F1F5F9; font-size:13px;
+    }
+    .pbc-row:last-child { border-bottom:none; }
+    .pbc-row-hdr { font-size:11px; font-weight:700; color:var(--text2); text-transform:uppercase; letter-spacing:.05em; }
+    .pbc-num { font-family:'SF Mono','Fira Code',monospace; font-size:12px; color:var(--navy); font-weight:600; }
+    .pbc-desc { color:var(--text); line-height:1.4; }
+    .pbc-due-ok   { font-size:12px; color:var(--text2); }
+    .pbc-due-soon { font-size:12px; color:#D97706; font-weight:600; }
+    .pbc-due-over { font-size:12px; color:var(--red); font-weight:600; }
+    .pbc-badge { display:inline-block; padding:2px 8px; border-radius:10px; font-size:11px; font-weight:700; text-transform:uppercase; }
+    .pbc-not  { background:var(--amber-bg); color:var(--amber); }
+    .pbc-prov { background:#DBEAFE; color:#1D4ED8; }
+    .pbc-done { background:var(--green-bg); color:var(--green); }
+    .pbc-actions { display:flex; flex-direction:column; gap:5px; }
+    .pbc-upload-btn {
+      padding:5px 10px; background:var(--navy); color:white; border:none;
+      border-radius:5px; font-size:11px; font-weight:600; cursor:pointer; text-align:center;
+    }
+    .pbc-upload-btn:hover { background:#1a2a4a; }
+    .pbc-upload-btn:disabled { opacity:.5; cursor:not-allowed; }
+    .pbc-provided-tag { font-size:11px; color:var(--green); font-weight:600; }
+    .pbc-notes { font-size:11px; color:var(--text2); margin-top:6px; }
+    .pbc-note-admin  { color:var(--navy); }
+    .pbc-note-client { color:var(--green); }
+    .pbc-empty { color:var(--text2); font-size:13px; padding:16px 0; text-align:center; }
+
     /* Contact footer */
     .contact-card {
       background: var(--navy); color: white;
@@ -228,6 +270,15 @@
       <div class="section-title">Invoices &amp; Billing</div>
       <div class="balance-card" id="balance-summary"></div>
       <div class="balance-card" style="padding:0;overflow:hidden" id="invoice-table"></div>
+    </div>
+
+    <!-- PBC Requests -->
+    <div class="section" id="pbc-section" hidden>
+      <div class="section-title">Document Requests</div>
+      <div id="pbc-tabs" class="pbc-tabs"></div>
+      <div id="pbc-panel" class="pbc-section-panel">
+        <div class="pbc-empty">Loading requests…</div>
+      </div>
     </div>
 
     <!-- Contact -->

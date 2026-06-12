@@ -21,6 +21,7 @@ async function loadPortal(selectedClient) {
     renderActionBanner(data);
     renderMatters(data.matters || []);
     renderInvoices(data);
+    await loadPBC(data.client_name || selectedClient);
     document.getElementById('loading-screen').hidden = true;
     document.getElementById('portal-content').hidden = false;
   } catch (err) {
@@ -208,3 +209,160 @@ function renderInvoices(data) {
 function fmt$(n) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n || 0);
 }
+
+// ---------------------------------------------------------------------------
+// PBC Requests
+// ---------------------------------------------------------------------------
+
+let _pbcData    = null;
+let _pbcClient  = '';
+let _activeSection = '';
+
+async function loadPBC(clientName) {
+  if (!clientName) return;
+  _pbcClient = clientName;
+  const AUTH_URL = 'https://auth.lobelaccountancy.com';
+  try {
+    const jwt = getPortalJWT();
+    const res = await fetch(
+      `${AUTH_URL}/pbc/list?client=${encodeURIComponent(clientName)}`,
+      { headers: { 'Authorization': `Bearer ${jwt}` } }
+    );
+    if (!res.ok) return;
+    const data = await res.json();
+    _pbcData = data[clientName];
+    if (!_pbcData || !(_pbcData.requests || []).length) return;
+    document.getElementById('pbc-section').hidden = false;
+    renderPBCTabs();
+  } catch (e) { /* PBC not available */ }
+}
+
+function renderPBCTabs() {
+  if (!_pbcData) return;
+  const bySection = {};
+  (_pbcData.requests || []).forEach(r => {
+    (bySection[r.section] = bySection[r.section] || []).push(r);
+  });
+  const sections = Object.keys(bySection);
+  if (!sections.length) return;
+  if (!_activeSection || !bySection[_activeSection]) _activeSection = sections[0];
+
+  const tabsEl = document.getElementById('pbc-tabs');
+  tabsEl.innerHTML = sections.map(s => {
+    const prog  = _pbcData.sections?.[s] || {};
+    const done  = (prog.complete || 0);
+    const total = (prog.total || 0);
+    const active = s === _activeSection ? ' active' : '';
+    return `<div class="pbc-tab${active}" onclick="switchPBCTab('${escP(s)}')">${s} <span style="font-size:10px;opacity:.7">${done}/${total}</span></div>`;
+  }).join('');
+
+  renderPBCPanel(bySection[_activeSection] || []);
+}
+
+function switchPBCTab(section) {
+  _activeSection = section;
+  renderPBCTabs();
+}
+
+function renderPBCPanel(reqs) {
+  const panel = document.getElementById('pbc-panel');
+  const prog  = _pbcData.sections?.[_activeSection] || {};
+  const done  = (prog.complete || 0) + (prog.provided || 0);
+  const total = prog.total || 1;
+  const pct   = Math.round((done / total) * 100);
+
+  let html = `<div class="pbc-prog">
+    <div class="pbc-prog-bar"><div class="pbc-prog-fill" style="width:${pct}%"></div></div>
+    <span class="pbc-prog-label">${prog.complete||0} of ${prog.total||0} complete</span>
+  </div>
+  <div class="pbc-row pbc-row-hdr">
+    <div>Request #</div><div>Description</div><div>Due Date</div><div>Status</div>
+  </div>`;
+
+  reqs.forEach(r => {
+    const dc  = pbcDueClass(r.due_date);
+    const due = r.due_date ? new Date(r.due_date + 'T00:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'}) : '—';
+    const sc  = r.status === 'Complete' ? 'pbc-done' : r.status === 'Provided' ? 'pbc-prov' : 'pbc-not';
+    const notes = (r.notes||[]).map(n =>
+      `<div class="pbc-note-${n.author}">${n.author === 'admin' ? 'LAC' : 'You'}: ${escH(n.text)}</div>`
+    ).join('');
+
+    let actionHtml = '';
+    if (r.status === 'Not Provided') {
+      actionHtml = `
+        <label class="pbc-upload-btn" style="cursor:pointer">
+          Upload File
+          <input type="file" style="display:none" onchange="uploadPBC('${r.id}', this)">
+        </label>`;
+    } else if (r.status === 'Provided') {
+      actionHtml = `<div class="pbc-provided-tag">✓ Uploaded${r.file_name ? '<br><span style="font-size:10px;opacity:.8">'+escH(r.file_name)+'</span>' : ''}</div>`;
+    } else {
+      actionHtml = `<div class="pbc-provided-tag">✓ Complete</div>`;
+    }
+
+    html += `<div class="pbc-row">
+      <div class="pbc-num">${r.request_number}</div>
+      <div class="pbc-desc">${escH(r.description)}
+        ${notes ? `<div class="pbc-notes">${notes}</div>` : ''}</div>
+      <div class="${dc}">${due}</div>
+      <div class="pbc-actions">
+        <span class="pbc-badge ${sc}">${r.status}</span>
+        ${actionHtml}
+      </div>
+    </div>`;
+  });
+
+  panel.innerHTML = html;
+}
+
+async function uploadPBC(reqId, input) {
+  const file = input.files[0];
+  if (!file) return;
+  const label = input.closest('label');
+  label.innerHTML = 'Uploading…';
+
+  const AUTH_URL = 'https://auth.lobelaccountancy.com';
+  const jwt = getPortalJWT();
+  const fd  = new FormData();
+  fd.append('client', _pbcClient);
+  fd.append('id', reqId);
+  fd.append('file', file);
+
+  try {
+    const res  = await fetch(`${AUTH_URL}/pbc/upload`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${jwt}` },
+      body: fd,
+    });
+    const data = await res.json();
+    if (res.ok && data.success) {
+      // Update local data and re-render
+      const req = (_pbcData.requests||[]).find(r => r.id === reqId);
+      if (req) { req.status = 'Provided'; req.file_name = data.file_name; }
+      if (_pbcData.sections?.[_activeSection]) {
+        _pbcData.sections[_activeSection].provided = (_pbcData.sections[_activeSection].provided||0) + 1;
+        _pbcData.sections[_activeSection].total = _pbcData.sections[_activeSection].total || 1;
+      }
+      const bySection = {};
+      (_pbcData.requests||[]).forEach(r => (bySection[r.section]=bySection[r.section]||[]).push(r));
+      renderPBCTabs();
+    } else {
+      label.innerHTML = 'Upload File';
+      alert(data.error || 'Upload failed');
+    }
+  } catch (e) {
+    label.innerHTML = 'Upload File';
+    alert('Upload failed: ' + e.message);
+  }
+}
+
+function pbcDueClass(due) {
+  if (!due) return 'pbc-due-ok';
+  const diff = (new Date(due) - new Date()) / 86400000;
+  if (diff < 0)  return 'pbc-due-over';
+  if (diff <= 3) return 'pbc-due-soon';
+  return 'pbc-due-ok';
+}
+
+function escP(s) { return String(s||'').replace(/'/g,"\\'"); }
+function escH(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
