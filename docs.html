@@ -58,8 +58,23 @@
       padding: 7px 14px; background: white; color: var(--navy);
       border: 1px solid var(--border); border-radius: 6px; font-size: 12px;
       font-weight: 600; cursor: pointer; white-space: nowrap; text-decoration: none;
+      display: inline-flex; align-items: center; gap: 5px;
     }
     .btn-view:hover { background: var(--muted-bg); border-color: var(--navy); }
+    .btn-edit {
+      padding: 7px 14px; background: #EEF6FF; color: #1D4ED8;
+      border: 1px solid #BFDBFE; border-radius: 6px; font-size: 12px;
+      font-weight: 600; cursor: pointer; white-space: nowrap; text-decoration: none;
+      display: inline-flex; align-items: center; gap: 5px;
+    }
+    .btn-edit:hover { background: #DBEAFE; }
+    .btn-preview {
+      padding: 7px 14px; background: white; color: var(--navy);
+      border: 1px solid var(--border); border-radius: 6px; font-size: 12px;
+      font-weight: 600; cursor: pointer; white-space: nowrap;
+    }
+    .btn-preview:hover { background: var(--muted-bg); }
+    .btn-preview:disabled { opacity: .5; cursor: not-allowed; }
     .btn-approve {
       padding: 7px 16px; background: #1A7A4A; color: white;
       border: none; border-radius: 6px; font-size: 12px; font-weight: 600;
@@ -219,9 +234,7 @@ function renderPending(items) {
     const amountStr = item.amount
       ? ` · ${new Intl.NumberFormat('en-US', {style:'currency',currency:'USD',maximumFractionDigits:0}).format(item.amount)}`
       : '';
-    const viewBtn = item.template_link
-      ? `<a class="btn-view" href="${item.template_link}" target="_blank" rel="noopener">View</a>`
-      : '';
+    const isEditable = ['proposal','engagement_letter','rep_letter'].includes(item.doc_type);
     return `
       <div class="doc-card" id="card-${item.id}">
         <div class="doc-card-left">
@@ -232,11 +245,15 @@ function renderPending(items) {
           <div class="doc-meta">${created}${amountStr}</div>
         </div>
         <div class="doc-card-right" id="actions-${item.id}">
-          ${viewBtn}
-          <button class="btn-approve" onclick="approve('${item.id}', '${escHtml(item.client)}', '${escHtml(item.label)}')">
+          ${isEditable
+            ? `<button class="btn-preview" id="prev-${item.id}"
+                 onclick="previewDoc('${item.id}', '${escHtml(item.doc_type)}')">Preview PDF</button>`
+            : ''}
+          <button class="btn-approve" id="approve-${item.id}"
+              onclick="approve('${item.id}', '${escHtml(item.client)}', '${escHtml(item.label)}')">
             Approve &amp; Send
           </button>
-          <button class="btn-reject" onclick="reject('${item.id}')">
+          <button class="btn-reject" id="reject-${item.id}" onclick="reject('${item.id}')">
             Dismiss
           </button>
         </div>
@@ -247,6 +264,38 @@ function renderPending(items) {
 // ---------------------------------------------------------------------------
 // Actions
 // ---------------------------------------------------------------------------
+
+async function previewDoc(id, docType) {
+  const btn = document.getElementById(`prev-${id}`);
+  btn.disabled = true;
+  btn.textContent = 'Generating…';
+
+  try {
+    const AUTH_URL = 'https://auth.lobelaccountancy.com';
+    const jwt = localStorage.getItem('lac_jwt');
+    const res = await fetch(`${AUTH_URL}/docs/preview`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${jwt}` },
+      body: JSON.stringify({ id }),
+    });
+    const data = await res.json();
+    if (!res.ok) { btn.textContent = data.error || 'Error'; btn.disabled = false; return; }
+
+    const actionsEl = document.getElementById(`actions-${id}`);
+    const editLabel = docType === 'proposal' ? 'Edit in Google Slides' : 'Edit in Google Docs';
+    const editBtn   = data.edit_url
+      ? `<a class="btn-edit" href="${data.edit_url}" target="_blank" rel="noopener">✏ ${editLabel}</a>`
+      : '';
+    const pdfUrl = `${AUTH_URL}${data.pdf_url}`;
+
+    // Replace preview button with PDF + edit links; keep approve/dismiss
+    btn.outerHTML = `
+      <a class="btn-view" href="${pdfUrl}" target="_blank" rel="noopener">📄 Preview PDF</a>
+      ${editBtn}`;
+  } catch (e) {
+    btn.textContent = 'Error'; btn.disabled = false;
+  }
+}
 
 async function approve(id, client, label) {
   const actionsEl = document.getElementById(`actions-${id}`);

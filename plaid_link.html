@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Connect Chase — LAC</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .link-card {
+      max-width: 480px; margin: 80px auto; background: white;
+      border: 1px solid var(--border); border-radius: 12px;
+      padding: 40px; text-align: center;
+    }
+    .link-title { font-size: 20px; font-weight: 700; color: var(--navy); margin-bottom: 8px; }
+    .link-sub { font-size: 14px; color: var(--text2); margin-bottom: 32px; }
+    .btn-connect {
+      display: inline-block; padding: 12px 32px;
+      background: var(--navy); color: white; border: none;
+      border-radius: 8px; font-size: 15px; font-weight: 600;
+      cursor: pointer; width: 100%;
+    }
+    .btn-connect:hover { background: #1a2a4a; }
+    .btn-connect:disabled { opacity: .5; cursor: not-allowed; }
+    .status { margin-top: 20px; font-size: 14px; color: var(--text2); }
+    .status.ok { color: #1A7A4A; font-weight: 600; }
+    .status.err { color: #C0392B; }
+  </style>
+</head>
+<body>
+<nav class="nav">
+  <div class="nav-left">
+    <div class="nav-brand">LAC</div>
+    <div class="nav-links">
+      <a class="nav-link" href="index.html">Briefing</a>
+    </div>
+  </div>
+  <div class="nav-right">
+    <button class="nav-logout" onclick="logout()">Sign out</button>
+  </div>
+</nav>
+
+<main class="main">
+  <div class="link-card">
+    <div class="link-title">Connect Chase Business Account</div>
+    <div class="link-sub">
+      Securely link your Chase Operating account via Plaid.<br>
+      Transactions will sync nightly to the LAC Workbook.
+    </div>
+    <button class="btn-connect" id="connect-btn" onclick="startLink()">
+      Connect Chase Account
+    </button>
+    <div class="status" id="status"></div>
+  </div>
+</main>
+
+<script src="js/auth.js"></script>
+<script src="https://cdn.plaid.com/link/v2/stable/link-initialize.js"></script>
+<script>
+const AUTH_URL = 'https://auth.lobelaccountancy.com';
+
+document.addEventListener('DOMContentLoaded', () => {
+  if (!requireAuth()) return;
+
+  // If returning from Chase OAuth redirect, resume Plaid Link
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('oauth_state_id')) {
+    resumeLink();
+  }
+});
+
+let linkHandler = null;
+
+async function startLink() {
+  const btn = document.getElementById('connect-btn');
+  const statusEl = document.getElementById('status');
+  btn.disabled = true;
+  btn.textContent = 'Loading…';
+
+  const jwt = localStorage.getItem('lac_jwt');
+  const res = await fetch(`${AUTH_URL}/plaid/link-token`, {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${jwt}` },
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    statusEl.textContent = data.error || 'Failed to start link';
+    statusEl.className = 'status err';
+    btn.disabled = false;
+    btn.textContent = 'Connect Chase Account';
+    return;
+  }
+
+  sessionStorage.setItem('plaid_link_token', data.link_token);
+  openPlaidLink(data.link_token);
+}
+
+function openPlaidLink(linkToken) {
+  const btn = document.getElementById('connect-btn');
+  linkHandler = Plaid.create({
+    token: linkToken,
+    onSuccess: async (publicToken, metadata) => {
+      const statusEl = document.getElementById('status');
+      statusEl.textContent = 'Saving connection…';
+      statusEl.className = 'status';
+
+      const jwt = localStorage.getItem('lac_jwt');
+      const res = await fetch(`${AUTH_URL}/plaid/exchange`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${jwt}` },
+        body: JSON.stringify({ public_token: publicToken }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        statusEl.textContent = '✓ Chase account connected. Transactions will sync tonight.';
+        statusEl.className = 'status ok';
+        btn.textContent = 'Connected';
+      } else {
+        statusEl.textContent = data.error || 'Exchange failed';
+        statusEl.className = 'status err';
+        btn.disabled = false;
+        btn.textContent = 'Try Again';
+      }
+    },
+    onExit: (err) => {
+      btn.disabled = false;
+      btn.textContent = 'Connect Chase Account';
+      if (err) {
+        document.getElementById('status').textContent = err.display_message || 'Cancelled';
+        document.getElementById('status').className = 'status err';
+      }
+    },
+    receivedRedirectUri: window.location.href.includes('oauth_state_id')
+      ? window.location.href : undefined,
+  });
+  linkHandler.open();
+}
+
+function resumeLink() {
+  const token = sessionStorage.getItem('plaid_link_token');
+  if (token) openPlaidLink(token);
+}
+</script>
+</body>
+</html>
