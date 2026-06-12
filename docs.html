@@ -234,7 +234,8 @@ function renderPending(items) {
     const amountStr = item.amount
       ? ` · ${new Intl.NumberFormat('en-US', {style:'currency',currency:'USD',maximumFractionDigits:0}).format(item.amount)}`
       : '';
-    const isEditable = ['proposal','engagement_letter','rep_letter'].includes(item.doc_type);
+    const isEditable  = ['proposal','engagement_letter','rep_letter'].includes(item.doc_type);
+    const needsDocHub = ['engagement_letter','rep_letter'].includes(item.doc_type);
     return `
       <div class="doc-card" id="card-${item.id}">
         <div class="doc-card-left">
@@ -249,10 +250,13 @@ function renderPending(items) {
             ? `<button class="btn-preview" id="prev-${item.id}"
                  onclick="previewDoc('${item.id}', '${escHtml(item.doc_type)}')">Preview PDF</button>`
             : ''}
-          <button class="btn-approve" id="approve-${item.id}"
-              onclick="approve('${item.id}', '${escHtml(item.client)}', '${escHtml(item.label)}')">
-            Approve &amp; Send
-          </button>
+          ${needsDocHub
+            ? `<button class="btn-view" id="dl-${item.id}"
+                 onclick="downloadDoc('${item.id}')">Download for DocHub</button>`
+            : `<button class="btn-approve" id="approve-${item.id}"
+                 onclick="approve('${item.id}', '${escHtml(item.client)}', '${escHtml(item.label)}')">
+                 Approve &amp; Send
+               </button>`}
           <button class="btn-reject" id="reject-${item.id}" onclick="reject('${item.id}')">
             Dismiss
           </button>
@@ -295,6 +299,41 @@ async function previewDoc(id, docType) {
   } catch (e) {
     btn.textContent = 'Error'; btn.disabled = false;
   }
+}
+
+async function downloadDoc(id) {
+  const btn = document.getElementById(`dl-${id}`);
+  btn.disabled = true;
+  btn.textContent = 'Generating…';
+
+  const AUTH_URL = 'https://auth.lobelaccountancy.com';
+  const jwt = localStorage.getItem('lac_jwt');
+
+  // Ensure preview (PDF) exists first
+  const prev = await fetch(`${AUTH_URL}/docs/preview`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${jwt}` },
+    body: JSON.stringify({ id }),
+  });
+  const prevData = await prev.json();
+  if (!prev.ok) {
+    btn.textContent = prevData.error || 'Error';
+    btn.disabled = false;
+    return;
+  }
+
+  // Trigger download via hidden link
+  const pdfUrl = `${AUTH_URL}${prevData.pdf_url}`;
+  const a = document.createElement('a');
+  a.href = pdfUrl;
+  a.download = '';
+  a.target = '_blank';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+
+  btn.textContent = 'Download for DocHub';
+  btn.disabled = false;
 }
 
 async function approve(id, client, label) {
