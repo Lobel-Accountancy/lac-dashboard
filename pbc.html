@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PBC Requests — LAC</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .toolbar { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:20px; }
+    .client-select { padding:7px 12px; border:1px solid var(--border); border-radius:6px;
+      font-size:13px; min-width:220px; }
+    .btn-sm { padding:7px 14px; border-radius:6px; font-size:12px; font-weight:600;
+      cursor:pointer; border:1px solid var(--border); background:white; color:var(--navy); }
+    .btn-sm:hover { background:var(--muted-bg); }
+    .btn-primary { background:var(--navy); color:white; border-color:var(--navy); }
+    .btn-primary:hover { background:#1a2a4a; }
+    .btn-danger { color:#C0392B; border-color:#C0392B; }
+    .btn-danger:hover { background:#FEF2F2; }
+
+    .section-block { margin-bottom:24px; }
+    .section-hdr { display:flex; align-items:center; gap:12px; margin-bottom:8px; }
+    .section-name { font-size:14px; font-weight:700; color:var(--navy); }
+    .progress-bar { flex:1; height:8px; background:#E2E8F0; border-radius:4px; overflow:hidden; }
+    .progress-fill { height:100%; background:#1A7A4A; border-radius:4px; transition:.3s; }
+    .progress-label { font-size:11px; color:var(--text2); white-space:nowrap; }
+
+    table { width:100%; border-collapse:collapse; font-size:13px; }
+    th { background:#F8FAFC; color:var(--text2); font-size:11px; font-weight:700;
+      text-transform:uppercase; letter-spacing:.05em; padding:8px 12px;
+      border-bottom:2px solid var(--border); text-align:left; }
+    td { padding:9px 12px; border-bottom:1px solid #F1F5F9; vertical-align:top; }
+    tr:hover td { background:#FAFBFC; }
+
+    .status-badge { display:inline-block; padding:2px 8px; border-radius:10px;
+      font-size:11px; font-weight:700; text-transform:uppercase; }
+    .s-not   { background:#FEF3C7; color:#92400E; }
+    .s-prov  { background:#DBEAFE; color:#1D4ED8; }
+    .s-done  { background:#D1FAE5; color:#065F46; }
+
+    .due-ok   { color:var(--text2); }
+    .due-soon { color:#D97706; font-weight:600; }
+    .due-over { color:#C0392B; font-weight:600; }
+
+    .notes-list { font-size:11px; color:var(--text2); margin-top:4px; }
+    .note-admin  { color:var(--navy); }
+    .note-client { color:#1A7A4A; }
+
+    .upload-zone { display:none; }
+    .file-link { color:var(--navy); text-decoration:underline; font-size:12px; }
+
+    .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.4);
+      z-index:500; align-items:center; justify-content:center; }
+    .modal-overlay.open { display:flex; }
+    .modal { background:white; border-radius:12px; padding:28px; width:480px;
+      max-width:90vw; box-shadow:0 8px 32px rgba(0,0,0,.15); }
+    .modal-title { font-size:16px; font-weight:700; color:var(--navy); margin-bottom:16px; }
+    .modal-field { margin-bottom:14px; }
+    .modal-field label { display:block; font-size:12px; font-weight:600;
+      color:var(--text2); margin-bottom:4px; }
+    .modal-field input, .modal-field textarea, .modal-field select {
+      width:100%; padding:8px 10px; border:1px solid var(--border); border-radius:6px;
+      font-size:13px; box-sizing:border-box; }
+    .modal-field textarea { min-height:80px; resize:vertical; }
+    .modal-actions { display:flex; gap:8px; justify-content:flex-end; margin-top:20px; }
+
+    .empty-state { text-align:center; padding:48px; color:var(--text2); }
+    .archived-banner { background:#FEF3C7; border:1px solid #F59E0B; border-radius:8px;
+      padding:10px 16px; font-size:13px; color:#92400E; margin-bottom:16px; }
+  </style>
+</head>
+<body>
+<nav class="nav">
+  <div class="nav-left">
+    <div class="nav-brand">LAC</div>
+    <div class="nav-links">
+      <a class="nav-link" href="index.html">Briefing</a>
+      <a class="nav-link" href="clients.html">Clients</a>
+      <a class="nav-link active" href="pbc.html">PBC</a>
+      <a class="nav-link" href="docs.html">Documents</a>
+      <a class="nav-link" href="budget.html">Budget</a>
+    </div>
+  </div>
+  <div class="nav-right">
+    <span class="nav-user" id="nav-user"></span>
+    <button class="nav-logout" onclick="logout()">Sign out</button>
+  </div>
+</nav>
+
+<main class="main">
+  <div class="greeting">PBC Requests</div>
+  <div class="date-line">Manage prepared-by-client document requests</div>
+  <div class="error-banner" id="error-banner" hidden></div>
+
+  <div class="toolbar">
+    <select class="client-select" id="client-sel" onchange="loadClient()">
+      <option value="">— Select client —</option>
+    </select>
+    <button class="btn-sm btn-primary" onclick="document.getElementById('csv-input').click()">
+      Import CSV
+    </button>
+    <input type="file" id="csv-input" accept=".csv" style="display:none" onchange="importCSV(this)">
+    <button class="btn-sm" onclick="exportCSV()">Export CSV</button>
+    <button class="btn-sm" onclick="exportAll()">Export All Clients</button>
+    <button class="btn-sm btn-danger" id="archive-btn" onclick="archiveEngagement()" hidden>
+      Mark Complete &amp; Archive
+    </button>
+  </div>
+
+  <div id="pbc-body">
+    <div class="empty-state">Select a client to view PBC requests.</div>
+  </div>
+</main>
+
+<!-- Note modal -->
+<div class="modal-overlay" id="note-modal">
+  <div class="modal">
+    <div class="modal-title">Add Note</div>
+    <div class="modal-field">
+      <label>Note</label>
+      <textarea id="note-text" placeholder="Enter note…"></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-sm" onclick="closeModal('note-modal')">Cancel</button>
+      <button class="btn-sm btn-primary" onclick="submitNote()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Edit request modal -->
+<div class="modal-overlay" id="edit-modal">
+  <div class="modal">
+    <div class="modal-title">Edit Request</div>
+    <div class="modal-field">
+      <label>Description</label>
+      <textarea id="edit-desc"></textarea>
+    </div>
+    <div class="modal-field">
+      <label>Due Date</label>
+      <input type="date" id="edit-due">
+    </div>
+    <div class="modal-actions">
+      <button class="btn-sm" onclick="closeModal('edit-modal')">Cancel</button>
+      <button class="btn-sm btn-primary" onclick="submitEdit()">Save</button>
+    </div>
+  </div>
+</div>
+
+<script src="js/auth.js"></script>
+<script>
+const AUTH_URL = 'https://auth.lobelaccountancy.com';
+let currentClient = '';
+let currentReqId  = '';
+let allData       = {};
+
+document.addEventListener('DOMContentLoaded', async () => {
+  if (!requireAuth()) return;
+  const payload = jwtPayload(getJWT());
+  document.getElementById('nav-user').textContent = (payload?.email||'').split('@')[0];
+  await loadClients();
+});
+
+async function loadClients() {
+  const res = await apiFetch('/pbc/clients');
+  if (!res) return;
+  const sel = document.getElementById('client-sel');
+  sel.innerHTML = '<option value="">— Select client —</option>';
+  (res.clients || []).forEach(c => {
+    const opt = document.createElement('option');
+    opt.value = c.name;
+    opt.textContent = c.client_number ? `${c.client_number} — ${c.name}` : c.name;
+    if (c.archived) opt.textContent += ' (archived)';
+    sel.appendChild(opt);
+  });
+}
+
+async function loadClient() {
+  currentClient = document.getElementById('client-sel').value;
+  if (!currentClient) { document.getElementById('pbc-body').innerHTML =
+    '<div class="empty-state">Select a client to view PBC requests.</div>'; return; }
+
+  const res = await apiFetch(`/pbc/list?client=${encodeURIComponent(currentClient)}`);
+  if (!res) return;
+  allData = res;
+  renderClient(res[currentClient]);
+}
+
+function renderClient(data) {
+  if (!data) { document.getElementById('pbc-body').innerHTML =
+    '<div class="empty-state">No PBC data for this client.</div>'; return; }
+
+  const archiveBtn = document.getElementById('archive-btn');
+  archiveBtn.hidden = data.archived;
+
+  let html = '';
+  if (data.archived) html += `<div class="archived-banner">
+    This engagement is archived. Drive files will be deleted 6 months after archive date.</div>`;
+
+  const sections = data.sections || {};
+  const bySection = {};
+  (data.requests || []).forEach(r => {
+    (bySection[r.section] = bySection[r.section] || []).push(r);
+  });
+
+  Object.entries(bySection).forEach(([section, reqs]) => {
+    const prog = sections[section] || {};
+    const done = (prog.complete||0);
+    const total = (prog.total||1);
+    const pct   = Math.round((done / total) * 100);
+
+    html += `<div class="section-block">
+      <div class="section-hdr">
+        <span class="section-name">${section}</span>
+        <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
+        <span class="progress-label">${done}/${total} complete</span>
+      </div>
+      <table>
+        <thead><tr>
+          <th style="width:90px">Req #</th>
+          <th>Description</th>
+          <th style="width:100px">Due Date</th>
+          <th style="width:110px">Status</th>
+          <th style="width:80px">File</th>
+          <th style="width:180px">Actions</th>
+        </tr></thead>
+        <tbody>`;
+
+    reqs.forEach(r => {
+      const sc   = statusClass(r.status);
+      const dc   = dueClass(r.due_date);
+      const due  = r.due_date || '—';
+      const file = r.file_name
+        ? `<a class="file-link" href="#" onclick="return false">${r.file_name}</a>`
+        : '—';
+      const notes = (r.notes||[]).map(n =>
+        `<div class="note-${n.author}">${n.author}: ${escHtml(n.text)}</div>`
+      ).join('');
+
+      html += `<tr>
+        <td><strong>${r.request_number}</strong></td>
+        <td>${escHtml(r.description)}
+          ${notes ? `<div class="notes-list">${notes}</div>` : ''}</td>
+        <td class="${dc}">${due}</td>
+        <td><span class="status-badge ${sc}">${r.status}</span></td>
+        <td>${file}</td>
+        <td>
+          <select style="font-size:11px;padding:3px 6px;border-radius:4px;border:1px solid var(--border)"
+            onchange="setStatus('${r.id}', this.value); this.value='${r.status}'">
+            <option value="${r.status}" selected>Change…</option>
+            <option value="Not Provided">Not Provided</option>
+            <option value="Provided">Provided</option>
+            <option value="Complete">Complete</option>
+          </select>
+          <button class="btn-sm" style="padding:3px 8px;font-size:11px;margin-top:4px"
+            onclick="openNote('${r.id}')">Note</button>
+          <button class="btn-sm" style="padding:3px 8px;font-size:11px;margin-top:4px"
+            onclick="openEdit('${r.id}','${escAttr(r.description)}','${r.due_date||''}')">Edit</button>
+        </td>
+      </tr>`;
+    });
+    html += '</tbody></table></div>';
+  });
+
+  if (!html) html = '<div class="empty-state">No requests yet. Import a CSV to get started.</div>';
+  document.getElementById('pbc-body').innerHTML = html;
+}
+
+function statusClass(s) {
+  return s === 'Complete' ? 's-done' : s === 'Provided' ? 's-prov' : 's-not';
+}
+
+function dueClass(due) {
+  if (!due) return 'due-ok';
+  const d = new Date(due), now = new Date();
+  const diff = (d - now) / 86400000;
+  if (diff < 0) return 'due-over';
+  if (diff <= 3) return 'due-soon';
+  return 'due-ok';
+}
+
+async function setStatus(reqId, status) {
+  if (!status) return;
+  await apiFetch('/pbc/status', {
+    method: 'POST',
+    body: JSON.stringify({ client: currentClient, id: reqId, status }),
+  });
+  loadClient();
+}
+
+function openNote(reqId) {
+  currentReqId = reqId;
+  document.getElementById('note-text').value = '';
+  document.getElementById('note-modal').classList.add('open');
+}
+async function submitNote() {
+  const text = document.getElementById('note-text').value.trim();
+  if (!text) return;
+  await apiFetch('/pbc/note', {
+    method: 'POST',
+    body: JSON.stringify({ client: currentClient, id: currentReqId, text }),
+  });
+  closeModal('note-modal');
+  loadClient();
+}
+
+function openEdit(reqId, desc, due) {
+  currentReqId = reqId;
+  document.getElementById('edit-desc').value = desc;
+  document.getElementById('edit-due').value  = due;
+  document.getElementById('edit-modal').classList.add('open');
+}
+async function submitEdit() {
+  await apiFetch('/pbc/update', {
+    method: 'POST',
+    body: JSON.stringify({
+      client: currentClient, id: currentReqId,
+      description: document.getElementById('edit-desc').value,
+      due_date: document.getElementById('edit-due').value || null,
+    }),
+  });
+  closeModal('edit-modal');
+  loadClient();
+}
+
+function closeModal(id) {
+  document.getElementById(id).classList.remove('open');
+}
+
+async function importCSV(input) {
+  const file = input.files[0];
+  if (!file || !currentClient) {
+    alert('Select a client first, then import the CSV.');
+    input.value = ''; return;
+  }
+  const fd = new FormData();
+  fd.append('client', currentClient);
+  fd.append('file', file);
+  const jwt = localStorage.getItem('lac_jwt');
+  const res = await fetch(`${AUTH_URL}/pbc/import`, {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${jwt}` },
+    body: fd,
+  });
+  const data = await res.json();
+  alert(res.ok ? `Imported ${data.added} new request(s). Total: ${data.total}` : data.error);
+  input.value = '';
+  loadClient();
+  loadClients();
+}
+
+function exportCSV() {
+  if (!currentClient) { alert('Select a client first.'); return; }
+  const jwt = localStorage.getItem('lac_jwt');
+  window.open(`${AUTH_URL}/pbc/export/csv?client=${encodeURIComponent(currentClient)}&token=${jwt}`);
+}
+function exportAll() {
+  const jwt = localStorage.getItem('lac_jwt');
+  window.open(`${AUTH_URL}/pbc/export/csv?token=${jwt}`);
+}
+
+async function archiveEngagement() {
+  if (!currentClient) return;
+  if (!confirm(`Mark "${currentClient}" as complete and start 6-month archive timer?`)) return;
+  const res = await apiFetch('/pbc/complete', {
+    method: 'POST',
+    body: JSON.stringify({ client: currentClient }),
+  });
+  if (res?.success) { loadClient(); loadClients(); }
+}
+
+function escHtml(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function escAttr(s) { return String(s||'').replace(/'/g,"\\'").replace(/"/g,'&quot;'); }
+</script>
+</body>
+</html>
