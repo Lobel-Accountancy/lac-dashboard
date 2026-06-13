@@ -324,10 +324,21 @@ function renderPBCPanel(reqs) {
       actionHtml = `<div class="pbc-provided-tag">✓ Complete</div>`;
     }
 
+    const commentBox = `
+      <div class="pbc-comment-row" id="comment-box-${r.id}" style="display:none">
+        <input class="pbc-comment-input" type="text" placeholder="Add a comment…"
+          onkeydown="if(event.key==='Enter')submitComment('${r.id}',this)">
+        <button class="pbc-upload-btn" style="padding:4px 10px;font-size:11px"
+          onclick="submitComment('${r.id}',this.previousElementSibling)">Send</button>
+      </div>
+      <button class="pbc-comment-toggle" onclick="toggleComment('${r.id}')">+ Comment</button>`;
+
     html += `<div class="pbc-row">
       <div class="pbc-num">${r.request_number}</div>
       <div class="pbc-desc">${escH(r.description)}
-        ${notes ? `<div class="pbc-notes">${notes}</div>` : ''}</div>
+        ${notes ? `<div class="pbc-notes">${notes}</div>` : ''}
+        ${commentBox}
+      </div>
       <div class="${dc}">${due}</div>
       <div class="pbc-actions">
         <span class="pbc-badge ${sc}">${r.status}</span>
@@ -386,6 +397,41 @@ function pbcDueClass(due) {
   if (diff < 0)  return 'pbc-due-over';
   if (diff <= 3) return 'pbc-due-soon';
   return 'pbc-due-ok';
+}
+
+function toggleComment(reqId) {
+  const box = document.getElementById(`comment-box-${reqId}`);
+  if (!box) return;
+  const open = box.style.display !== 'none';
+  box.style.display = open ? 'none' : 'flex';
+  if (!open) box.querySelector('input').focus();
+}
+
+async function submitComment(reqId, input) {
+  const text = input.value.trim();
+  if (!text) return;
+  const AUTH_URL = 'https://auth.lobelaccountancy.com';
+  const jwt = getPortalJWT();
+  input.disabled = true;
+  try {
+    const res = await fetch(`${AUTH_URL}/pbc/note`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${jwt}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ client: _pbcClient, id: reqId, text }),
+    });
+    if (res.ok) {
+      input.value = '';
+      input.disabled = false;
+      document.getElementById(`comment-box-${reqId}`).style.display = 'none';
+      await loadPBC(_pbcClient);
+      renderPBCTabs();
+    } else {
+      input.disabled = false;
+      alert('Could not save comment. Please try again.');
+    }
+  } catch (e) {
+    input.disabled = false;
+  }
 }
 
 function escP(s) { return String(s||'').replace(/'/g,"\\'"); }

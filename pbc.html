@@ -95,12 +95,13 @@
     <select class="client-select" id="client-sel" onchange="loadClient()">
       <option value="">— Select client —</option>
     </select>
+    <button class="btn-sm btn-primary" onclick="openAddRequest()">+ Add Request</button>
+    <button class="btn-sm" onclick="openNewClient()">+ New Client</button>
     <button class="btn-sm btn-primary" onclick="document.getElementById('csv-input').click()">
       Import CSV
     </button>
     <input type="file" id="csv-input" accept=".csv" style="display:none" onchange="importCSV(this)">
     <button class="btn-sm" onclick="exportCSV()">Export CSV</button>
-    <button class="btn-sm" onclick="exportAll()">Export All Clients</button>
     <button class="btn-sm btn-danger" id="archive-btn" onclick="archiveEngagement()" hidden>
       Mark Complete &amp; Archive
     </button>
@@ -131,6 +132,11 @@
   <div class="modal">
     <div class="modal-title">Edit Request</div>
     <div class="modal-field">
+      <label>Section</label>
+      <input type="text" id="edit-section" list="section-list">
+      <datalist id="section-list"></datalist>
+    </div>
+    <div class="modal-field">
       <label>Description</label>
       <textarea id="edit-desc"></textarea>
     </div>
@@ -141,6 +147,52 @@
     <div class="modal-actions">
       <button class="btn-sm" onclick="closeModal('edit-modal')">Cancel</button>
       <button class="btn-sm btn-primary" onclick="submitEdit()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add request modal -->
+<div class="modal-overlay" id="add-modal">
+  <div class="modal">
+    <div class="modal-title">Add Document Request</div>
+    <div class="modal-field">
+      <label>Section</label>
+      <input type="text" id="add-section" list="section-list" placeholder="e.g. Bank &amp; Cash">
+    </div>
+    <div class="modal-field">
+      <label>Description</label>
+      <textarea id="add-desc" placeholder="Describe what you need from the client…"></textarea>
+    </div>
+    <div class="modal-field">
+      <label>Due Date (optional)</label>
+      <input type="date" id="add-due">
+    </div>
+    <div class="modal-field">
+      <label>Note for client (optional)</label>
+      <input type="text" id="add-note" placeholder="Additional instructions…">
+    </div>
+    <div class="modal-actions">
+      <button class="btn-sm" onclick="closeModal('add-modal')">Cancel</button>
+      <button class="btn-sm btn-primary" onclick="submitAdd()">Add Request</button>
+    </div>
+  </div>
+</div>
+
+<!-- New client modal -->
+<div class="modal-overlay" id="new-client-modal">
+  <div class="modal">
+    <div class="modal-title">Set Up New Client Portal</div>
+    <div class="modal-field">
+      <label>Client Name (must match AR Aging exactly)</label>
+      <input type="text" id="nc-name" placeholder="e.g. Lobel Financial">
+    </div>
+    <div class="modal-field">
+      <label>Engagement Description</label>
+      <input type="text" id="nc-engagement" placeholder="e.g. Audit — Year Ended December 31, 2025">
+    </div>
+    <div class="modal-actions">
+      <button class="btn-sm" onclick="closeModal('new-client-modal')">Cancel</button>
+      <button class="btn-sm btn-primary" onclick="submitNewClient()">Create</button>
     </div>
   </div>
 </div>
@@ -253,7 +305,9 @@ function renderClient(data) {
           <button class="btn-sm" style="padding:3px 8px;font-size:11px;margin-top:4px"
             onclick="openNote('${r.id}')">Note</button>
           <button class="btn-sm" style="padding:3px 8px;font-size:11px;margin-top:4px"
-            onclick="openEdit('${r.id}','${escAttr(r.description)}','${r.due_date||''}')">Edit</button>
+            onclick="openEdit('${r.id}','${escAttr(r.section)}','${escAttr(r.description)}','${r.due_date||''}')">Edit</button>
+          <button class="btn-sm btn-danger" style="padding:3px 8px;font-size:11px;margin-top:4px"
+            onclick="deleteRequest('${r.id}')">Delete</button>
         </td>
       </tr>`;
     });
@@ -302,10 +356,20 @@ async function submitNote() {
   loadClient();
 }
 
-function openEdit(reqId, desc, due) {
+function _populateSectionList() {
+  const sections = new Set();
+  const data = allData[currentClient];
+  if (data) (data.requests||[]).forEach(r => sections.add(r.section));
+  const html = [...sections].map(s => `<option value="${escAttr(s)}">`).join('');
+  document.querySelectorAll('#section-list').forEach(el => el.innerHTML = html);
+}
+
+function openEdit(reqId, section, desc, due) {
   currentReqId = reqId;
-  document.getElementById('edit-desc').value = desc;
-  document.getElementById('edit-due').value  = due;
+  _populateSectionList();
+  document.getElementById('edit-section').value = section;
+  document.getElementById('edit-desc').value    = desc;
+  document.getElementById('edit-due').value     = due;
   document.getElementById('edit-modal').classList.add('open');
 }
 async function submitEdit() {
@@ -313,12 +377,69 @@ async function submitEdit() {
     method: 'POST',
     body: JSON.stringify({
       client: currentClient, id: currentReqId,
+      section:     document.getElementById('edit-section').value,
       description: document.getElementById('edit-desc').value,
-      due_date: document.getElementById('edit-due').value || null,
+      due_date:    document.getElementById('edit-due').value || null,
     }),
   });
   closeModal('edit-modal');
   loadClient();
+}
+
+function openAddRequest() {
+  if (!currentClient) { alert('Select a client first.'); return; }
+  _populateSectionList();
+  document.getElementById('add-section').value = '';
+  document.getElementById('add-desc').value    = '';
+  document.getElementById('add-due').value     = '';
+  document.getElementById('add-note').value    = '';
+  document.getElementById('add-modal').classList.add('open');
+}
+async function submitAdd() {
+  const section = document.getElementById('add-section').value.trim();
+  const desc    = document.getElementById('add-desc').value.trim();
+  if (!section || !desc) { alert('Section and description are required.'); return; }
+  const res = await apiFetch('/pbc/add', {
+    method: 'POST',
+    body: JSON.stringify({
+      client:      currentClient,
+      section,
+      description: desc,
+      due_date:    document.getElementById('add-due').value || null,
+      note:        document.getElementById('add-note').value.trim(),
+    }),
+  });
+  if (res?.success) { closeModal('add-modal'); loadClient(); }
+}
+
+function openNewClient() {
+  document.getElementById('nc-name').value       = '';
+  document.getElementById('nc-engagement').value = '';
+  document.getElementById('new-client-modal').classList.add('open');
+}
+async function submitNewClient() {
+  const name = document.getElementById('nc-name').value.trim();
+  const eng  = document.getElementById('nc-engagement').value.trim();
+  if (!name) { alert('Client name is required.'); return; }
+  const res = await apiFetch('/pbc/add', {
+    method: 'POST',
+    body: JSON.stringify({ client: name, engagement: eng }),
+  });
+  if (res?.success) {
+    closeModal('new-client-modal');
+    await loadClients();
+    document.getElementById('client-sel').value = name;
+    loadClient();
+  }
+}
+
+async function deleteRequest(reqId) {
+  if (!confirm('Delete this request?')) return;
+  const res = await apiFetch('/pbc/delete', {
+    method: 'POST',
+    body: JSON.stringify({ client: currentClient, id: reqId }),
+  });
+  if (res?.success) loadClient();
 }
 
 function closeModal(id) {
