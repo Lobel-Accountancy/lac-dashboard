@@ -95,11 +95,10 @@
     <select class="client-select" id="client-sel" onchange="loadClient()">
       <option value="">— Select client —</option>
     </select>
-    <button class="btn-sm btn-primary" onclick="openAddRequest()">+ Add Request</button>
-    <button class="btn-sm" onclick="openNewClient()">+ New Client</button>
-    <button class="btn-sm btn-primary" onclick="document.getElementById('csv-input').click()">
-      Import CSV
-    </button>
+    <button class="btn-sm btn-primary" onclick="openNewClient()">+ New Engagement</button>
+    <button class="btn-sm btn-primary" id="apply-tmpl-btn" onclick="openApplyTemplate()" hidden>Apply Template</button>
+    <button class="btn-sm" onclick="openAddRequest()">+ Add Request</button>
+    <button class="btn-sm" onclick="document.getElementById('csv-input').click()">Import CSV</button>
     <input type="file" id="csv-input" accept=".csv" style="display:none" onchange="importCSV(this)">
     <button class="btn-sm" onclick="exportCSV()">Export CSV</button>
     <button class="btn-sm btn-danger" id="archive-btn" onclick="archiveEngagement()" hidden>
@@ -181,7 +180,7 @@
 <!-- New client modal -->
 <div class="modal-overlay" id="new-client-modal">
   <div class="modal">
-    <div class="modal-title">Set Up New Client Portal</div>
+    <div class="modal-title">New Client Engagement</div>
     <div class="modal-field">
       <label>Client Name (must match AR Aging exactly)</label>
       <input type="text" id="nc-name" placeholder="e.g. Lobel Financial">
@@ -190,9 +189,42 @@
       <label>Engagement Description</label>
       <input type="text" id="nc-engagement" placeholder="e.g. Audit — Year Ended December 31, 2025">
     </div>
+    <div class="modal-field">
+      <label>Pre-load standard document requests</label>
+      <select id="nc-template">
+        <option value="">— None (start blank) —</option>
+      </select>
+    </div>
+    <div class="modal-field">
+      <label>Initial due date (days from today)</label>
+      <input type="number" id="nc-due-days" value="30" min="1" max="365">
+    </div>
     <div class="modal-actions">
       <button class="btn-sm" onclick="closeModal('new-client-modal')">Cancel</button>
       <button class="btn-sm btn-primary" onclick="submitNewClient()">Create</button>
+    </div>
+  </div>
+</div>
+
+<!-- Apply template to existing client -->
+<div class="modal-overlay" id="apply-tmpl-modal">
+  <div class="modal">
+    <div class="modal-title">Apply Standard Template</div>
+    <p style="font-size:13px;color:var(--text2);margin-bottom:16px">
+      Adds all standard document requests for the selected template.
+      Any items already on this client's list are skipped.
+    </p>
+    <div class="modal-field">
+      <label>Template</label>
+      <select id="at-template"></select>
+    </div>
+    <div class="modal-field">
+      <label>Due date (days from today)</label>
+      <input type="number" id="at-due-days" value="30" min="1" max="365">
+    </div>
+    <div class="modal-actions">
+      <button class="btn-sm" onclick="closeModal('apply-tmpl-modal')">Cancel</button>
+      <button class="btn-sm btn-primary" onclick="submitApplyTemplate()">Apply</button>
     </div>
   </div>
 </div>
@@ -204,12 +236,24 @@ let currentClient = '';
 let currentReqId  = '';
 let allData       = {};
 
+let _templates = [];
+
 document.addEventListener('DOMContentLoaded', async () => {
   if (!requireAuth()) return;
   const payload = jwtPayload(getJWT());
   document.getElementById('nav-user').textContent = (payload?.email||'').split('@')[0];
-  await loadClients();
+  await Promise.all([loadClients(), loadTemplates()]);
 });
+
+async function loadTemplates() {
+  const res = await apiFetch('/pbc/templates');
+  if (!res) return;
+  _templates = res.templates || [];
+  const opts = _templates.map(t => `<option value="${t}">${t}</option>`).join('');
+  document.getElementById('nc-template').innerHTML =
+    '<option value="">— None (start blank) —</option>' + opts;
+  document.getElementById('at-template').innerHTML = opts;
+}
 
 async function loadClients() {
   const res = await apiFetch('/pbc/clients');
@@ -240,8 +284,8 @@ function renderClient(data) {
   if (!data) { document.getElementById('pbc-body').innerHTML =
     '<div class="empty-state">No PBC data for this client.</div>'; return; }
 
-  const archiveBtn = document.getElementById('archive-btn');
-  archiveBtn.hidden = data.archived;
+  document.getElementById('archive-btn').hidden = data.archived;
+  document.getElementById('apply-tmpl-btn').hidden = false;
 
   let html = '';
   if (data.archived) html += `<div class="archived-banner">
@@ -415,20 +459,53 @@ async function submitAdd() {
 function openNewClient() {
   document.getElementById('nc-name').value       = '';
   document.getElementById('nc-engagement').value = '';
+  document.getElementById('nc-due-days').value   = '30';
   document.getElementById('new-client-modal').classList.add('open');
 }
 async function submitNewClient() {
-  const name = document.getElementById('nc-name').value.trim();
-  const eng  = document.getElementById('nc-engagement').value.trim();
+  const name     = document.getElementById('nc-name').value.trim();
+  const eng      = document.getElementById('nc-engagement').value.trim();
+  const template = document.getElementById('nc-template').value;
+  const dueDays  = parseInt(document.getElementById('nc-due-days').value) || 30;
   if (!name) { alert('Client name is required.'); return; }
+
+  // Create the client workspace
   const res = await apiFetch('/pbc/add', {
     method: 'POST',
     body: JSON.stringify({ client: name, engagement: eng }),
   });
+  if (!res?.success) return;
+
+  // Apply template if selected
+  if (template) {
+    await apiFetch('/pbc/apply-template', {
+      method: 'POST',
+      body: JSON.stringify({ client: name, template, due_days: dueDays }),
+    });
+  }
+
+  closeModal('new-client-modal');
+  await loadClients();
+  document.getElementById('client-sel').value = name;
+  loadClient();
+}
+
+function openApplyTemplate() {
+  if (!currentClient) { alert('Select a client first.'); return; }
+  document.getElementById('at-due-days').value = '30';
+  document.getElementById('apply-tmpl-modal').classList.add('open');
+}
+async function submitApplyTemplate() {
+  const template = document.getElementById('at-template').value;
+  const dueDays  = parseInt(document.getElementById('at-due-days').value) || 30;
+  if (!template) { alert('Select a template.'); return; }
+  const res = await apiFetch('/pbc/apply-template', {
+    method: 'POST',
+    body: JSON.stringify({ client: currentClient, template, due_days: dueDays }),
+  });
   if (res?.success) {
-    closeModal('new-client-modal');
-    await loadClients();
-    document.getElementById('client-sel').value = name;
+    closeModal('apply-tmpl-modal');
+    alert(`Added ${res.added} requests. Total: ${res.total}`);
     loadClient();
   }
 }
