@@ -2,9 +2,13 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <link rel="icon" type="image/jpeg" href="favicon.jpg">
+  <link rel="icon" type="image/jpeg" href="../favicon.jpg">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Your Client Portal — Lobel Accountancy</title>
+  <title>Your Client Portal — Lobel Accountancy (Test)</title>
+  <script>
+    // Activate test mode immediately before any other JS runs
+    localStorage.setItem('lac_testmode', '1');
+  </script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
@@ -328,12 +332,30 @@
   </div>
 </main>
 
-<script src="js/portal-auth.js"></script>
-<script src="js/portal.js"></script>
+<script src="../js/portal-auth.js"></script>
+<script src="../js/portal.js"></script>
 <script>
   document.getElementById('date-sub').textContent = new Date().toLocaleDateString('en-US', {
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
   });
+
+  // Show test mode banner (inline since portal-auth.js does not include showTestBanner)
+  (function () {
+    const banner = document.createElement('div');
+    banner.style.cssText = [
+      'position:fixed','top:0','left:0','right:0','z-index:9999',
+      'background:#D97706','color:#ffffff','text-align:center',
+      'padding:8px 16px','font-size:13px','font-weight:600',
+      'display:flex','align-items:center','justify-content:center','gap:16px',
+    ].join(';');
+    banner.innerHTML =
+      'TEST MODE — data changes do not affect production' +
+      ' <a href="?testmode=0"' +
+      ' style="color:#fff;text-decoration:underline;font-weight:700;"' +
+      ' onclick="localStorage.removeItem(\'lac_testmode\');">Exit test mode</a>';
+    document.body.prepend(banner);
+    document.body.style.paddingTop = '36px';
+  })();
 </script>
 </body>
 </html>

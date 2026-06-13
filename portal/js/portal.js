@@ -22,6 +22,7 @@ async function loadPortal(selectedClient) {
     renderMatters(data.matters || []);
     renderInvoices(data);
     await loadPBC(data.client_name || selectedClient);
+    await loadPortalDocs(data.client_name || selectedClient);
     document.getElementById('loading-screen').hidden = true;
     document.getElementById('portal-content').hidden = false;
   } catch (err) {
@@ -366,3 +367,39 @@ function pbcDueClass(due) {
 
 function escP(s) { return String(s||'').replace(/'/g,"\\'"); }
 function escH(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+// ---------------------------------------------------------------------------
+// Portal Documents
+// ---------------------------------------------------------------------------
+
+async function loadPortalDocs(clientName) {
+  if (!clientName) return;
+  const AUTH_URL = 'https://auth.lobelaccountancy.com';
+  try {
+    const jwt = getPortalJWT();
+    const qs  = clientName ? `?client=${encodeURIComponent(clientName)}` : '';
+    const res = await fetch(`${AUTH_URL}/portal/documents${qs}`, {
+      headers: { 'Authorization': `Bearer ${jwt}` },
+    });
+    if (!res.ok) return;
+    const data = await res.json();
+    const docs = data.documents || [];
+    if (!docs.length) return;
+
+    document.getElementById('portal-docs-section').hidden = false;
+    const listEl = document.getElementById('portal-docs-list');
+    listEl.innerHTML = docs.map(d => {
+      const dateFmt = d.date
+        ? new Date(d.date + 'T00:00:00').toLocaleDateString('en-US',
+            { month: 'short', day: 'numeric', year: 'numeric' })
+        : '';
+      const dlUrl = `${AUTH_URL}/portal/doc/${d.id}?token=${encodeURIComponent(jwt)}`;
+      return `
+        <div class="doc-row">
+          <div class="doc-row-label">${escH(d.label)}</div>
+          <div class="doc-row-date">${dateFmt}</div>
+          <a class="btn-dl" href="${dlUrl}" target="_blank" rel="noopener">Download</a>
+        </div>`;
+    }).join('');
+  } catch (e) { /* documents not available */ }
+}

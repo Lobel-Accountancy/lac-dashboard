@@ -89,6 +89,13 @@
     }
     .btn-reject:hover { background: #FEF2F2; }
     .btn-reject:disabled { opacity: .5; cursor: not-allowed; }
+    .btn-send-sig {
+      padding: 7px 14px; background: #5B21B6; color: white;
+      border: none; border-radius: 6px; font-size: 12px;
+      font-weight: 600; cursor: pointer; white-space: nowrap;
+    }
+    .btn-send-sig:hover { background: #4C1D95; }
+    .btn-send-sig:disabled { opacity: .5; cursor: not-allowed; }
     .processing-msg {
       font-size: 12px; color: var(--text2); font-style: italic;
     }
@@ -140,7 +147,9 @@
     <a class="nav-link" href="budget.html">Budget</a>
     <a class="nav-link active" href="docs.html">Documents</a>
     <a class="nav-link" href="emails.html">Emails</a>
+      <a class="nav-link" href="activity.html">Activity</a>
       <a class="nav-link" href="drive.html">Drive</a>
+      <a class="nav-link" href="https://clients.lobelaccountancy.com" target="_blank" rel="noopener">Client Portal ↗</a>
       <a class="nav-link" href="bookmarks.html">Bookmarks</a>
     </div>
   </div>
@@ -236,6 +245,7 @@ function renderPending(items) {
       : '';
     const isEditable  = ['proposal','engagement_letter','rep_letter'].includes(item.doc_type);
     const needsDocHub = ['engagement_letter','rep_letter'].includes(item.doc_type);
+    const canSendSig  = ['engagement_letter','rep_letter'].includes(item.doc_type);
     return `
       <div class="doc-card" id="card-${item.id}">
         <div class="doc-card-left">
@@ -257,6 +267,10 @@ function renderPending(items) {
                  onclick="approve('${item.id}', '${escHtml(item.client)}', '${escHtml(item.label)}')">
                  Approve &amp; Send
                </button>`}
+          ${canSendSig
+            ? `<button class="btn-send-sig" id="send-${item.id}"
+                 onclick="sendForSig('${item.id}')">Send for Signature</button>`
+            : ''}
           <button class="btn-reject" id="reject-${item.id}" onclick="reject('${item.id}')">
             Dismiss
           </button>
@@ -290,7 +304,7 @@ async function previewDoc(id, docType) {
     const editBtn   = data.edit_url
       ? `<a class="btn-edit" href="${data.edit_url}" target="_blank" rel="noopener">✏ ${editLabel}</a>`
       : '';
-    const pdfUrl = `${AUTH_URL}${data.pdf_url}`;
+    const pdfUrl = `${AUTH_URL}${data.pdf_url}?token=${encodeURIComponent(jwt)}`;
 
     // Replace preview button with PDF + edit links; keep approve/dismiss
     btn.outerHTML = `
@@ -323,7 +337,7 @@ async function downloadDoc(id) {
   }
 
   // Trigger download via hidden link
-  const pdfUrl = `${AUTH_URL}${prevData.pdf_url}`;
+  const pdfUrl = `${AUTH_URL}${prevData.pdf_url}?token=${encodeURIComponent(jwt)}`;
   const a = document.createElement('a');
   a.href = pdfUrl;
   a.download = '';
@@ -374,6 +388,31 @@ async function reject(id) {
     const remaining = document.querySelectorAll('[id^="card-"]').length;
     if (remaining === 0) loadDocs();
     else document.getElementById('pending-count').textContent = remaining;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Send for Signature (DocuSeal)
+// ---------------------------------------------------------------------------
+
+async function sendForSig(id) {
+  const btn = document.getElementById(`send-${id}`);
+  if (btn) { btn.disabled = true; btn.textContent = 'Sending…'; }
+
+  try {
+    const res = await apiFetch('/docs/send', {
+      method: 'POST',
+      body: JSON.stringify({ id }),
+    });
+    if (res && res.success) {
+      showToast('Sent for signature', 'ok');
+    } else {
+      showToast((res && res.error) || 'DocuSeal not yet configured', 'error');
+    }
+  } catch (err) {
+    showToast(err.message || 'Error sending for signature', 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Send for Signature'; }
   }
 }
 

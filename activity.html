@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <link rel="icon" type="image/jpeg" href="favicon.jpg">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LAC Activity Feed</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .toolbar {
+      display: flex; align-items: center; gap: 12px; margin-bottom: 20px; flex-wrap: wrap;
+    }
+    .filter-select {
+      padding: 7px 12px; border: 1px solid var(--border); border-radius: 6px;
+      font-size: 13px; color: var(--navy); background: white; cursor: pointer; min-width: 200px;
+    }
+    .filter-select:focus { outline: none; border-color: var(--navy); }
+    .actor-toggle {
+      display: flex; gap: 4px;
+    }
+    .actor-btn {
+      padding: 6px 14px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer;
+      border: 1px solid var(--border); background: white; color: var(--text2);
+    }
+    .actor-btn.active-admin  { background: #EFF6FF; color: #1E40AF; border-color: #BFDBFE; }
+    .actor-btn.active-client { background: #E6F4EC; color: #1A7A4A; border-color: #A7F3D0; }
+    .actor-btn.active-all    { background: var(--muted-bg); color: var(--navy); border-color: var(--navy); }
+
+    .feed { display: flex; flex-direction: column; gap: 0; }
+    .feed-date-group { margin-bottom: 24px; }
+    .feed-date-label {
+      font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em;
+      color: var(--text2); padding: 6px 0; margin-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+    }
+    .feed-item {
+      display: grid;
+      grid-template-columns: 54px 80px 1fr 1fr;
+      gap: 0 12px;
+      align-items: start;
+      padding: 10px 0;
+      border-bottom: 1px solid #F1F5F9;
+      font-size: 13px;
+    }
+    .feed-item:last-child { border-bottom: none; }
+    .feed-time { font-size: 11px; color: var(--text3); padding-top: 2px; white-space: nowrap; }
+    .feed-actor {
+      display: inline-flex; align-items: center; justify-content: center;
+      padding: 2px 10px; border-radius: 10px; font-size: 11px; font-weight: 700;
+      white-space: nowrap;
+    }
+    .feed-actor--admin  { background: #EFF6FF; color: #1E40AF; }
+    .feed-actor--client { background: #E6F4EC; color: #1A7A4A; }
+    .feed-action { font-weight: 600; color: var(--navy); }
+    .feed-detail { color: var(--text2); font-size: 12px; }
+    .feed-client-tag {
+      font-size: 11px; color: var(--text3); margin-top: 2px;
+    }
+
+    .empty-feed { text-align: center; padding: 48px 24px; color: var(--text2); font-size: 14px; }
+
+    .section-header {
+      display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;
+    }
+    .section-title { font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--text2); }
+    .btn-refresh-sm { font-size: 12px; color: var(--text2); background: none; border: none; cursor: pointer; }
+    .btn-refresh-sm:hover { color: var(--navy); }
+  </style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-left">
+    <div class="nav-brand">LAC</div>
+    <div class="nav-links">
+      <a class="nav-link" href="index.html">Briefing</a>
+      <a class="nav-link" href="bi.html">Analytics</a>
+      <a class="nav-link" href="clients.html">Clients</a>
+      <a class="nav-link" href="forecast.html">Forecast</a>
+      <a class="nav-link" href="budget.html">Budget</a>
+      <a class="nav-link" href="docs.html">Documents</a>
+      <a class="nav-link" href="emails.html">Emails</a>
+      <a class="nav-link active" href="activity.html">Activity</a>
+      <a class="nav-link" href="drive.html">Drive</a>
+      <a class="nav-link" href="https://clients.lobelaccountancy.com" target="_blank" rel="noopener">Client Portal ↗</a>
+      <a class="nav-link" href="bookmarks.html">Bookmarks</a>
+    </div>
+  </div>
+  <div class="nav-right">
+    <span class="nav-user" id="nav-user"></span>
+    <button class="nav-logout" onclick="logout()">Sign out</button>
+  </div>
+</nav>
+
+<main class="main">
+  <div class="greeting">Activity Feed</div>
+  <div class="date-line">All portal changes — client uploads, document approvals, PBC updates</div>
+
+  <div class="error-banner" id="error-banner" hidden></div>
+
+  <div class="section-header">
+    <span class="section-title">Recent Activity</span>
+    <button class="btn-refresh-sm" onclick="loadFeed()">↻ Refresh</button>
+  </div>
+
+  <div class="toolbar">
+    <select class="filter-select" id="client-filter" onchange="applyFilters()">
+      <option value="">All clients</option>
+    </select>
+    <div class="actor-toggle">
+      <button class="actor-btn active-all" id="btn-all"    onclick="setActor('all')">All</button>
+      <button class="actor-btn"            id="btn-admin"  onclick="setActor('admin')">LAC / Staff</button>
+      <button class="actor-btn"            id="btn-client" onclick="setActor('client')">Clients</button>
+    </div>
+  </div>
+
+  <div id="feed-container">
+    <div class="empty-feed">Loading…</div>
+  </div>
+</main>
+
+<script src="js/auth.js"></script>
+<script>
+let _allEvents = [];
+let _activeActor = 'all';
+
+document.addEventListener('DOMContentLoaded', () => {
+  if (!requireAuth()) return;
+  const payload = jwtPayload(getJWT());
+  document.getElementById('nav-user').textContent = (payload?.email || '').split('@')[0];
+  loadFeed();
+});
+
+async function loadFeed() {
+  const data = await apiFetch('/activity/log?limit=500');
+  if (!data) return;
+
+  _allEvents = data.events || [];
+
+  // Populate client filter
+  const sel = document.getElementById('client-filter');
+  const prev = sel.value;
+  sel.innerHTML = '<option value="">All clients</option>' +
+    (data.clients || []).map(c => `<option value="${esc(c)}"${c===prev?' selected':''}>${esc(c)}</option>`).join('');
+
+  applyFilters();
+}
+
+function setActor(actor) {
+  _activeActor = actor;
+  document.getElementById('btn-all').className    = 'actor-btn' + (actor==='all'    ? ' active-all'    : '');
+  document.getElementById('btn-admin').className  = 'actor-btn' + (actor==='admin'  ? ' active-admin'  : '');
+  document.getElementById('btn-client').className = 'actor-btn' + (actor==='client' ? ' active-client' : '');
+  applyFilters();
+}
+
+function applyFilters() {
+  const clientFilter = document.getElementById('client-filter').value;
+  let events = _allEvents;
+  if (clientFilter) events = events.filter(e => e.client === clientFilter);
+  if (_activeActor !== 'all') events = events.filter(e => e.actor_type === _activeActor);
+  renderFeed(events);
+}
+
+function renderFeed(events) {
+  const el = document.getElementById('feed-container');
+  if (!events.length) {
+    el.innerHTML = '<div class="empty-feed">No activity found.</div>';
+    return;
+  }
+
+  // Group by local date
+  const byDate = {};
+  events.forEach(e => {
+    const d = localDate(e.timestamp);
+    (byDate[d] = byDate[d] || []).push(e);
+  });
+
+  const showClient = !document.getElementById('client-filter').value;
+
+  el.innerHTML = Object.entries(byDate).map(([d, evs]) => `
+    <div class="feed-date-group">
+      <div class="feed-date-label">${formatDate(d)}</div>
+      ${evs.map(e => {
+        const actorLabel = e.actor_type === 'admin' ? 'LAC' : 'Client';
+        const actorCls   = e.actor_type === 'admin' ? 'feed-actor--admin' : 'feed-actor--client';
+        const timeStr    = localTime(e.timestamp);
+        return `
+        <div class="feed-item">
+          <div class="feed-time">${timeStr}</div>
+          <div><span class="feed-actor ${actorCls}">${actorLabel}</span></div>
+          <div>
+            <div class="feed-action">${esc(e.action)}</div>
+            ${showClient ? `<div class="feed-client-tag">${esc(e.client)}</div>` : ''}
+          </div>
+          <div class="feed-detail">${esc(e.details || '')}</div>
+        </div>`;
+      }).join('')}
+    </div>`).join('');
+}
+
+function localDate(iso) {
+  if (!iso) return '';
+  const d = new Date(iso + (iso.endsWith('Z') ? '' : 'Z'));
+  return d.toLocaleDateString('en-CA'); // YYYY-MM-DD in local time
+}
+
+function localTime(iso) {
+  if (!iso) return '';
+  const d = new Date(iso + (iso.endsWith('Z') ? '' : 'Z'));
+  return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+}
+
+function formatDate(yyyymmdd) {
+  const d = new Date(yyyymmdd + 'T12:00:00');
+  const today = new Date();
+  const yesterday = new Date(today); yesterday.setDate(today.getDate() - 1);
+  if (yyyymmdd === today.toLocaleDateString('en-CA'))     return 'Today';
+  if (yyyymmdd === yesterday.toLocaleDateString('en-CA')) return 'Yesterday';
+  return d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+}
+
+function esc(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+</script>
+</body>
+</html>

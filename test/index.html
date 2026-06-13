@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LAC Test Environment</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #F0F2F5;
+      color: #1B2A3F;
+    }
+    .nav {
+      background: #1B2A3F;
+      padding: 0 24px;
+      height: 56px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .nav-brand { color: white; font-size: 16px; font-weight: 700; }
+    .nav-sub   { color: #8BA7C4; font-size: 12px; margin-left: 8px; }
+    .main {
+      max-width: 600px;
+      margin: 60px auto;
+      padding: 0 20px;
+      text-align: center;
+    }
+    .test-badge {
+      display: inline-block;
+      background: #D97706;
+      color: white;
+      padding: 4px 14px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      margin-bottom: 20px;
+    }
+    h1 {
+      font-size: 30px;
+      font-weight: 700;
+      color: #1B2A3F;
+      margin-bottom: 12px;
+    }
+    .subtitle {
+      font-size: 15px;
+      color: #5A6B7C;
+      margin-bottom: 40px;
+      line-height: 1.6;
+    }
+    .btn-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    .btn-big {
+      display: block;
+      background: #1B2A3F;
+      color: white;
+      padding: 24px 20px;
+      border-radius: 10px;
+      text-decoration: none;
+      font-size: 15px;
+      font-weight: 600;
+      transition: background .15s;
+    }
+    .btn-big:hover { background: #2E3D52; }
+    .btn-big .icon { font-size: 28px; display: block; margin-bottom: 10px; }
+    .btn-big .sub  { font-size: 12px; color: rgba(255,255,255,.6); margin-top: 4px; font-weight: 400; }
+    .warning-box {
+      margin-top: 36px;
+      background: #FEF3C7;
+      border: 1px solid #D97706;
+      border-radius: 8px;
+      padding: 14px 18px;
+      font-size: 13px;
+      color: #92400E;
+      text-align: left;
+      line-height: 1.6;
+    }
+    @media (max-width: 480px) {
+      .btn-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<nav class="nav">
+  <span class="nav-brand">Lobel Accountancy Corporation</span>
+  <span class="nav-sub">Test Environment</span>
+</nav>
+
+<main class="main">
+  <div class="test-badge">Test Environment</div>
+  <h1>LAC Test Environment</h1>
+  <p class="subtitle">
+    Changes here use isolated test data and do not affect production.<br>
+    Use this environment to safely test new features before going live.
+  </p>
+
+  <div class="btn-grid">
+    <a class="btn-big" href="../index.html?testmode=1">
+      <span class="icon">&#128196;</span>
+      Dashboard (test)
+      <div class="sub">Staff dashboard with test data</div>
+    </a>
+    <a class="btn-big" href="https://clients.lobelaccountancy.com/test/?testmode=1">
+      <span class="icon">&#128100;</span>
+      Client Portal (test)
+      <div class="sub">Client-facing portal with test data</div>
+    </a>
+  </div>
+
+  <div class="warning-box">
+    <strong>Note:</strong> Test mode is activated by the <code>?testmode=1</code> URL parameter and
+    stored in your browser. An orange banner will appear at the top of every page while test mode
+    is active. Click "Exit test mode" in the banner to return to production.
+  </div>
+</main>
+
+</body>
+</html>
