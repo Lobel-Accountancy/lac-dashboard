@@ -229,13 +229,36 @@ async function loadPBC(clientName) {
       `${AUTH_URL}/pbc/list?client=${encodeURIComponent(clientName)}`,
       { headers: { 'Authorization': `Bearer ${jwt}` } }
     );
-    if (!res.ok) return;
+    if (!res.ok) {
+      document.getElementById('pbc-panel').innerHTML =
+        '<div class="pbc-empty">No document requests at this time.</div>';
+      return;
+    }
     const data = await res.json();
     _pbcData = data[clientName];
-    if (!_pbcData || !(_pbcData.requests || []).length) return;
-    document.getElementById('pbc-section').hidden = false;
+
+    // Show engagement label if present
+    const engLabel = document.getElementById('pbc-engagement-label');
+    if (_pbcData?.engagement) engLabel.textContent = _pbcData.engagement;
+
+    if (!_pbcData || !(_pbcData.requests || []).length) {
+      document.getElementById('pbc-panel').innerHTML =
+        '<div class="pbc-empty">No document requests at this time. Your engagement coordinator will add items here as the engagement progresses.</div>';
+      return;
+    }
+
+    // Overall progress badge
+    const reqs = _pbcData.requests || [];
+    const total = reqs.length;
+    const done  = reqs.filter(r => r.status === 'Complete').length;
+    const progEl = document.getElementById('pbc-overall-progress');
+    progEl.innerHTML = `<span>${done}</span> / ${total} complete`;
+
     renderPBCTabs();
-  } catch (e) { /* PBC not available */ }
+  } catch (e) {
+    document.getElementById('pbc-panel').innerHTML =
+      '<div class="pbc-empty">Unable to load document requests.</div>';
+  }
 }
 
 function renderPBCTabs() {
