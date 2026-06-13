@@ -165,20 +165,28 @@ function showDetail(idx) {
   if (invoices.length === 0) {
     invHtml = '<p class="empty-state">No invoice history.</p>';
   } else {
-    const rows = invoices.map(i => `
-      <tr>
-        <td class="mono">${i.invoice}</td>
-        <td class="num">${fmt$(i.amount)}</td>
-        <td class="num">${i.outstanding > 0 ? fmt$(i.outstanding) : '<span class="text-muted">—</span>'}</td>
-        <td>${i.days_overdue > 0
-          ? `<span class="badge badge--${i.days_overdue > 30 ? 'danger' : 'warning'}">${i.days_overdue}d</span>`
-          : '<span class="badge badge--ok">Current</span>'}</td>
-        <td>${i.status}</td>
-      </tr>
-    `).join('');
+    const rows = invoices.map(i => {
+      const isPaid = i.status === 'Paid' || i.outstanding === 0;
+      const payBtn = isPaid ? '' :
+        `<button class="btn-pay" onclick="openPayment('${escA(i.invoice)}',${i.outstanding})">
+           Record Payment
+         </button>`;
+      return `
+        <tr class="${isPaid ? 'row-paid' : ''}">
+          <td class="mono">${i.invoice}</td>
+          <td class="num">${fmt$(i.amount)}</td>
+          <td class="num">${i.outstanding > 0 ? fmt$(i.outstanding) : '<span class="text-muted">—</span>'}</td>
+          <td>${isPaid
+            ? '<span class="badge badge--ok">Paid</span>'
+            : i.days_overdue > 0
+              ? `<span class="badge badge--${i.days_overdue > 30 ? 'danger' : 'warning'}">${i.days_overdue}d overdue</span>`
+              : '<span class="badge badge--ok">Current</span>'}</td>
+          <td>${i.status}${payBtn}</td>
+        </tr>`;
+    }).join('');
     invHtml = `
       <table class="data-table">
-        <thead><tr><th>Invoice</th><th class="num">Amount</th><th class="num">Outstanding</th><th>Overdue</th><th>Status</th></tr></thead>
+        <thead><tr><th>Invoice</th><th class="num">Amount</th><th class="num">Outstanding</th><th>Age</th><th>Status</th></tr></thead>
         <tbody>${rows}</tbody>
       </table>`;
   }
@@ -231,9 +239,58 @@ function closeDetail() {
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDetail(); });
 
 // ---------------------------------------------------------------------------
+// Payment modal
+// ---------------------------------------------------------------------------
+
+let _payInvoice = '';
+
+function openPayment(invoice, outstanding) {
+  _payInvoice = invoice;
+  document.getElementById('pay-invoice-label').textContent = invoice;
+  document.getElementById('pay-amount').value  = outstanding.toFixed(2);
+  document.getElementById('pay-note').value    = '';
+  document.getElementById('pay-error').textContent = '';
+  document.getElementById('pay-modal').classList.add('open');
+  document.getElementById('pay-amount').focus();
+  document.getElementById('pay-amount').select();
+}
+
+function closePayModal() {
+  document.getElementById('pay-modal').classList.remove('open');
+}
+
+async function submitPayment() {
+  const amount = parseFloat(document.getElementById('pay-amount').value);
+  const note   = document.getElementById('pay-note').value.trim();
+  const errEl  = document.getElementById('pay-error');
+  if (!amount || amount <= 0) { errEl.textContent = 'Enter a valid amount.'; return; }
+
+  const btn = document.querySelector('#pay-modal .btn-primary');
+  btn.disabled = true;
+  btn.textContent = 'Saving…';
+
+  const res = await apiFetch('/ar/payment', {
+    method: 'POST',
+    body: JSON.stringify({ invoice: _payInvoice, paid_amount: amount, note }),
+  });
+
+  btn.disabled = false;
+  btn.textContent = 'Record Payment';
+
+  if (res?.success) {
+    closePayModal();
+    loadClients(); // refresh list
+  } else {
+    errEl.textContent = res?.error || 'Payment failed.';
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
 function fmt$(n) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n);
 }
+
+function escA(s) { return String(s || '').replace(/'/g, "\\'"); }

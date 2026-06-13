@@ -200,6 +200,34 @@
       .controls-bar { flex-direction: column; align-items: flex-start; }
       .search-input { width: 100%; }
     }
+
+    /* Payment button + modal */
+    .btn-pay {
+      margin-left: 8px; padding: 2px 9px; font-size: 11px; font-weight: 600;
+      background: var(--navy); color: white; border: none; border-radius: 4px;
+      cursor: pointer; vertical-align: middle;
+    }
+    .btn-pay:hover { background: #2E3D52; }
+    tr.row-paid td { color: var(--text-3); }
+
+    .pay-modal-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,.4); z-index: 600;
+      align-items: center; justify-content: center;
+    }
+    .pay-modal-overlay.open { display: flex; }
+    .pay-modal {
+      background: white; border-radius: 12px; padding: 28px;
+      width: 380px; max-width: 92vw;
+      box-shadow: 0 8px 32px rgba(0,0,0,.18);
+    }
+    .pay-modal h3 { font-size: 16px; font-weight: 700; color: var(--navy); margin-bottom: 4px; }
+    .pay-modal .inv-id { font-size: 12px; color: var(--text-2); margin-bottom: 18px; font-family: monospace; }
+    .pay-field { margin-bottom: 14px; }
+    .pay-field label { display: block; font-size: 12px; font-weight: 600; color: var(--text-2); margin-bottom: 4px; }
+    .pay-field input { width: 100%; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 14px; box-sizing: border-box; }
+    .pay-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 18px; }
+    .pay-error { font-size: 12px; color: #C0392B; margin-top: 6px; }
   </style>
 </head>
 <body>
@@ -307,6 +335,27 @@
     <button class="detail-close" onclick="closeDetail()">×</button>
   </div>
   <div class="detail-body" id="detail-body"></div>
+</div>
+
+<!-- Payment modal -->
+<div class="pay-modal-overlay" id="pay-modal">
+  <div class="pay-modal">
+    <h3>Record Payment</h3>
+    <div class="inv-id" id="pay-invoice-label"></div>
+    <div class="pay-field">
+      <label>Amount Received ($)</label>
+      <input type="number" id="pay-amount" min="0.01" step="0.01" placeholder="0.00">
+    </div>
+    <div class="pay-field">
+      <label>Note (optional)</label>
+      <input type="text" id="pay-note" placeholder="e.g. ACH received 6/13">
+    </div>
+    <div class="pay-error" id="pay-error"></div>
+    <div class="pay-actions">
+      <button class="btn-sm" onclick="closePayModal()">Cancel</button>
+      <button class="btn-sm btn-primary" onclick="submitPayment()">Record Payment</button>
+    </div>
+  </div>
 </div>
 
 <script src="js/auth.js"></script>
