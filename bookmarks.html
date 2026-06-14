@@ -78,6 +78,12 @@
       width: 100%;
     }
   </style>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#1B2A3F">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="LAC">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
 </head>
 <body>
 
@@ -88,6 +94,7 @@
       <a class="nav-link" href="index.html">Briefing</a>
       <a class="nav-link" href="bi.html">Analytics</a>
       <a class="nav-link" href="clients.html">Clients</a>
+      <a class="nav-link" href="engagement.html">Pipeline</a>
       <a class="nav-link" href="forecast.html">Forecast</a>
       <a class="nav-link" href="budget.html">Budget</a>
       <a class="nav-link" href="financials.html">Financials</a>
@@ -96,6 +103,9 @@
       <a class="nav-link" href="activity.html">Activity</a>
       <a class="nav-link" href="drive.html">Drive</a>
       <a class="nav-link" href="audit-tools.html">Audit Tools</a>
+      <a class="nav-link" href="ai.html">AI</a>
+      <a class="nav-link" href="pdf.html">PDF Tools</a>
+      <a class="nav-link" href="signatures.html">Signatures</a>
       <a class="nav-link" href="https://clients.lobelaccountancy.com" target="_blank" rel="noopener">Client Portal ↗</a>
       <a class="nav-link nav-link--active" href="bookmarks.html">Bookmarks</a>
     </div>
@@ -161,6 +171,12 @@
   if (!requireAuth()) { /* redirected */ } else {
     const p = jwtPayload(getJWT());
     document.getElementById('nav-user').textContent = (p?.email || '').split('@')[0];
+  }
+</script>
+<script src="js/chat.js"></script>
+<script>
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js');
   }
 </script>
 </body>

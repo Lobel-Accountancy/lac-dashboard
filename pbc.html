@@ -67,6 +67,12 @@
     .archived-banner { background:#FEF3C7; border:1px solid #F59E0B; border-radius:8px;
       padding:10px 16px; font-size:13px; color:#92400E; margin-bottom:16px; }
   </style>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#1B2A3F">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="LAC">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
 </head>
 <body>
 <nav class="nav">
@@ -75,9 +81,13 @@
     <div class="nav-links">
       <a class="nav-link" href="index.html">Briefing</a>
       <a class="nav-link" href="clients.html">Clients</a>
+      <a class="nav-link" href="engagement.html">Pipeline</a>
       <a class="nav-link active" href="pbc.html">PBC</a>
       <a class="nav-link" href="docs.html">Documents</a>
       <a class="nav-link" href="budget.html">Budget</a>
+    <a class="nav-link" href="ai.html">AI</a>
+      <a class="nav-link" href="pdf.html">PDF Tools</a>
+      <a class="nav-link" href="signatures.html">Signatures</a>
     </div>
   </div>
   <div class="nav-right">
@@ -567,6 +577,12 @@ async function archiveEngagement() {
 
 function escHtml(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 function escAttr(s) { return String(s||'').replace(/'/g,"\\'").replace(/"/g,'&quot;'); }
+</script>
+<script src="js/chat.js"></script>
+<script>
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js');
+  }
 </script>
 </body>
 </html>

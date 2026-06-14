@@ -133,6 +133,12 @@
     }
     .btn-refresh-sm:hover { color: var(--navy); }
   </style>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#1B2A3F">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="LAC">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
 </head>
 <body>
 
@@ -143,6 +149,7 @@
     <a class="nav-link" href="index.html">Briefing</a>
     <a class="nav-link" href="bi.html">Analytics</a>
     <a class="nav-link" href="clients.html">Clients</a>
+      <a class="nav-link" href="engagement.html">Pipeline</a>
     <a class="nav-link" href="forecast.html">Forecast</a>
     <a class="nav-link" href="budget.html">Budget</a>
     <a class="nav-link active" href="docs.html">Documents</a>
@@ -150,6 +157,9 @@
       <a class="nav-link" href="activity.html">Activity</a>
       <a class="nav-link" href="drive.html">Drive</a>
       <a class="nav-link" href="audit-tools.html">Audit Tools</a>
+      <a class="nav-link" href="ai.html">AI</a>
+      <a class="nav-link" href="pdf.html">PDF Tools</a>
+      <a class="nav-link" href="signatures.html">Signatures</a>
       <a class="nav-link" href="https://clients.lobelaccountancy.com" target="_blank" rel="noopener">Client Portal ↗</a>
       <a class="nav-link" href="bookmarks.html">Bookmarks</a>
     </div>
@@ -432,6 +442,12 @@ function showToast(msg, type = 'default') {
   t.classList.add('show');
   setTimeout(() => t.classList.remove('show'), 4000);
 }
+</script>
+<script src="js/chat.js"></script>
+<script>
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js');
+  }
 </script>
 </body>
 </html>

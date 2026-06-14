@@ -117,7 +117,9 @@ function renderEmails(emails) {
           <div class="email-snippet collapsed" id="snippet-${i}">${escHtml(e.snippet)}</div>
           <div class="reply-row" id="reply-row-${i}" hidden>
             <button class="btn-reply" onclick="event.stopPropagation();openReply(${i})">↩ Reply</button>
+            <button class="btn-ai-sm" id="summarize-btn-${i}" onclick="event.stopPropagation();summarizeEmail(${i})">✦ Summarize</button>
           </div>
+          <div class="email-ai-summary" id="ai-summary-${i}" hidden></div>
         </div>
       </div>`;
   }).join('');
@@ -136,9 +138,12 @@ function toggleEmail(i) {
 // Reply modal
 // ---------------------------------------------------------------------------
 
+let _replyEmailIndex = -1;
+
 function openReply(i) {
   const e = emailData[i];
   if (!e) return;
+  _replyEmailIndex = i;
 
   const toAddr  = e.reply_to || e.from_email;
   const subject = e.subject.toLowerCase().startsWith('re:') ? e.subject : `Re: ${e.subject}`;
@@ -150,8 +155,9 @@ function openReply(i) {
   document.getElementById('reply-error').textContent = '';
   document.getElementById('reply-send-btn').disabled = false;
   document.getElementById('reply-send-btn').textContent = 'Send';
+  const draftBtn = document.getElementById('draft-btn');
+  if (draftBtn) { draftBtn.disabled = false; draftBtn.textContent = '✦ Draft Reply'; }
 
-  // Place cursor at start so user types above signature
   const ta = document.getElementById('reply-body');
   ta.focus();
   ta.setSelectionRange(0, 0);
@@ -200,6 +206,57 @@ document.addEventListener('DOMContentLoaded', () => {
     if (e.target === e.currentTarget) closeReply();
   });
 });
+
+async function summarizeEmail(i) {
+  const e = emailData[i];
+  if (!e) return;
+  const btn = document.getElementById(`summarize-btn-${i}`);
+  const box = document.getElementById(`ai-summary-${i}`);
+  btn.disabled = true;
+  btn.textContent = '✦ …';
+  box.hidden = false;
+  box.className = 'email-ai-summary loading';
+  box.textContent = 'Summarizing…';
+  try {
+    const data = await apiFetch('/email/summarize', {
+      method: 'POST',
+      body: JSON.stringify({ subject: e.subject, from_name: e.from_name, body: e.body || e.snippet }),
+    });
+    box.className = 'email-ai-summary';
+    box.textContent = data.summary || 'No summary returned.';
+    btn.textContent = '✦ Summarized';
+  } catch (err) {
+    box.className = 'email-ai-summary error';
+    box.textContent = 'Summary failed: ' + (err.message || 'error');
+    btn.disabled = false;
+    btn.textContent = '✦ Summarize';
+  }
+}
+
+async function draftReply(i) {
+  const e = emailData[i];
+  if (!e) return;
+  const btn = document.getElementById('draft-btn');
+  btn.disabled = true;
+  btn.textContent = '✦ Drafting…';
+  try {
+    const data = await apiFetch('/email/draft', {
+      method: 'POST',
+      body: JSON.stringify({ subject: e.subject, from_name: e.from_name, body: e.body || e.snippet }),
+    });
+    const ta = document.getElementById('reply-body');
+    const draft = (data.draft || '').trim();
+    ta.value = draft + SIGNATURE;
+    ta.focus();
+    ta.setSelectionRange(0, 0);
+    ta.scrollTop = 0;
+  } catch (err) {
+    document.getElementById('reply-error').textContent = 'Draft failed: ' + (err.message || 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '✦ Draft Reply';
+  }
+}
 
 function escHtml(str) {
   return (str || '')

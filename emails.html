@@ -293,7 +293,56 @@
       cursor: pointer;
     }
     .btn-cancel:hover { background: var(--muted-bg); }
+
+    /* ---- AI buttons ---- */
+    .btn-ai-sm {
+      background: none;
+      border: 1px solid var(--blue, #2E6DA4);
+      border-radius: 4px;
+      padding: 4px 10px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--blue, #2E6DA4);
+      cursor: pointer;
+      transition: background .15s, color .15s;
+    }
+    .btn-ai-sm:hover:not(:disabled) { background: var(--blue, #2E6DA4); color: #fff; }
+    .btn-ai-sm:disabled { opacity: .5; cursor: default; }
+
+    .email-ai-summary {
+      margin-top: 10px;
+      padding: 10px 12px;
+      background: #EEF5FF;
+      border-left: 3px solid var(--blue, #2E6DA4);
+      border-radius: 4px;
+      font-size: 12px;
+      color: var(--text);
+      line-height: 1.6;
+      white-space: pre-wrap;
+    }
+    .email-ai-summary.loading { color: var(--text-3); font-style: italic; }
+    .email-ai-summary.error { background: var(--danger-bg); border-color: var(--danger); color: var(--danger); }
+
+    .btn-draft {
+      background: none;
+      border: 1px solid var(--blue, #2E6DA4);
+      border-radius: 4px;
+      padding: 7px 14px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--blue, #2E6DA4);
+      cursor: pointer;
+      transition: background .15s, color .15s;
+    }
+    .btn-draft:hover:not(:disabled) { background: var(--blue, #2E6DA4); color: #fff; }
+    .btn-draft:disabled { opacity: .5; cursor: default; }
   </style>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#1B2A3F">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="LAC">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
 </head>
 <body>
 
@@ -304,6 +353,7 @@
       <a class="nav-link" href="index.html">Briefing</a>
       <a class="nav-link" href="bi.html">Analytics</a>
       <a class="nav-link" href="clients.html">Clients</a>
+      <a class="nav-link" href="engagement.html">Pipeline</a>
       <a class="nav-link" href="forecast.html">Forecast</a>
       <a class="nav-link" href="budget.html">Budget</a>
       <a class="nav-link" href="financials.html">Financials</a>
@@ -312,6 +362,9 @@
       <a class="nav-link" href="activity.html">Activity</a>
       <a class="nav-link" href="drive.html">Drive</a>
       <a class="nav-link" href="audit-tools.html">Audit Tools</a>
+      <a class="nav-link" href="ai.html">AI</a>
+      <a class="nav-link" href="pdf.html">PDF Tools</a>
+      <a class="nav-link" href="signatures.html">Signatures</a>
       <a class="nav-link" href="https://clients.lobelaccountancy.com" target="_blank" rel="noopener">Client Portal ↗</a>
       <a class="nav-link" href="bookmarks.html">Bookmarks</a>
     </div>
@@ -369,7 +422,8 @@
     <input type="hidden" id="reply-message-id">
     <div class="modal-footer">
       <span class="modal-error" id="reply-error"></span>
-      <div style="display:flex;gap:8px;">
+      <div style="display:flex;gap:8px;align-items:center;">
+        <button class="btn-draft" id="draft-btn" onclick="draftReply(_replyEmailIndex)">✦ Draft Reply</button>
         <button class="btn-cancel" onclick="closeReply()">Cancel</button>
         <button class="btn-send" id="reply-send-btn" onclick="sendReply()">Send</button>
       </div>
@@ -379,5 +433,11 @@
 
 <script src="js/auth.js"></script>
 <script src="js/emails.js"></script>
+<script src="js/chat.js"></script>
+<script>
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js');
+  }
+</script>
 </body>
 </html>

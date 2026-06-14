@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <link rel="icon" type="image/jpeg" href="favicon.jpg">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LAC Engagement Pipeline</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .eng-wrap { padding: 28px 32px; }
+    .eng-header { display: flex; align-items: center; gap: 16px; margin-bottom: 24px; }
+    .eng-header h1 { font-size: 20px; font-weight: 600; color: var(--text-1); margin: 0; }
+    .template-row { display: flex; align-items: center; gap: 10px; margin-left: auto; }
+    .template-row label { font-size: 13px; color: var(--text-3); }
+    .template-select {
+      background: var(--card);
+      border: 1px solid var(--border);
+      color: var(--text-1);
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 13px;
+      min-width: 220px;
+    }
+    .eng-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .eng-table th {
+      text-align: left;
+      padding: 8px 12px;
+      color: var(--text-3);
+      font-weight: 500;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+    .eng-table td {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+      color: var(--text-1);
+      vertical-align: middle;
+    }
+    .eng-table tr:hover td { background: var(--card-hover, rgba(255,255,255,.03)); }
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 500;
+    }
+    .badge-engaged  { background: #1e3a2f; color: #4ade80; }
+    .badge-prospect { background: #1e2a3a; color: #60a5fa; }
+    .badge-complete { background: #1e2a1e; color: #86efac; }
+    .badge-lost     { background: #2a1e1e; color: #f87171; }
+    .badge-default  { background: var(--card); color: var(--text-2); }
+    .btn-send {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      padding: 5px 13px;
+      border-radius: 6px;
+      font-size: 12px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .btn-send:disabled { opacity: .5; cursor: not-allowed; }
+    .btn-send.sending  { opacity: .7; }
+    .send-status { font-size: 11px; margin-top: 3px; }
+    .send-status.ok  { color: #4ade80; }
+    .send-status.err { color: #f87171; }
+    .no-template-msg {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px 20px;
+      color: var(--text-2);
+      font-size: 13px;
+      margin-bottom: 20px;
+    }
+    .no-template-msg a { color: var(--accent); }
+  </style>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#1B2A3F">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="LAC">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-left">
+    <div class="nav-brand">LAC</div>
+    <div class="nav-links">
+      <a class="nav-link" href="index.html">Briefing</a>
+      <a class="nav-link" href="bi.html">Analytics</a>
+      <a class="nav-link" href="clients.html">Clients</a>
+      <a class="nav-link active" href="engagement.html">Pipeline</a>
+      <a class="nav-link" href="forecast.html">Forecast</a>
+      <a class="nav-link" href="budget.html">Budget</a>
+      <a class="nav-link" href="financials.html">Financials</a>
+      <a class="nav-link" href="docs.html">Documents</a>
+      <a class="nav-link" href="emails.html">Emails</a>
+      <a class="nav-link" href="activity.html">Activity</a>
+      <a class="nav-link" href="drive.html">Drive</a>
+      <a class="nav-link" href="audit-tools.html">Audit Tools</a>
+      <a class="nav-link" href="ai.html">AI</a>
+      <a class="nav-link" href="pdf.html">PDF Tools</a>
+      <a class="nav-link" href="signatures.html">Signatures</a>
+      <a class="nav-link" href="https://clients.lobelaccountancy.com" target="_blank" rel="noopener">Client Portal ↗</a>
+      <a class="nav-link" href="bookmarks.html">Bookmarks</a>
+    </div>
+  </div>
+  <div class="nav-right">
+    <span class="nav-user" id="nav-user"></span>
+    <button class="nav-logout" onclick="logout()">Sign out</button>
+  </div>
+</nav>
+
+<div class="main">
+<div class="eng-wrap">
+  <div class="eng-header">
+    <h1>Engagement Pipeline</h1>
+    <div class="template-row">
+      <label for="tpl-select">Engagement Letter Template:</label>
+      <select id="tpl-select" class="template-select">
+        <option value="">Loading templates…</option>
+      </select>
+    </div>
+  </div>
+
+  <div id="no-template-msg" class="no-template-msg" style="display:none">
+    No engagement letter template found. Go to
+    <a href="signatures.html">Signatures</a>, upload your engagement letter PDF,
+    place the signature and field placeholders, then save it as a template.
+    The template will appear in the dropdown above.
+  </div>
+
+  <div id="loading" style="color:var(--text-3);font-size:13px;">Loading pipeline…</div>
+  <div id="table-wrap" style="display:none">
+    <table class="eng-table" id="eng-table">
+      <thead>
+        <tr>
+          <th>Client</th>
+          <th>Type</th>
+          <th>Entity</th>
+          <th>Stage</th>
+          <th>Fee</th>
+          <th>FYE</th>
+          <th>Issue Date</th>
+          <th>Email</th>
+          <th>Send Letter</th>
+        </tr>
+      </thead>
+      <tbody id="eng-body"></tbody>
+    </table>
+  </div>
+</div>
+</div>
+
+<script src="js/auth.js"></script>
+<script src="js/chat.js"></script>
+<script>
+let _engagements = [];
+let _templates   = [];
+
+async function loadTemplates() {
+  try {
+    const data = await apiFetch('/engagement/templates');
+    _templates = Array.isArray(data) ? data : [];
+    const sel = document.getElementById('tpl-select');
+    if (_templates.length === 0) {
+      sel.innerHTML = '<option value="">No templates — create one in Signatures</option>';
+      document.getElementById('no-template-msg').style.display = '';
+    } else {
+      sel.innerHTML = _templates.map(t =>
+        `<option value="${t.id}">${t.name}</option>`
+      ).join('');
+      document.getElementById('no-template-msg').style.display = 'none';
+    }
+  } catch (e) {
+    document.getElementById('tpl-select').innerHTML = '<option value="">Error loading templates</option>';
+  }
+}
+
+async function loadEngagements() {
+  try {
+    const data = await apiFetch('/engagement/list');
+    _engagements = Array.isArray(data) ? data : [];
+    renderTable();
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('table-wrap').style.display = '';
+  } catch (e) {
+    document.getElementById('loading').textContent = 'Error loading pipeline: ' + e.message;
+  }
+}
+
+function stageBadge(stage) {
+  const s = (stage || '').toLowerCase();
+  const cls = s === 'engaged'  ? 'badge-engaged'  :
+              s === 'prospect' ? 'badge-prospect' :
+              s === 'complete' ? 'badge-complete' :
+              s === 'lost'     ? 'badge-lost'     : 'badge-default';
+  return `<span class="badge ${cls}">${stage || '—'}</span>`;
+}
+
+function renderTable() {
+  const tbody = document.getElementById('eng-body');
+  if (_engagements.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="9" style="color:var(--text-3);padding:20px">No engagements found</td></tr>';
+    return;
+  }
+  tbody.innerHTML = _engagements.map((e, i) => `
+    <tr>
+      <td><strong>${e.client}</strong><br><small style="color:var(--text-3)">${e.client_title || ''}</small></td>
+      <td>${e.eng_type || '—'}</td>
+      <td>${e.entity_type || '—'}</td>
+      <td>${stageBadge(e.stage)}</td>
+      <td>${e.fee ? '$' + e.fee.toLocaleString('en-US', {minimumFractionDigits:2}) : '—'}</td>
+      <td>${e.fye || '—'}</td>
+      <td>${e.issue_date || '—'}</td>
+      <td>${e.email ? `<a href="mailto:${e.email}" style="color:var(--accent)">${e.email}</a>` : '<span style="color:var(--text-3)">—</span>'}</td>
+      <td>
+        <button class="btn-send" id="send-btn-${i}"
+          onclick="sendLetter(${i})"
+          ${!e.email ? 'disabled title="No email on file"' : ''}>
+          Send Letter
+        </button>
+        <div class="send-status" id="send-status-${i}"></div>
+      </td>
+    </tr>
+  `).join('');
+}
+
+async function sendLetter(idx) {
+  const e = _engagements[idx];
+  const templateId = document.getElementById('tpl-select').value;
+  if (!templateId) {
+    alert('Please select an engagement letter template first.');
+    return;
+  }
+  if (!e.email) {
+    alert('No email address on file for this client.');
+    return;
+  }
+  const btn    = document.getElementById(`send-btn-${idx}`);
+  const status = document.getElementById(`send-status-${idx}`);
+  btn.disabled = true;
+  btn.classList.add('sending');
+  btn.textContent = 'Sending…';
+  status.textContent = '';
+  status.className = 'send-status';
+  try {
+    const res = await apiFetch('/engagement/send-letter', {
+      method: 'POST',
+      body: JSON.stringify({ client: e.client, template_id: parseInt(templateId) })
+    });
+    if (res.ok) {
+      btn.textContent = '✓ Sent';
+      status.textContent = 'Email sent to ' + e.email;
+      status.className = 'send-status ok';
+    } else {
+      throw new Error(res.error || 'Unknown error');
+    }
+  } catch (err) {
+    btn.disabled = false;
+    btn.classList.remove('sending');
+    btn.textContent = 'Send Letter';
+    status.textContent = err.message;
+    status.className = 'send-status err';
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  if (!requireAuth()) return;
+  const payload = jwtPayload(getJWT());
+  document.getElementById('nav-user').textContent = (payload?.email || '').split('@')[0];
+  Promise.all([loadTemplates(), loadEngagements()]);
+});
+</script>
+<script>
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js');
+  }
+</script>
+</body>
+</html>
