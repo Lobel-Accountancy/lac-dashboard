@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <link rel="icon" type="image/jpeg" href="favicon.jpg">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LAC Audit Tools</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .at-layout {
+      display: grid;
+      grid-template-columns: 340px 1fr;
+      gap: 24px;
+      align-items: start;
+    }
+    @media (max-width: 860px) {
+      .at-layout { grid-template-columns: 1fr; }
+    }
+
+    /* ---- Upload zone ---- */
+    .drop-zone {
+      border: 2px dashed var(--border);
+      border-radius: 10px;
+      padding: 32px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+      background: #FAFBFC;
+    }
+    .drop-zone:hover, .drop-zone.drag-over {
+      border-color: var(--navy);
+      background: #F0F4FF;
+    }
+    .drop-zone-icon { font-size: 32px; margin-bottom: 8px; color: #8BA7C4; }
+    .drop-zone-label { font-size: 14px; color: #5A7A99; font-weight: 500; }
+    .drop-zone-sub   { font-size: 12px; color: #8BA7C4; margin-top: 4px; }
+
+    .file-list { margin-top: 14px; display: flex; flex-direction: column; gap: 6px; }
+    .file-chip {
+      display: flex; align-items: center; gap: 8px;
+      background: white; border: 1px solid var(--border);
+      border-radius: 6px; padding: 7px 10px; font-size: 13px;
+    }
+    .file-chip-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .file-chip-remove {
+      cursor: pointer; color: #C0392B; font-weight: 700; font-size: 16px;
+      line-height: 1; flex-shrink: 0;
+    }
+    .file-chip-remove:hover { color: #922B21; }
+    .file-icon { font-size: 16px; flex-shrink: 0; }
+
+    /* ---- Mode tabs ---- */
+    .mode-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
+    .mode-tab {
+      padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 600;
+      cursor: pointer; border: 1.5px solid var(--border);
+      background: white; color: #5A7A99; transition: all 0.12s;
+    }
+    .mode-tab:hover { border-color: var(--navy); color: var(--navy); }
+    .mode-tab.active {
+      background: var(--navy); color: white; border-color: var(--navy);
+    }
+    .mode-desc {
+      font-size: 12px; color: #8BA7C4; margin-bottom: 10px; min-height: 32px;
+    }
+
+    /* ---- Prompt + search ---- */
+    .at-textarea {
+      width: 100%; border: 1.5px solid var(--border); border-radius: 8px;
+      padding: 10px 12px; font-size: 14px; font-family: inherit;
+      resize: vertical; min-height: 80px; box-sizing: border-box;
+      transition: border-color 0.12s;
+    }
+    .at-textarea:focus { outline: none; border-color: var(--navy); }
+    .at-input {
+      width: 100%; border: 1.5px solid var(--border); border-radius: 8px;
+      padding: 10px 12px; font-size: 14px; font-family: inherit;
+      box-sizing: border-box; transition: border-color 0.12s;
+    }
+    .at-input:focus { outline: none; border-color: var(--navy); }
+
+    .at-btn {
+      width: 100%; padding: 11px; background: var(--navy); color: white;
+      border: none; border-radius: 8px; font-size: 14px; font-weight: 600;
+      cursor: pointer; transition: opacity 0.12s; margin-top: 10px;
+    }
+    .at-btn:hover { opacity: 0.88; }
+    .at-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .at-btn-secondary {
+      width: 100%; padding: 9px; background: white; color: var(--navy);
+      border: 1.5px solid var(--navy); border-radius: 8px; font-size: 13px;
+      font-weight: 600; cursor: pointer; transition: all 0.12s; margin-top: 8px;
+    }
+    .at-btn-secondary:hover { background: #F0F4FF; }
+
+    /* ---- Status bar ---- */
+    .at-status {
+      font-size: 12px; color: #8BA7C4; text-align: center; margin-top: 8px;
+      min-height: 16px;
+    }
+    .at-status.running { color: var(--navy); }
+    .at-status.error   { color: #C0392B; }
+
+    /* ---- Results panel ---- */
+    .results-panel { display: flex; flex-direction: column; gap: 16px; }
+
+    .result-card {
+      background: white; border: 1px solid var(--border); border-radius: 10px;
+      overflow: hidden;
+    }
+    .result-card-header {
+      padding: 12px 18px; background: var(--navy); color: white;
+      font-size: 13px; font-weight: 600; display: flex; align-items: center;
+      gap: 8px;
+    }
+    .result-card-body { padding: 16px 18px; }
+
+    .ai-response {
+      font-size: 14px; line-height: 1.7; white-space: pre-wrap;
+      color: #1B2A4A;
+    }
+
+    .search-hit {
+      background: #FFFBEA; border-left: 3px solid #F39C12;
+      padding: 8px 12px; border-radius: 0 6px 6px 0;
+      font-size: 13px; font-family: monospace; margin-bottom: 6px;
+    }
+    .search-hit-line { font-size: 11px; color: #8BA7C4; margin-bottom: 2px; }
+
+    .doc-preview {
+      background: #F8F9FA; border: 1px solid var(--border); border-radius: 6px;
+      padding: 12px; font-size: 12px; font-family: monospace;
+      max-height: 200px; overflow-y: auto; white-space: pre-wrap;
+    }
+
+    .doc-summary-list { display: flex; flex-direction: column; gap: 6px; }
+    .doc-summary-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px 12px; background: #F8F9FA; border-radius: 6px;
+      font-size: 13px;
+    }
+    .doc-summary-name { flex: 1; font-weight: 500; }
+    .doc-summary-chars { font-size: 12px; color: #8BA7C4; }
+    .doc-summary-expand {
+      font-size: 12px; color: var(--navy); cursor: pointer; font-weight: 600;
+    }
+    .doc-text-expanded {
+      margin-top: 8px; display: none;
+    }
+
+    .empty-results {
+      text-align: center; padding: 60px 20px; color: #8BA7C4; font-size: 14px;
+    }
+    .empty-results-icon { font-size: 40px; margin-bottom: 12px; opacity: 0.4; }
+
+    /* ---- Ollama badge ---- */
+    .ollama-badge {
+      display: inline-flex; align-items: center; gap: 5px;
+      font-size: 11px; color: #5A7A99; background: #F0F4FF;
+      border: 1px solid #C8D8F0; border-radius: 12px; padding: 3px 10px;
+      margin-bottom: 14px;
+    }
+    .ollama-dot {
+      width: 7px; height: 7px; border-radius: 50%; background: #8BA7C4;
+      flex-shrink: 0;
+    }
+    .ollama-dot.online  { background: #27AE60; }
+    .ollama-dot.offline { background: #C0392B; }
+
+    /* spinner */
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner {
+      width: 16px; height: 16px; border: 2px solid #C8D8F0;
+      border-top-color: var(--navy); border-radius: 50%;
+      animation: spin 0.7s linear infinite; display: inline-block;
+      vertical-align: middle; margin-right: 6px;
+    }
+  </style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-left">
+    <div class="nav-brand">LAC</div>
+    <div class="nav-links">
+      <a class="nav-link" href="index.html">Briefing</a>
+      <a class="nav-link" href="bi.html">Analytics</a>
+      <a class="nav-link" href="clients.html">Clients</a>
+      <a class="nav-link" href="forecast.html">Forecast</a>
+      <a class="nav-link" href="budget.html">Budget</a>
+      <a class="nav-link" href="financials.html">Financials</a>
+      <a class="nav-link" href="docs.html">Documents</a>
+      <a class="nav-link" href="emails.html">Emails</a>
+      <a class="nav-link" href="activity.html">Activity</a>
+      <a class="nav-link" href="drive.html">Drive</a>
+      <a class="nav-link active" href="audit-tools.html">Audit Tools</a>
+      <a class="nav-link" href="https://clients.lobelaccountancy.com" target="_blank" rel="noopener">Client Portal ↗</a>
+      <a class="nav-link" href="bookmarks.html">Bookmarks</a>
+    </div>
+  </div>
+  <div class="nav-right">
+    <span class="nav-user" id="nav-user"></span>
+    <button class="nav-logout" onclick="logout()">Sign out</button>
+  </div>
+</nav>
+
+<main class="main">
+  <div class="greeting">Audit Tools</div>
+  <div class="date-line">Upload documents and run extraction, cross-referencing, footing checks, or AI-assisted analysis — all processed on the server.</div>
+
+  <div class="at-layout" style="margin-top:24px;">
+
+    <!-- ---- Left panel: controls ---- -->
+    <div>
+
+      <!-- Ollama status badge -->
+      <div class="ollama-badge">
+        <span class="ollama-dot" id="ollama-dot"></span>
+        <span id="ollama-label">Checking local AI…</span>
+      </div>
+
+      <!-- Drop zone -->
+      <div class="drop-zone" id="drop-zone" onclick="document.getElementById('file-input').click()">
+        <div class="drop-zone-icon">&#128196;</div>
+        <div class="drop-zone-label">Drop files here or click to browse</div>
+        <div class="drop-zone-sub">PDF, Excel, CSV, TXT — up to 50 MB total</div>
+      </div>
+      <input type="file" id="file-input" multiple accept=".pdf,.xlsx,.xls,.xlsm,.csv,.txt" style="display:none">
+      <div class="file-list" id="file-list"></div>
+
+      <!-- Mode selector -->
+      <div style="margin-top:20px; margin-bottom:6px; font-size:12px; font-weight:600; color:#5A7A99; letter-spacing:.04em; text-transform:uppercase;">Analysis Mode</div>
+      <div class="mode-tabs">
+        <div class="mode-tab active" data-mode="ask" onclick="setMode('ask')">Ask</div>
+        <div class="mode-tab" data-mode="extract" onclick="setMode('extract')">Extract</div>
+        <div class="mode-tab" data-mode="crossref" onclick="setMode('crossref')">Cross-Ref</div>
+        <div class="mode-tab" data-mode="footing" onclick="setMode('footing')">Footing</div>
+        <div class="mode-tab" data-mode="search" onclick="setMode('search')">Search</div>
+      </div>
+      <div class="mode-desc" id="mode-desc"></div>
+
+      <!-- Prompt / search input -->
+      <div id="prompt-area">
+        <textarea class="at-textarea" id="prompt-input" placeholder="Enter your question or instruction…"></textarea>
+      </div>
+      <div id="search-area" style="display:none;">
+        <input class="at-input" id="search-input" placeholder="Enter value or term to find, e.g. 12,450.00">
+      </div>
+
+      <!-- Action buttons -->
+      <button class="at-btn" id="run-btn" onclick="runAnalysis()">Run Analysis</button>
+      <button class="at-btn-secondary" id="extract-btn" onclick="extractOnly()">Extract Text Only</button>
+
+      <div class="at-status" id="at-status"></div>
+    </div>
+
+    <!-- ---- Right panel: results ---- -->
+    <div class="results-panel" id="results-panel">
+      <div class="empty-results">
+        <div class="empty-results-icon">&#128270;</div>
+        Upload documents and choose a mode to begin.
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<script src="js/auth.js"></script>
+<script src="js/audit-tools.js"></script>
+</body>
+</html>
