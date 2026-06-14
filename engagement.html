@@ -74,6 +74,20 @@
       margin-bottom: 20px;
     }
     .no-template-msg a { color: var(--accent); }
+    .btn-upload-tpl {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text-2);
+      padding: 5px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .btn-upload-tpl:hover { border-color: var(--accent); color: var(--accent); }
+    .upload-status { font-size: 12px; margin-left: 8px; color: var(--text-3); }
+    .upload-status.ok  { color: #4ade80; }
+    .upload-status.err { color: #f87171; }
   </style>
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#1B2A3F">
@@ -102,7 +116,7 @@
       <a class="nav-link" href="audit-tools.html">Audit Tools</a>
       <a class="nav-link" href="ai.html">AI</a>
       <a class="nav-link" href="pdf.html">PDF Tools</a>
-      <a class="nav-link" href="signatures.html">Signatures</a>
+      <a class="nav-link" href="docuseal.html">DocuSeal</a>
       <a class="nav-link" href="https://clients.lobelaccountancy.com" target="_blank" rel="noopener">Client Portal ↗</a>
       <a class="nav-link" href="bookmarks.html">Bookmarks</a>
     </div>
@@ -122,12 +136,17 @@
       <select id="tpl-select" class="template-select">
         <option value="">Loading templates…</option>
       </select>
+      <input type="file" id="tpl-file-input" accept=".docx,.doc,.pdf,.odt,.rtf" style="display:none">
+      <button class="btn-upload-tpl" onclick="document.getElementById('tpl-file-input').click()">
+        Upload Template (.docx / .pdf)
+      </button>
+      <span class="upload-status" id="upload-status"></span>
     </div>
   </div>
 
   <div id="no-template-msg" class="no-template-msg" style="display:none">
     No engagement letter template found. Go to
-    <a href="signatures.html">Signatures</a>, upload your engagement letter PDF,
+    <a href="docuseal.html">DocuSeal</a>, upload your engagement letter PDF,
     place the signature and field placeholders, then save it as a template.
     The template will appear in the dropdown above.
   </div>
@@ -160,13 +179,41 @@
 let _engagements = [];
 let _templates   = [];
 
+async function uploadTemplate(file) {
+  const statusEl = document.getElementById('upload-status');
+  statusEl.textContent = 'Converting & uploading…';
+  statusEl.className = 'upload-status';
+  try {
+    const fd = new FormData();
+    fd.append('file', file);
+    fd.append('name', file.name.replace(/\.[^.]+$/, ''));
+    const jwt = getJWT();
+    const res = await fetch('https://auth.lobelaccountancy.com/engagement/create-template', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${jwt}` },
+      body: fd
+    });
+    const data = await res.json();
+    if (!res.ok || !data.ok) throw new Error(data.error || 'Upload failed');
+    statusEl.textContent = `✓ "${data.name}" created — place fields then save`;
+    statusEl.className = 'upload-status ok';
+    // Open DocuSeal template editor in new tab
+    window.open(data.edit_url, '_blank');
+    // Reload templates after short delay
+    setTimeout(loadTemplates, 3000);
+  } catch (e) {
+    statusEl.textContent = e.message;
+    statusEl.className = 'upload-status err';
+  }
+}
+
 async function loadTemplates() {
   try {
     const data = await apiFetch('/engagement/templates');
     _templates = Array.isArray(data) ? data : [];
     const sel = document.getElementById('tpl-select');
     if (_templates.length === 0) {
-      sel.innerHTML = '<option value="">No templates — create one in Signatures</option>';
+      sel.innerHTML = '<option value="">No templates — upload one above</option>';
       document.getElementById('no-template-msg').style.display = '';
     } else {
       sel.innerHTML = _templates.map(t =>
@@ -272,6 +319,10 @@ document.addEventListener('DOMContentLoaded', () => {
   const payload = jwtPayload(getJWT());
   document.getElementById('nav-user').textContent = (payload?.email || '').split('@')[0];
   Promise.all([loadTemplates(), loadEngagements()]);
+  document.getElementById('tpl-file-input').addEventListener('change', e => {
+    if (e.target.files[0]) uploadTemplate(e.target.files[0]);
+    e.target.value = '';
+  });
 });
 </script>
 <script>
