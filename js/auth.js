@@ -2,6 +2,23 @@ const AUTH_URL = 'https://auth.lobelaccountancy.com';
 const JWT_KEY  = 'lac_jwt';
 
 // ---------------------------------------------------------------------------
+// Local network auto-login
+// Backend redirects here with auth.html#jwt=<token> when on the home LAN.
+// Save the token and redirect cleanly before any auth checks run.
+// ---------------------------------------------------------------------------
+
+(function () {
+  if (window.location.hash.startsWith('#jwt=')) {
+    const token = window.location.hash.slice(5);
+    if (token) {
+      localStorage.setItem(JWT_KEY, token);
+      // Redirect to dashboard home, stripping the fragment
+      window.location.replace('index.html');
+    }
+  }
+})();
+
+// ---------------------------------------------------------------------------
 // Test mode
 // ---------------------------------------------------------------------------
 

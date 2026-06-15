@@ -223,10 +223,17 @@
     <!-- ---- Left panel: controls ---- -->
     <div>
 
-      <!-- Ollama status badge -->
+      <!-- AI status badge -->
       <div class="ollama-badge">
         <span class="ollama-dot" id="ollama-dot"></span>
         <span id="ollama-label">Checking local AI…</span>
+      </div>
+
+      <!-- Engine selector -->
+      <div style="margin-top:10px; margin-bottom:4px; font-size:12px; font-weight:600; color:#5A7A99; letter-spacing:.04em; text-transform:uppercase;">AI Engine</div>
+      <div class="mode-tabs" id="engine-tabs">
+        <div class="mode-tab active" data-engine="ollama" onclick="setEngine('ollama')">Local (Llama)</div>
+        <div class="mode-tab" data-engine="claude" id="engine-claude-tab" onclick="setEngine('claude')">Claude</div>
       </div>
 
       <!-- Drop zone -->

@@ -13,6 +13,7 @@ const MODE_DESC = {
 let _files    = [];    // { file: File, id: number }
 let _fileId   = 0;
 let _mode     = 'ask';
+let _engine   = 'ollama';
 let _running  = false;
 
 // ---------------------------------------------------------------------------
@@ -48,6 +49,7 @@ document.addEventListener('DOMContentLoaded', () => {
 async function checkOllamaStatus() {
   const dot   = document.getElementById('ollama-dot');
   const label = document.getElementById('ollama-label');
+  const claudeTab = document.getElementById('engine-claude-tab');
   try {
     const data = await apiFetch('/audit-tools/ollama-status');
     if (data?.running) {
@@ -57,10 +59,23 @@ async function checkOllamaStatus() {
       dot.className   = 'ollama-dot offline';
       label.textContent = 'Local AI offline — search & extract still work';
     }
+    if (data?.claude_available) {
+      claudeTab.title = `${data.claude_model}`;
+    } else {
+      claudeTab.style.opacity = '0.45';
+      claudeTab.title = 'Set ANTHROPIC_API_KEY to enable Claude';
+    }
   } catch {
     dot.className   = 'ollama-dot offline';
     label.textContent = 'Local AI status unknown';
   }
+}
+
+function setEngine(engine) {
+  _engine = engine;
+  document.querySelectorAll('#engine-tabs .mode-tab').forEach(t => {
+    t.classList.toggle('active', t.dataset.engine === engine);
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -177,7 +192,9 @@ async function _runRequest(mode) {
       if (!prompt) { setStatus('Enter a prompt or question.', 'error'); return; }
       fd.append('prompt', prompt);
       fd.append('mode', mode);
-      setStatus('Analyzing with local AI — this may take 20–60 seconds…', 'running');
+      fd.append('engine', _engine);
+      const engineLabel = _engine === 'claude' ? 'Claude' : 'local AI';
+      setStatus(`Analyzing with ${engineLabel} — this may take 20–60 seconds…`, 'running');
       data = await apiFetchForm('/audit-tools/analyze', fd);
       renderAnalysisResult(data);
     }
@@ -267,7 +284,7 @@ function renderAnalysisResult(data) {
     <div class="result-card">
       <div class="result-card-header" style="justify-content:space-between;">
         <span>${modeIcon[data.mode]||'&#128269;'} ${modeLabel[data.mode]||'Result'}</span>
-        <span style="font-size:11px;opacity:0.75;font-weight:400;">llama3.2:3b · local</span>
+        <span style="font-size:11px;opacity:0.75;font-weight:400;">${data.engine === 'claude' ? 'claude-sonnet-4-6 · cloud' : 'llama3.2:3b · local'}</span>
       </div>
       <div class="result-card-body">
         <div style="font-size:11px;color:#8BA7C4;margin-bottom:10px;">Prompt: ${escHtml(data.prompt)}</div>
