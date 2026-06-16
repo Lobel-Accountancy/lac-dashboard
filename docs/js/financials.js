@@ -64,6 +64,15 @@ function valClass(v) {
   return '';
 }
 
+function dynamicLabel(label, v) {
+  const up = label.toUpperCase();
+  if (!up.includes('NET INCOME') && !up.includes('/ (LOSS)')) return label;
+  const isLoss = parseFloat(v) < 0;
+  if (up.includes('YTD'))  return isLoss ? 'Net Loss YTD'    : 'Net Income YTD';
+  if (up.includes('GAAP')) return isLoss ? 'Net Loss — GAAP' : 'Net Income — GAAP';
+  return isLoss ? 'Net Loss' : 'Net Income';
+}
+
 function buildTable(rows, month) {
   if (!rows || rows.length === 0) return '<div class="fin-empty">No data</div>';
 
@@ -79,7 +88,7 @@ function buildTable(rows, month) {
     } else if (isNetIncome) {
       const cls = v >= 0 ? 'row-net-pos' : 'row-net-neg';
       html += `<tr class="${cls}">
-        <td>${row.label}</td>
+        <td>${dynamicLabel(row.label, v)}</td>
         <td>${fmt(v)}</td>
       </tr>`;
     } else if (row.is_total) {
