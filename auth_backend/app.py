@@ -42,7 +42,7 @@ AUTH_URL        = os.getenv('AUTH_URL', 'https://auth.lobelaccountancy.com')
 PORTAL_URL      = os.getenv('PORTAL_URL', 'https://clients.lobelaccountancy.com')
 DASHBOARD_URL   = os.getenv('DASHBOARD_URL', 'https://dashboard.lobelaccountancy.com')
 PORTAL_DIR      = os.path.join(os.path.dirname(__file__),
-                               '../dashboard/portal')
+                               '../docs/portal')
 
 ALLOWED_EMAILS = {
     e.strip().lower()
@@ -4264,7 +4264,7 @@ def plaid_link_token():
 def plaid_oauth_return():
     """Plaid Link page and OAuth return landing."""
     return send_from_directory(
-        os.path.join(os.path.dirname(__file__), '../dashboard'),
+        os.path.join(os.path.dirname(__file__), '../docs'),
         'plaid_link.html',
     )
 
