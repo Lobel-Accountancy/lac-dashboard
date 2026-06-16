@@ -59,13 +59,19 @@
       display: block; font-size: 11px; font-weight: 600;
       color: var(--text-2); margin-bottom: 4px; text-transform: uppercase;
     }
-    .filter-field input, .filter-field select {
+    .filter-field input:not([type="checkbox"]), .filter-field select {
       width: 100%; box-sizing: border-box;
       padding: 7px 10px; border: 1px solid var(--border);
       border-radius: 5px; font-size: 13px; outline: none;
       background: #fff;
     }
-    .filter-field input:focus, .filter-field select:focus { border-color: var(--blue); }
+    .filter-field input:not([type="checkbox"]):focus, .filter-field select:focus { border-color: var(--blue); }
+    .filter-check {
+      display: flex; align-items: center; gap: 8px; margin-top: 8px; cursor: pointer;
+    }
+    .filter-check:first-child { margin-top: 4px; }
+    .filter-check input[type="checkbox"] { width: 15px; height: 15px; cursor: pointer; accent-color: var(--blue, #2563EB); flex-shrink: 0; }
+    .filter-check span { font-size: 13px; color: var(--text-1); user-select: none; }
     .filter-actions { display: flex; gap: 10px; align-items: center; }
 
     /* ── results table ── */
@@ -250,7 +256,75 @@
           <option value="11,50">11–50 employees</option>
           <option value="51,200">51–200 employees</option>
           <option value="201,500">201–500 employees</option>
+          <option value="501,1000">501–1,000 employees</option>
+          <option value="1001,5000">1,001–5,000 employees</option>
         </select>
+      </div>
+      <div class="filter-field">
+        <label>Revenue</label>
+        <select id="f-revenue">
+          <option value="">Any revenue</option>
+          <option value="0,1000000">Under $1M</option>
+          <option value="1000000,5000000">$1M–$5M</option>
+          <option value="5000000,25000000">$5M–$25M</option>
+          <option value="25000000,100000000">$25M–$100M</option>
+          <option value="100000000,999999999">$100M+</option>
+        </select>
+      </div>
+      <div class="filter-field">
+        <label>Industry</label>
+        <select id="f-industry">
+          <option value="">Any industry</option>
+          <option value="Manufacturing">Manufacturing</option>
+          <option value="Real Estate">Real Estate</option>
+          <option value="Construction">Construction</option>
+          <option value="Technology">Technology</option>
+          <option value="Healthcare">Healthcare</option>
+          <option value="Retail">Retail</option>
+          <option value="Professional Services">Professional Services</option>
+          <option value="Financial Services">Financial Services</option>
+          <option value="Wholesale">Wholesale</option>
+          <option value="Transportation">Transportation</option>
+          <option value="Food & Beverage">Food &amp; Beverage</option>
+          <option value="Hospitality">Hospitality</option>
+          <option value="Education">Education</option>
+          <option value="Non-Profit">Non-Profit</option>
+        </select>
+      </div>
+      <div class="filter-field">
+        <label>Department</label>
+        <select id="f-department">
+          <option value="">Any department</option>
+          <option value="finance">Finance</option>
+          <option value="accounting">Accounting</option>
+          <option value="operations">Operations</option>
+          <option value="human_resources">HR</option>
+          <option value="engineering">Engineering</option>
+          <option value="sales">Sales</option>
+          <option value="marketing">Marketing</option>
+          <option value="information_technology">IT</option>
+          <option value="legal">Legal</option>
+          <option value="management">Management / C-Suite</option>
+        </select>
+      </div>
+      <div class="filter-field">
+        <label>Founded Year</label>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <input id="f-founded-min" type="number" placeholder="From" min="1800" max="2025">
+          <span style="color:var(--text-3);font-size:13px;flex-shrink:0;">–</span>
+          <input id="f-founded-max" type="number" placeholder="To" min="1800" max="2025">
+        </div>
+      </div>
+      <div class="filter-field">
+        <label>Additional Filters</label>
+        <div class="filter-check" onclick="document.getElementById('f-verified').click();event.preventDefault()">
+          <input type="checkbox" id="f-verified">
+          <span>Verified emails only</span>
+        </div>
+        <div class="filter-check" onclick="document.getElementById('f-recent-job').click();event.preventDefault()">
+          <input type="checkbox" id="f-recent-job">
+          <span>Recent job change</span>
+        </div>
       </div>
     </div>
     <div class="filter-actions">
@@ -341,10 +415,17 @@ async function loadEmailStatus() {
 // ── search ─────────────────────────────────────────────────────────────
 async function runSearch(page) {
   _page = page || 1;
-  const titles   = document.getElementById('f-titles').value.trim();
-  const keywords = document.getElementById('f-keywords').value.trim();
-  const location = document.getElementById('f-location').value.trim();
-  const sizeVal  = document.getElementById('f-size').value;
+  const titles      = document.getElementById('f-titles').value.trim();
+  const keywords    = document.getElementById('f-keywords').value.trim();
+  const location    = document.getElementById('f-location').value.trim();
+  const sizeVal     = document.getElementById('f-size').value;
+  const revenueVal  = document.getElementById('f-revenue').value;
+  const industry    = document.getElementById('f-industry').value;
+  const department  = document.getElementById('f-department').value;
+  const foundedMin  = document.getElementById('f-founded-min').value.trim();
+  const foundedMax  = document.getElementById('f-founded-max').value.trim();
+  const verified    = document.getElementById('f-verified').checked;
+  const recentJob   = document.getElementById('f-recent-job').checked;
 
   setStatus('Searching…');
   document.getElementById('results-body').innerHTML =
@@ -353,13 +434,17 @@ async function runSearch(page) {
   renderPagination('pagination-bottom', _page, _totalPages);
 
   const payload = { page: _page };
-  if (titles)   payload.titles    = titles.split(',').map(s => s.trim()).filter(Boolean);
-  if (keywords) payload.keywords  = keywords;
-  if (location) payload.locations = [location];
-  if (sizeVal)  {
-    const [min, max] = sizeVal.split(',');
-    payload.employee_ranges = [`${min},${max}`];
-  }
+  if (titles)      payload.titles           = titles.split(',').map(s => s.trim()).filter(Boolean);
+  if (keywords)    payload.keywords         = keywords;
+  if (location)    payload.locations        = [location];
+  if (sizeVal)     payload.employee_ranges  = [sizeVal];
+  if (revenueVal)  payload.revenue_range    = revenueVal;
+  if (industry)    payload.industries       = [industry];
+  if (department)  payload.departments      = [department];
+  if (foundedMin)  payload.founded_year_min = parseInt(foundedMin);
+  if (foundedMax)  payload.founded_year_max = parseInt(foundedMax);
+  if (verified)    payload.verified_only    = true;
+  if (recentJob)   payload.recent_job_change = true;
 
   const data = await apiFetch('/apollo/search', {
     method: 'POST',
@@ -383,8 +468,12 @@ async function runSearch(page) {
 }
 
 function clearFilters() {
-  ['f-titles','f-keywords','f-location'].forEach(id => document.getElementById(id).value = '');
-  document.getElementById('f-size').value = '';
+  ['f-titles','f-keywords','f-location','f-founded-min','f-founded-max']
+    .forEach(id => document.getElementById(id).value = '');
+  ['f-size','f-revenue','f-industry','f-department']
+    .forEach(id => document.getElementById(id).value = '');
+  ['f-verified','f-recent-job']
+    .forEach(id => { document.getElementById(id).checked = false; });
 }
 
 function setStatus(msg) {
