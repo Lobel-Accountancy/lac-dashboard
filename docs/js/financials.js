@@ -79,6 +79,9 @@ function dynamicLabel(label, v) {
       ? prefix + 'Accumulated Deficit'
       : prefix + 'Retained Earnings';
   }
+  if (up === 'TOTAL EQUITY') {
+    return n < 0 ? 'TOTAL EQUITY (DEFICIT)' : 'TOTAL EQUITY';
+  }
   return label;
 }
 
@@ -102,7 +105,7 @@ function buildTable(rows, month) {
       </tr>`;
     } else if (row.is_total) {
       html += `<tr class="row-total">
-        <td>${row.label}</td>
+        <td>${dynamicLabel(row.label, v)}</td>
         <td>${fmt(v)}</td>
       </tr>`;
     } else {
