@@ -1,0 +1,20 @@
+[Unit]
+Description=LAC Auth Backend (Flask magic-link)
+After=network.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=jlobel
+WorkingDirectory=/home/jlobel/lac_automation/phase5/auth_backend
+EnvironmentFile=/home/jlobel/lac_automation/.env
+ExecStart=/home/jlobel/lac_automation/phase5/auth_backend/venv/bin/python \
+          /home/jlobel/lac_automation/phase5/auth_backend/app.py
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=lac-auth
+
+[Install]
+WantedBy=multi-user.target

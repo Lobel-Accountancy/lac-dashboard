@@ -1,0 +1,20 @@
+# Cloudflare Tunnel config for LAC Auth Backend
+# Place this at: ~/.cloudflared/config.yml  (or merge into existing config)
+#
+# Run:  cloudflared tunnel run lac-auth
+#
+# In Cloudflare dashboard → Zero Trust → Networks → Tunnels:
+#   Add a Public Hostname:
+#     Subdomain: auth
+#     Domain:    lobelaccountancy.com
+#     Service:   http://localhost:5001
+
+tunnel: lac-auth          # replace with your actual tunnel ID after `cloudflared tunnel create lac-auth`
+credentials-file: /home/jlobel/.cloudflared/lac-auth.json
+
+ingress:
+  - hostname: auth.lobelaccountancy.com
+    service: http://localhost:5001
+  - hostname: clients.lobelaccountancy.com
+    service: http://localhost:5001
+  - service: http_status:404

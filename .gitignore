@@ -1,0 +1,14 @@
+# Python
+auth_backend/venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# Logs
+digest.log
+*.log
+
+# Environment / secrets
+.env
+*.env
+auth_backend/.env
