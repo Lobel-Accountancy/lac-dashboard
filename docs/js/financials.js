@@ -66,11 +66,20 @@ function valClass(v) {
 
 function dynamicLabel(label, v) {
   const up = label.toUpperCase();
-  if (!up.includes('NET INCOME') && !up.includes('/ (LOSS)')) return label;
-  const isLoss = parseFloat(v) < 0;
-  if (up.includes('YTD'))  return isLoss ? 'Net Loss YTD'    : 'Net Income YTD';
-  if (up.includes('GAAP')) return isLoss ? 'Net Loss — GAAP' : 'Net Income — GAAP';
-  return isLoss ? 'Net Loss' : 'Net Income';
+  const n = parseFloat(v);
+  if (up.includes('NET INCOME') || up.includes('/ (LOSS)')) {
+    const isLoss = n < 0;
+    if (up.includes('YTD'))  return isLoss ? 'Net Loss YTD'    : 'Net Income YTD';
+    if (up.includes('GAAP')) return isLoss ? 'Net Loss — GAAP' : 'Net Income — GAAP';
+    return isLoss ? 'Net Loss' : 'Net Income';
+  }
+  if (up.includes('RETAINED EARNINGS') || up.includes('/DEFICIT')) {
+    const prefix = label.match(/^\d+\s+/)?.[0] ?? '';
+    return n < 0
+      ? prefix + 'Accumulated Deficit'
+      : prefix + 'Retained Earnings';
+  }
+  return label;
 }
 
 function buildTable(rows, month) {
@@ -99,7 +108,7 @@ function buildTable(rows, month) {
     } else {
       const vc = valClass(v);
       html += `<tr>
-        <td style="padding-left:28px">${row.label}</td>
+        <td style="padding-left:28px">${dynamicLabel(row.label, v)}</td>
         <td class="${vc}">${fmt(v)}</td>
       </tr>`;
     }
