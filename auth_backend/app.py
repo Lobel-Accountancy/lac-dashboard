@@ -3402,6 +3402,108 @@ def _parse_financials_sheet(ws, available_months, txn_data=None):
     return rows
 
 
+def _monthly_net_income(txn_data, available_months):
+    """Net income per month: revenue (4xxx credits) minus expenses (5xxx-9xxx debits)."""
+    result = {}
+    for mi in available_months:
+        rev = sum(v['credit'] - v['debit']
+                  for (a, m), v in txn_data.items()
+                  if m == mi and 4000 <= a <= 4999)
+        exp = sum(v['debit'] - v['credit']
+                  for (a, m), v in txn_data.items()
+                  if m == mi and 5000 <= a <= 9999)
+        result[MONTHS[mi - 1]] = round(rev - exp, 2)
+    return result
+
+
+def _ytd_net_income(txn_data, available_months):
+    """Cumulative YTD net income through each available month."""
+    cumulative = 0.0
+    result = {}
+    for mi in range(1, max(available_months) + 1):
+        rev = sum(v['credit'] - v['debit']
+                  for (a, m), v in txn_data.items()
+                  if m == mi and 4000 <= a <= 4999)
+        exp = sum(v['debit'] - v['credit']
+                  for (a, m), v in txn_data.items()
+                  if m == mi and 5000 <= a <= 9999)
+        cumulative += rev - exp
+        if mi in available_months:
+            result[MONTHS[mi - 1]] = round(cumulative, 2)
+    return result
+
+
+def _patch_pl_totals(pl_rows, txn_data, available_months):
+    """Fix TOTAL EXPENSES and NET INCOME rows whose multi-level sums compute to 0."""
+    monthly_ni = _monthly_net_income(txn_data, available_months)
+    for row in pl_rows:
+        lbl_up = row['label'].upper()
+        if lbl_up.startswith('TOTAL EXPENSE'):
+            for mi in available_months:
+                mo = MONTHS[mi - 1]
+                row['months'][mo] = round(
+                    sum(v['debit'] - v['credit']
+                        for (a, m), v in txn_data.items()
+                        if m == mi and 5000 <= a <= 9999), 2)
+        elif lbl_up.startswith('NET INCOME') or lbl_up.startswith('NET LOSS'):
+            for mo, v in monthly_ni.items():
+                row['months'][mo] = v
+
+
+def _patch_bs_equity(bs_rows, txn_data, available_months):
+    """Inject YTD net income into equity section so balance sheet foots to zero."""
+    ytd_ni = _ytd_net_income(txn_data, available_months)
+    in_equity = False
+    equity_items = []
+    totals = {}
+
+    for row in bs_rows:
+        lbl = row['label']
+        lbl_up = lbl.upper()
+
+        if lbl_up == 'EQUITY' and row['is_section']:
+            in_equity = True
+            equity_items = []
+
+        if in_equity:
+            if lbl.startswith('Net Income') or lbl.startswith('NET INCOME'):
+                for mo, v in ytd_ni.items():
+                    row['months'][mo] = v
+                row['is_total'] = False
+                equity_items.append(row)
+            elif lbl_up.startswith('TOTAL EQUITY'):
+                for mo in ytd_ni:
+                    row['months'][mo] = round(
+                        sum(r['months'].get(mo, 0) for r in equity_items), 2)
+                in_equity = False
+                totals['total_equity'] = row
+            elif not row['is_section'] and not row['is_total']:
+                equity_items.append(row)
+
+        if lbl_up == 'TOTAL LIABILITIES':
+            totals['total_liabilities'] = row
+        elif 'TOTAL LIABILITIES &' in lbl_up:
+            totals['total_liabilities_equity'] = row
+        elif lbl_up == 'TOTAL ASSETS':
+            totals['total_assets'] = row
+        elif 'BALANCE CHECK' in lbl_up:
+            totals['balance_check'] = row
+
+    if all(k in totals for k in ('total_liabilities_equity', 'total_liabilities', 'total_equity')):
+        tl = totals['total_liabilities']
+        te = totals['total_equity']
+        for mo in ytd_ni:
+            totals['total_liabilities_equity']['months'][mo] = round(
+                tl['months'].get(mo, 0) + te['months'].get(mo, 0), 2)
+
+    if all(k in totals for k in ('balance_check', 'total_assets', 'total_liabilities_equity')):
+        ta = totals['total_assets']
+        tl_eq = totals['total_liabilities_equity']
+        for mo in ytd_ni:
+            totals['balance_check']['months'][mo] = round(
+                ta['months'].get(mo, 0) - tl_eq['months'].get(mo, 0), 2)
+
+
 @app.route('/data/financials', methods=['GET'])
 @require_jwt
 def financials():
@@ -3413,6 +3515,8 @@ def financials():
         txn_data = _build_txn_data(wb)
         pl_rows = _parse_financials_sheet(wb['Income Statement'], available, txn_data)
         bs_rows = _parse_financials_sheet(wb['Balance Sheet'],    available, txn_data)
+        _patch_pl_totals(pl_rows, txn_data, available)
+        _patch_bs_equity(bs_rows, txn_data, available)
         month_labels = [MONTHS[m-1] for m in available]
         return jsonify({'months': month_labels, 'pl': pl_rows, 'bs': bs_rows})
     except Exception as e:
