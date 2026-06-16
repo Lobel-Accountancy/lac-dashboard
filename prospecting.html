@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <link rel="icon" type="image/jpeg" href="favicon.jpg">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LAC Prospecting</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .nav-links { display: flex; gap: 4px; margin: 0 16px; }
+    .nav-link {
+      color: rgba(255,255,255,.65); text-decoration: none;
+      font-size: 13px; padding: 4px 10px; border-radius: 4px;
+      transition: color .15s, background .15s;
+    }
+    .nav-link:hover   { color: white; background: rgba(255,255,255,.1); }
+    .nav-link--active { color: white; background: rgba(255,255,255,.15); }
+
+    /* ── email counter bar ── */
+    .email-bar {
+      display: flex; align-items: center; gap: 16px;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 12px 18px;
+      margin-bottom: 20px; box-shadow: var(--shadow);
+    }
+    .email-bar-label { font-size: 13px; color: var(--text-2); }
+    .email-bar-count { font-size: 22px; font-weight: 700; color: var(--navy); }
+    .email-bar-cap   { font-size: 13px; color: var(--text-3); }
+    .email-progress  {
+      flex: 1; height: 6px; background: var(--border);
+      border-radius: 3px; overflow: hidden;
+    }
+    .email-progress-fill {
+      height: 100%; border-radius: 3px;
+      background: var(--green, #1A7A4A);
+      transition: width .4s;
+    }
+    .email-progress-fill.warn { background: #C9920A; }
+    .email-progress-fill.full { background: #B03030; }
+    .badge-licensed {
+      font-size: 11px; font-weight: 700;
+      padding: 3px 10px; border-radius: 10px;
+      background: #FEF3C7; color: #92400E;
+    }
+    .badge-licensed.active { background: #D1FAE5; color: #065F46; }
+
+    /* ── search filters ── */
+    .filter-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 18px 20px;
+      margin-bottom: 20px; box-shadow: var(--shadow);
+    }
+    .filter-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 12px; margin-bottom: 14px;
+    }
+    .filter-field label {
+      display: block; font-size: 11px; font-weight: 600;
+      color: var(--text-2); margin-bottom: 4px; text-transform: uppercase;
+    }
+    .filter-field input, .filter-field select {
+      width: 100%; box-sizing: border-box;
+      padding: 7px 10px; border: 1px solid var(--border);
+      border-radius: 5px; font-size: 13px; outline: none;
+      background: #fff;
+    }
+    .filter-field input:focus, .filter-field select:focus { border-color: var(--blue); }
+    .filter-actions { display: flex; gap: 10px; align-items: center; }
+
+    /* ── results table ── */
+    .results-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 10px;
+    }
+    .results-count { font-size: 13px; color: var(--text-2); }
+
+    .prospect-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .prospect-table th {
+      text-align: left; padding: 8px 10px;
+      background: var(--bg); border-bottom: 2px solid var(--border);
+      font-size: 11px; font-weight: 700; text-transform: uppercase;
+      color: var(--text-2); white-space: nowrap;
+    }
+    .prospect-table td {
+      padding: 10px 10px; border-bottom: 1px solid var(--border);
+      vertical-align: top;
+    }
+    .prospect-table tr:hover td { background: #F8FAFC; }
+    .prospect-name   { font-weight: 600; color: var(--navy); }
+    .prospect-meta   { font-size: 11px; color: var(--text-3); margin-top: 2px; }
+    .email-pill {
+      display: inline-block; font-size: 11px;
+      padding: 2px 7px; border-radius: 8px;
+      background: #D1FAE5; color: #065F46;
+    }
+    .email-pill.unavailable { background: #F3F4F6; color: var(--text-3); }
+
+    /* action buttons in table */
+    .row-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+    .btn-sm {
+      padding: 5px 12px; font-size: 12px; font-weight: 600;
+      border-radius: 4px; border: none; cursor: pointer;
+      transition: background .12s;
+    }
+    .btn-pipeline { background: #EFF6FF; color: #1D4ED8; }
+    .btn-pipeline:hover { background: #DBEAFE; }
+    .btn-email    { background: #D1FAE5; color: #065F46; }
+    .btn-email:hover    { background: #A7F3D0; }
+    .btn-email:disabled { background: #F3F4F6; color: var(--text-3); cursor: not-allowed; }
+
+    /* pagination */
+    .pagination { display: flex; gap: 8px; align-items: center; margin-top: 16px; justify-content: center; }
+    .page-btn {
+      padding: 6px 14px; border: 1px solid var(--border);
+      border-radius: 4px; background: #fff; cursor: pointer; font-size: 13px;
+    }
+    .page-btn:hover:not(:disabled) { background: var(--bg); }
+    .page-btn:disabled { color: var(--text-3); cursor: not-allowed; }
+    .page-info { font-size: 13px; color: var(--text-2); }
+
+    /* ── compose modal ── */
+    .modal-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,.45); z-index: 200;
+      align-items: center; justify-content: center;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal-box {
+      background: #fff; border-radius: 10px;
+      padding: 28px; width: 560px; max-width: 95vw;
+      box-shadow: 0 8px 40px rgba(0,0,0,.22);
+      max-height: 90vh; overflow-y: auto;
+    }
+    .modal-box h3 { margin: 0 0 4px; font-size: 17px; color: var(--navy); }
+    .modal-to     { font-size: 13px; color: var(--text-2); margin-bottom: 18px; }
+    .modal-field  { margin-bottom: 14px; }
+    .modal-field label {
+      display: block; font-size: 11px; font-weight: 600;
+      color: var(--text-2); margin-bottom: 5px; text-transform: uppercase;
+    }
+    .modal-field input, .modal-field textarea {
+      width: 100%; box-sizing: border-box;
+      padding: 8px 10px; border: 1px solid var(--border);
+      border-radius: 5px; font-size: 13px; outline: none;
+    }
+    .modal-field input:focus, .modal-field textarea:focus { border-color: var(--blue); }
+    .modal-field textarea { min-height: 160px; resize: vertical; font-family: inherit; }
+    .modal-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 18px; }
+    .modal-counter { font-size: 12px; color: var(--text-3); }
+    .modal-btns { display: flex; gap: 10px; }
+    .btn-cancel {
+      padding: 8px 18px; border: 1px solid var(--border);
+      border-radius: 5px; background: #fff; cursor: pointer; font-size: 14px;
+    }
+    .btn-send {
+      padding: 8px 22px; border: none;
+      border-radius: 5px; background: #1A7A4A; color: #fff;
+      cursor: pointer; font-size: 14px; font-weight: 600;
+    }
+    .btn-send:hover    { background: #155F38; }
+    .btn-send:disabled { background: var(--text-3); cursor: not-allowed; }
+    .modal-err { color: #B03030; font-size: 12px; margin-top: 8px; }
+
+    .empty-state { color: var(--text-3); font-size: 14px; padding: 32px 0; text-align: center; display: block; }
+  </style>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#1B2A3F">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="LAC">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-left">
+    <div class="nav-brand">LAC</div>
+    <div class="nav-links">
+      <a class="nav-link" href="index.html">Briefing</a>
+      <a class="nav-link" href="bi.html">Analytics</a>
+      <a class="nav-link" href="clients.html">AR Aging</a>
+      <a class="nav-link" href="engagement.html">Pipeline</a>
+      <a class="nav-link" href="forecast.html">Forecast</a>
+      <a class="nav-link" href="budget.html">Budget</a>
+      <a class="nav-link" href="financials.html">Financials</a>
+      <a class="nav-link" href="docs.html">Documents</a>
+      <a class="nav-link" href="emails.html">Emails</a>
+      <a class="nav-link" href="activity.html">Activity</a>
+      <a class="nav-link" href="drive.html">Drive</a>
+      <a class="nav-link" href="audit-tools.html">Audit Tools</a>
+      <a class="nav-link" href="ai.html">AI</a>
+      <a class="nav-link" href="pdf.html">PDF Tools</a>
+      <a class="nav-link" href="docuseal.html">DocuSeal</a>
+      <a class="nav-link nav-link--active" href="prospecting.html">Prospecting</a>
+      <a class="nav-link" href="https://clients.lobelaccountancy.com" target="_blank" rel="noopener">Client Portal ↗</a>
+      <a class="nav-link" href="bookmarks.html">Bookmarks</a>
+    </div>
+  </div>
+  <div class="nav-right">
+    <span class="nav-user" id="nav-user"></span>
+    <button class="nav-logout" onclick="logout()">Sign out</button>
+  </div>
+</nav>
+
+<main class="main">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">
+    <h2 style="font-size:20px;font-weight:700;color:var(--navy);margin:0;">Prospecting</h2>
+    <span style="font-size:12px;color:var(--text-3);">Powered by Apollo.io</span>
+  </div>
+
+  <!-- Daily email counter -->
+  <div class="email-bar">
+    <div>
+      <div class="email-bar-label">Emails sent today</div>
+      <div>
+        <span class="email-bar-count" id="emails-sent">—</span>
+        <span class="email-bar-cap" id="emails-cap">/ 25</span>
+      </div>
+    </div>
+    <div class="email-progress">
+      <div class="email-progress-fill" id="emails-fill" style="width:0%"></div>
+    </div>
+    <div>
+      <span class="email-bar-label" id="emails-remaining">— remaining</span>
+    </div>
+    <span class="badge-licensed" id="license-badge">Unlicensed — email sending disabled</span>
+  </div>
+
+  <!-- Search filters -->
+  <div class="filter-card">
+    <div class="filter-grid">
+      <div class="filter-field">
+        <label>Job Titles</label>
+        <input id="f-titles" type="text" placeholder="CEO, CFO, Owner, Controller">
+      </div>
+      <div class="filter-field">
+        <label>Keywords</label>
+        <input id="f-keywords" type="text" placeholder="e.g. manufacturing, real estate">
+      </div>
+      <div class="filter-field">
+        <label>Location</label>
+        <input id="f-location" type="text" placeholder="California, Los Angeles">
+      </div>
+      <div class="filter-field">
+        <label>Company Size</label>
+        <select id="f-size">
+          <option value="">Any size</option>
+          <option value="1,10">1–10 employees</option>
+          <option value="11,50">11–50 employees</option>
+          <option value="51,200">51–200 employees</option>
+          <option value="201,500">201–500 employees</option>
+        </select>
+      </div>
+    </div>
+    <div class="filter-actions">
+      <button class="btn btn-primary" onclick="runSearch(1)">Search</button>
+      <button class="btn" onclick="clearFilters()" style="background:#fff;border:1px solid var(--border)">Clear</button>
+      <span id="search-status" style="font-size:13px;color:var(--text-3);margin-left:8px;"></span>
+    </div>
+  </div>
+
+  <!-- Results -->
+  <div class="card card--full">
+    <div class="card-body">
+      <div class="results-header">
+        <span class="results-count" id="results-count"></span>
+        <div class="pagination" id="pagination-top" style="margin:0"></div>
+      </div>
+      <div id="results-body">
+        <span class="empty-state">Enter search criteria above and click Search.</span>
+      </div>
+      <div class="pagination" id="pagination-bottom"></div>
+    </div>
+  </div>
+</main>
+
+<!-- Compose email modal -->
+<div class="modal-overlay" id="compose-overlay">
+  <div class="modal-box">
+    <h3>Compose Email</h3>
+    <div class="modal-to" id="compose-to"></div>
+    <div class="modal-field">
+      <label>Subject</label>
+      <input id="compose-subject" type="text">
+    </div>
+    <div class="modal-field">
+      <label>Message</label>
+      <textarea id="compose-body"></textarea>
+    </div>
+    <div class="modal-err" id="compose-err"></div>
+    <div class="modal-footer">
+      <div class="modal-counter" id="compose-counter"></div>
+      <div class="modal-btns">
+        <button class="btn-cancel" onclick="closeCompose()">Cancel</button>
+        <button class="btn-send" id="compose-send-btn" onclick="sendEmail()">Send</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="js/auth.js"></script>
+<script>
+// ── state ──────────────────────────────────────────────────────────────
+let _page       = 1;
+let _totalPages = 1;
+let _total      = 0;
+let _results    = [];
+let _composePerson = null;
+let _licensed   = false;  // flip to true once Apollo email account is connected
+
+// ── bootstrap ──────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', async () => {
+  if (!requireAuth()) return;
+  const p = jwtPayload(getJWT());
+  document.getElementById('nav-user').textContent = (p?.email || '').split('@')[0];
+  await loadEmailStatus();
+});
+
+// ── email status bar ───────────────────────────────────────────────────
+async function loadEmailStatus() {
+  const data = await apiFetch('/apollo/email-status').catch(() => null);
+  if (!data) return;
+  const sent = data.sent, cap = data.cap, rem = data.remaining;
+  document.getElementById('emails-sent').textContent      = sent;
+  document.getElementById('emails-cap').textContent       = `/ ${cap}`;
+  document.getElementById('emails-remaining').textContent = `${rem} remaining today`;
+
+  const pct  = Math.round((sent / cap) * 100);
+  const fill = document.getElementById('emails-fill');
+  fill.style.width = pct + '%';
+  fill.className   = 'email-progress-fill' + (pct >= 100 ? ' full' : pct >= 80 ? ' warn' : '');
+
+  const badge = document.getElementById('license-badge');
+  if (_licensed) {
+    badge.textContent = 'Licensed — email sending active';
+    badge.classList.add('active');
+  }
+}
+
+// ── search ─────────────────────────────────────────────────────────────
+async function runSearch(page) {
+  _page = page || 1;
+  const titles   = document.getElementById('f-titles').value.trim();
+  const keywords = document.getElementById('f-keywords').value.trim();
+  const location = document.getElementById('f-location').value.trim();
+  const sizeVal  = document.getElementById('f-size').value;
+
+  setStatus('Searching…');
+  document.getElementById('results-body').innerHTML =
+    '<span class="empty-state">Loading…</span>';
+  renderPagination('pagination-top',  _page, _totalPages);
+  renderPagination('pagination-bottom', _page, _totalPages);
+
+  const payload = { page: _page };
+  if (titles)   payload.titles    = titles.split(',').map(s => s.trim()).filter(Boolean);
+  if (keywords) payload.keywords  = keywords;
+  if (location) payload.locations = [location];
+  if (sizeVal)  {
+    const [min, max] = sizeVal.split(',');
+    payload.employee_ranges = [`${min},${max}`];
+  }
+
+  const data = await apiFetch('/apollo/search', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  }).catch(e => { setStatus(`Error: ${e.message}`); return null; });
+
+  if (!data) return;
+  if (data.error) { setStatus(data.error); document.getElementById('results-body').innerHTML = `<span class="empty-state">${esc(data.error)}</span>`; return; }
+
+  _results    = data.people || [];
+  _total      = data.total  || 0;
+  _totalPages = data.total_pages || 1;
+
+  setStatus('');
+  document.getElementById('results-count').textContent =
+    _total > 0 ? `${_total.toLocaleString()} results` : 'No results';
+
+  renderResults(_results);
+  renderPagination('pagination-top',    _page, _totalPages);
+  renderPagination('pagination-bottom', _page, _totalPages);
+}
+
+function clearFilters() {
+  ['f-titles','f-keywords','f-location'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('f-size').value = '';
+}
+
+function setStatus(msg) {
+  document.getElementById('search-status').textContent = msg;
+}
+
+// ── render results ─────────────────────────────────────────────────────
+function renderResults(people) {
+  const body = document.getElementById('results-body');
+  if (!people.length) {
+    body.innerHTML = '<span class="empty-state">No results found. Try adjusting your filters.</span>';
+    return;
+  }
+
+  const rows = people.map((p, i) => {
+    const emailHtml = p.email
+      ? `<span class="email-pill">${esc(p.email)}</span>`
+      : `<span class="email-pill unavailable">Not available</span>`;
+    const linkedinHtml = p.linkedin_url
+      ? `<a href="${esc(p.linkedin_url)}" target="_blank" rel="noopener" style="font-size:11px;color:var(--blue);">LinkedIn ↗</a>`
+      : '';
+    const loc = [p.city, p.state].filter(Boolean).join(', ');
+    const sendDisabled = (!_licensed || !p.email) ? 'disabled title="' + (!_licensed ? 'Email license required' : 'No email available') + '"' : '';
+
+    return `<tr>
+      <td>
+        <div class="prospect-name">${esc(p.name)}</div>
+        <div class="prospect-meta">${esc(p.title)}</div>
+        ${linkedinHtml ? `<div style="margin-top:3px">${linkedinHtml}</div>` : ''}
+      </td>
+      <td>
+        <div style="font-weight:500">${esc(p.company)}</div>
+        <div class="prospect-meta">${esc(p.industry || '')}</div>
+        ${p.website ? `<div class="prospect-meta"><a href="${esc(p.website)}" target="_blank" rel="noopener" style="color:var(--blue);font-size:11px;">${esc(displayDomain(p.website))}</a></div>` : ''}
+      </td>
+      <td>${p.employees ? p.employees.toLocaleString() : '—'}</td>
+      <td>${esc(loc) || '—'}</td>
+      <td>${emailHtml}</td>
+      <td>
+        <div class="row-actions">
+          <button class="btn-sm btn-pipeline" onclick="saveToPipeline(${i})">+ Pipeline</button>
+          <button class="btn-sm btn-email" onclick="openCompose(${i})" ${sendDisabled}>Email</button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+
+  body.innerHTML = `
+    <table class="prospect-table">
+      <thead>
+        <tr>
+          <th>Person</th>
+          <th>Company</th>
+          <th>Employees</th>
+          <th>Location</th>
+          <th>Email</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
+function renderPagination(elId, page, total) {
+  const el = document.getElementById(elId);
+  if (total <= 1) { el.innerHTML = ''; return; }
+  el.innerHTML = `
+    <button class="page-btn" onclick="runSearch(${page - 1})" ${page <= 1 ? 'disabled' : ''}>← Prev</button>
+    <span class="page-info">Page ${page} of ${total}</span>
+    <button class="page-btn" onclick="runSearch(${page + 1})" ${page >= total ? 'disabled' : ''}>Next →</button>
+  `;
+}
+
+function displayDomain(url) {
+  try { return new URL(url).hostname.replace(/^www\./, ''); } catch { return url; }
+}
+
+function esc(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── save to pipeline ───────────────────────────────────────────────────
+async function saveToPipeline(idx) {
+  const p = _results[idx];
+  const res = await apiFetch('/apollo/save-prospect', {
+    method: 'POST',
+    body: JSON.stringify({
+      name: p.name, company: p.company,
+      email: p.email, title: p.title, website: p.website,
+    }),
+  }).catch(e => ({ error: e.message }));
+
+  if (res?.success) {
+    showToast(`${p.company} added to Pipeline as Prospect`);
+  } else {
+    showToast(res?.error || 'Error saving prospect', true);
+  }
+}
+
+function showToast(msg, isErr) {
+  const t = document.createElement('div');
+  t.style.cssText = `position:fixed;bottom:24px;left:50%;transform:translateX(-50%);
+    background:${isErr ? '#B03030' : '#1A7A4A'};color:#fff;padding:10px 22px;
+    border-radius:6px;font-size:14px;font-weight:600;z-index:500;
+    box-shadow:0 4px 16px rgba(0,0,0,.2);`;
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 3000);
+}
+
+// ── compose email ──────────────────────────────────────────────────────
+function openCompose(idx) {
+  const p = _results[idx];
+  _composePerson = p;
+
+  document.getElementById('compose-to').textContent      = `To: ${p.name} <${p.email}> — ${p.title}, ${p.company}`;
+  document.getElementById('compose-subject').value       = `Accounting & Audit Services — ${p.company}`;
+  document.getElementById('compose-body').value          = defaultEmailBody(p);
+  document.getElementById('compose-err').textContent     = '';
+  updateComposeCounter();
+  document.getElementById('compose-overlay').classList.add('open');
+  document.getElementById('compose-subject').focus();
+}
+
+function closeCompose() {
+  document.getElementById('compose-overlay').classList.remove('open');
+  _composePerson = null;
+}
+
+function defaultEmailBody(p) {
+  return `Hi ${p.name.split(' ')[0]},
+
+I came across ${p.company} and wanted to reach out. I'm Jeffrey Lobel, CPA — founder of Lobel Accountancy Corporation, a boutique CPA firm specializing in audit, review, and attest services for privately held companies.
+
+I work with businesses like yours to provide financial statement assurance, tax compliance, and strategic advisory. Many of my clients find real value in having a trusted advisor who can grow with them.
+
+Would you be open to a brief call to explore whether there's a fit?
+
+Best,
+Jeffrey Lobel, CPA
+Lobel Accountancy Corporation`;
+}
+
+function updateComposeCounter() {
+  const body = document.getElementById('compose-body').value;
+  document.getElementById('compose-counter').textContent = `${body.length} characters`;
+}
+document.getElementById('compose-body')?.addEventListener('input', updateComposeCounter);
+
+async function sendEmail() {
+  if (!_composePerson) return;
+  const subject = document.getElementById('compose-subject').value.trim();
+  const body    = document.getElementById('compose-body').value.trim();
+  const errEl   = document.getElementById('compose-err');
+
+  if (!subject) { errEl.textContent = 'Subject is required.'; return; }
+  if (!body)    { errEl.textContent = 'Message is required.'; return; }
+  errEl.textContent = '';
+
+  const btn = document.getElementById('compose-send-btn');
+  btn.disabled = true; btn.textContent = 'Sending…';
+
+  const res = await apiFetch('/apollo/send-email', {
+    method: 'POST',
+    body: JSON.stringify({
+      prospect_id:    _composePerson.id,
+      prospect_name:  _composePerson.name,
+      prospect_email: _composePerson.email,
+      subject, body,
+    }),
+  }).catch(e => ({ error: e.message }));
+
+  btn.disabled = false; btn.textContent = 'Send';
+
+  if (res?.success) {
+    closeCompose();
+    await loadEmailStatus();
+    showToast(`Email sent to ${_composePerson.name} (${res.sent}/${res.sent + res.remaining} today)`);
+  } else if (res?.error?.includes('cap')) {
+    errEl.textContent = `Daily limit of 25 emails reached.`;
+  } else {
+    errEl.textContent = res?.error || 'Failed to send.';
+  }
+}
+
+// close modal on overlay click
+document.getElementById('compose-overlay').addEventListener('click', e => {
+  if (e.target === document.getElementById('compose-overlay')) closeCompose();
+});
+</script>
+<script src="js/chat.js"></script>
+<script>
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js');
+  }
+</script>
+</body>
+</html>

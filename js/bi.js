@@ -57,7 +57,7 @@ async function loadBI() {
   try {
     const data = await apiFetch('/data/bi');
     if (!data) return;
-    renderRevenue(data.revenue);
+    renderRevenue(data.revenue, data.revenue_mtd);
     renderAR(data.ar_buckets);
     renderPipeline(data.pipeline);
     setStatus(`Updated ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`);
@@ -87,11 +87,11 @@ function fmtK(n) {
 // Revenue tab
 // ---------------------------------------------------------------------------
 
-function renderRevenue(rev) {
+function renderRevenue(rev, revMtd) {
   // KPI row
   const totalBilled = rev.by_month.reduce((s, m) => s + m.billed, 0);
-  const invoiceCount = rev.by_month.filter(m => m.billed > 0).length; // months with activity
-  document.getElementById('rev-ytd').textContent    = fmt$(rev.ytd_billed);
+  document.getElementById('rev-mtd').textContent     = revMtd != null ? fmt$(revMtd) : '—';
+  document.getElementById('rev-ytd').textContent     = fmt$(rev.ytd_billed);
   document.getElementById('rev-total12').textContent = fmt$(totalBilled);
 
   // Monthly bar chart

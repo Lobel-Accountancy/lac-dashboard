@@ -19,64 +19,171 @@
     .nav-link:hover    { color: white; background: rgba(255,255,255,.1); }
     .nav-link--active  { color: white; background: rgba(255,255,255,.15); }
 
+    /* ── toolbar ── */
+    .bm-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+    }
+    .bm-toolbar h2 { font-size: 20px; font-weight: 700; color: var(--navy); margin: 0; }
+
+    /* ── grid ── */
     .bookmark-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
       gap: 14px;
-      margin-top: 4px;
     }
 
+    /* ── card ── */
     .bookmark-card {
+      position: relative;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
       gap: 10px;
-      padding: 24px 16px;
+      padding: 24px 16px 16px;
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: var(--radius);
       box-shadow: var(--shadow);
       text-decoration: none;
       color: var(--text);
-      transition: box-shadow .15s, transform .1s, border-color .15s;
       cursor: pointer;
+      transition: box-shadow .15s, transform .1s, border-color .15s;
+      user-select: none;
     }
-    .bookmark-card:hover {
+    .bookmark-card:not(.bm-add):hover {
       box-shadow: 0 4px 16px rgba(0,0,0,.12);
       transform: translateY(-2px);
       border-color: var(--blue);
     }
+    .bookmark-card.drag-over  { border-color: var(--blue); background: #EFF6FF; }
+    .bookmark-card.dragging   { opacity: .4; }
 
     .bookmark-icon {
-      width: 48px;
-      height: 48px;
+      width: 48px; height: 48px;
       border-radius: 12px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 20px;
-      font-weight: 800;
-      color: white;
-      letter-spacing: -0.02em;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px; font-weight: 800;
+      color: white; letter-spacing: -0.02em;
+      flex-shrink: 0;
     }
-
     .bookmark-name {
-      font-size: 14px;
-      font-weight: 600;
-      color: var(--navy);
-      text-align: center;
+      font-size: 14px; font-weight: 600;
+      color: var(--navy); text-align: center;
     }
-
     .bookmark-url {
-      font-size: 11px;
-      color: var(--text-3);
+      font-size: 11px; color: var(--text-3);
       text-align: center;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
       width: 100%;
     }
+
+    /* ── card action buttons (show on hover) ── */
+    .bm-actions {
+      position: absolute;
+      top: 6px; right: 6px;
+      display: flex; gap: 4px;
+      opacity: 0;
+      transition: opacity .15s;
+    }
+    .bookmark-card:hover .bm-actions { opacity: 1; }
+    .bm-btn {
+      width: 26px; height: 26px;
+      border: none; border-radius: 5px;
+      background: rgba(255,255,255,.9);
+      color: var(--text-2);
+      font-size: 13px;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer;
+      box-shadow: 0 1px 3px rgba(0,0,0,.15);
+      transition: background .12s, color .12s;
+    }
+    .bm-btn:hover               { background: #fff; color: var(--navy); }
+    .bm-btn.bm-btn--delete:hover { color: #B03030; }
+
+    /* drag handle */
+    .bm-drag-handle {
+      position: absolute;
+      top: 6px; left: 6px;
+      opacity: 0;
+      color: var(--text-3);
+      font-size: 14px;
+      cursor: grab;
+      transition: opacity .15s;
+      line-height: 1;
+      padding: 4px;
+    }
+    .bookmark-card:hover .bm-drag-handle { opacity: 1; }
+    .bookmark-card[draggable=true]:active { cursor: grabbing; }
+
+    /* ── add card ── */
+    .bm-add {
+      border: 2px dashed var(--border);
+      background: transparent;
+      box-shadow: none;
+      cursor: pointer;
+      min-height: 130px;
+      transition: border-color .15s, background .15s;
+    }
+    .bm-add:hover { border-color: var(--blue); background: #EFF6FF; }
+    .bm-add-icon  { font-size: 28px; color: var(--text-3); }
+    .bm-add-label { font-size: 13px; color: var(--text-3); font-weight: 500; }
+
+    /* ── modal ── */
+    .bm-overlay {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,.45);
+      z-index: 200;
+      align-items: center; justify-content: center;
+    }
+    .bm-overlay.open { display: flex; }
+    .bm-modal {
+      background: #fff;
+      border-radius: 10px;
+      padding: 28px 28px 20px;
+      width: 380px;
+      max-width: 94vw;
+      box-shadow: 0 8px 40px rgba(0,0,0,.22);
+    }
+    .bm-modal h3    { margin: 0 0 20px; font-size: 17px; color: var(--navy); }
+    .bm-field       { margin-bottom: 14px; }
+    .bm-field label { display: block; font-size: 12px; font-weight: 600; color: var(--text-2); margin-bottom: 5px; }
+    .bm-field input {
+      width: 100%; box-sizing: border-box;
+      padding: 8px 10px;
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      font-size: 14px;
+      outline: none;
+    }
+    .bm-field input:focus { border-color: var(--blue); }
+
+    .bm-color-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+    .bm-swatch {
+      width: 28px; height: 28px;
+      border-radius: 6px; cursor: pointer;
+      border: 2px solid transparent;
+      transition: transform .1s;
+    }
+    .bm-swatch:hover      { transform: scale(1.15); }
+    .bm-swatch.selected   { border-color: #000; }
+
+    .bm-modal-footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+    .bm-modal-footer .btn-cancel {
+      padding: 8px 18px; border: 1px solid var(--border);
+      border-radius: 5px; background: #fff; cursor: pointer; font-size: 14px;
+    }
+    .bm-modal-footer .btn-save {
+      padding: 8px 20px; border: none;
+      border-radius: 5px; background: var(--navy); color: #fff;
+      cursor: pointer; font-size: 14px; font-weight: 600;
+    }
+    .bm-modal-footer .btn-save:hover { background: #2a3d5c; }
+    .bm-error { color: #B03030; font-size: 12px; margin-top: 6px; }
   </style>
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#1B2A3F">
@@ -93,12 +200,12 @@
     <div class="nav-links">
       <a class="nav-link" href="index.html">Briefing</a>
       <a class="nav-link" href="bi.html">Analytics</a>
-      <a class="nav-link" href="clients.html">Clients</a>
+      <a class="nav-link" href="clients.html">AR Aging</a>
       <a class="nav-link" href="engagement.html">Pipeline</a>
       <a class="nav-link" href="forecast.html">Forecast</a>
       <a class="nav-link" href="budget.html">Budget</a>
       <a class="nav-link" href="financials.html">Financials</a>
-    <a class="nav-link" href="docs.html">Documents</a>
+      <a class="nav-link" href="docs.html">Documents</a>
       <a class="nav-link" href="emails.html">Emails</a>
       <a class="nav-link" href="activity.html">Activity</a>
       <a class="nav-link" href="drive.html">Drive</a>
@@ -106,6 +213,7 @@
       <a class="nav-link" href="ai.html">AI</a>
       <a class="nav-link" href="pdf.html">PDF Tools</a>
       <a class="nav-link" href="docuseal.html">DocuSeal</a>
+      <a class="nav-link" href="prospecting.html">Prospecting</a>
       <a class="nav-link" href="https://clients.lobelaccountancy.com" target="_blank" rel="noopener">Client Portal ↗</a>
       <a class="nav-link nav-link--active" href="bookmarks.html">Bookmarks</a>
     </div>
@@ -117,61 +225,247 @@
 </nav>
 
 <main class="main">
-  <h2 style="font-size:20px;font-weight:700;color:var(--navy);margin-bottom:20px;">Bookmarks</h2>
-
-  <div class="bookmark-grid">
-
-    <a class="bookmark-card" href="https://www.chase.com/business/business-sbw-1" target="_blank" rel="noopener">
-      <div class="bookmark-icon" style="background:#117ACA;">Ch</div>
-      <span class="bookmark-name">Chase</span>
-      <span class="bookmark-url">chase.com/business</span>
-    </a>
-
-    <a class="bookmark-card" href="https://dochub.com" target="_blank" rel="noopener">
-      <div class="bookmark-icon" style="background:#E8490F;">Dh</div>
-      <span class="bookmark-name">DocHub</span>
-      <span class="bookmark-url">dochub.com</span>
-    </a>
-
-    <a class="bookmark-card" href="https://www.linkedin.com" target="_blank" rel="noopener">
-      <div class="bookmark-icon" style="background:#0A66C2;">in</div>
-      <span class="bookmark-name">LinkedIn</span>
-      <span class="bookmark-url">linkedin.com</span>
-    </a>
-
-    <a class="bookmark-card" href="https://app.apollo.io" target="_blank" rel="noopener">
-      <div class="bookmark-icon" style="background:#1C1C2E;">Ap</div>
-      <span class="bookmark-name">Apollo.io</span>
-      <span class="bookmark-url">app.apollo.io</span>
-    </a>
-
-    <a class="bookmark-card" href="https://zapier.com" target="_blank" rel="noopener">
-      <div class="bookmark-icon" style="background:#FF4A00;">Za</div>
-      <span class="bookmark-name">Zapier</span>
-      <span class="bookmark-url">zapier.com</span>
-    </a>
-
-    <a class="bookmark-card" href="https://tactiq.io" target="_blank" rel="noopener">
-      <div class="bookmark-icon" style="background:#7C3AED;">Tq</div>
-      <span class="bookmark-name">Tactiq</span>
-      <span class="bookmark-url">tactiq.io</span>
-    </a>
-
-    <a class="bookmark-card" href="https://dart.deloitte.com" target="_blank" rel="noopener">
-      <div class="bookmark-icon" style="background:#86BC25;">De</div>
-      <span class="bookmark-name">Deloitte Dart</span>
-      <span class="bookmark-url">dart.deloitte.com</span>
-    </a>
-
+  <div class="bm-toolbar">
+    <h2>Bookmarks</h2>
   </div>
+  <div class="bookmark-grid" id="bm-grid"></div>
 </main>
+
+<!-- Add / Edit modal -->
+<div class="bm-overlay" id="bm-overlay">
+  <div class="bm-modal">
+    <h3 id="bm-modal-title">Add Bookmark</h3>
+    <div class="bm-field">
+      <label>Name</label>
+      <input id="bm-inp-name" type="text" placeholder="e.g. Chase" maxlength="40">
+    </div>
+    <div class="bm-field">
+      <label>URL</label>
+      <input id="bm-inp-url" type="url" placeholder="https://...">
+    </div>
+    <div class="bm-field">
+      <label>Color</label>
+      <div class="bm-color-row" id="bm-color-row"></div>
+    </div>
+    <div class="bm-error" id="bm-modal-err"></div>
+    <div class="bm-modal-footer">
+      <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+      <button class="btn-save"   onclick="saveModal()">Save</button>
+    </div>
+  </div>
+</div>
 
 <script src="js/auth.js"></script>
 <script>
-  if (!requireAuth()) { /* redirected */ } else {
-    const p = jwtPayload(getJWT());
-    document.getElementById('nav-user').textContent = (p?.email || '').split('@')[0];
+const COLORS = [
+  '#1B2A3F','#2E6DA4','#117ACA','#0A66C2','#1A7A4A',
+  '#86BC25','#C9920A','#E8490F','#FF4A00','#B03030',
+  '#7C3AED','#1C1C2E','#5A6B7C','#065F46','#6B21A8',
+];
+
+let _bookmarks = [];
+let _editIdx   = null;  // null = add, number = edit index
+let _selColor  = COLORS[0];
+
+// ── init ──────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', async () => {
+  if (!requireAuth()) return;
+  const p = jwtPayload(getJWT());
+  document.getElementById('nav-user').textContent = (p?.email || '').split('@')[0];
+  buildColorPicker();
+  await loadBookmarks();
+});
+
+// ── API ───────────────────────────────────────────────────────────────
+async function loadBookmarks() {
+  const data = await apiFetch('/bookmarks');
+  _bookmarks = data?.bookmarks || [];
+  renderGrid();
+}
+
+async function persistBookmarks() {
+  await apiFetch('/bookmarks', {
+    method: 'POST',
+    body: JSON.stringify({ bookmarks: _bookmarks }),
+  });
+}
+
+// ── render ────────────────────────────────────────────────────────────
+function initials(name) {
+  const parts = name.trim().split(/\s+/);
+  return parts.length >= 2
+    ? (parts[0][0] + parts[1][0]).toUpperCase()
+    : name.slice(0, 2).toUpperCase();
+}
+
+function displayDomain(url) {
+  try { return new URL(url).hostname.replace(/^www\./, ''); }
+  catch { return url; }
+}
+
+function renderGrid() {
+  const grid = document.getElementById('bm-grid');
+  grid.innerHTML = '';
+
+  _bookmarks.forEach((bm, idx) => {
+    const card = document.createElement('div');
+    card.className = 'bookmark-card';
+    card.draggable = true;
+    card.dataset.idx = idx;
+    card.innerHTML = `
+      <span class="bm-drag-handle" title="Drag to reorder">⠿</span>
+      <div class="bm-actions">
+        <button class="bm-btn" title="Edit" onclick="openEdit(${idx});event.preventDefault();event.stopPropagation()">✎</button>
+        <button class="bm-btn bm-btn--delete" title="Delete" onclick="deleteBM(${idx});event.preventDefault();event.stopPropagation()">✕</button>
+      </div>
+      <div class="bookmark-icon" style="background:${bm.color || COLORS[0]}">${initials(bm.name)}</div>
+      <span class="bookmark-name">${esc(bm.name)}</span>
+      <span class="bookmark-url">${esc(displayDomain(bm.url))}</span>
+    `;
+    // open link on card click (not button click)
+    card.addEventListener('click', e => {
+      if (e.target.closest('.bm-btn') || e.target.closest('.bm-drag-handle')) return;
+      window.open(bm.url, '_blank', 'noopener');
+    });
+    wireDrag(card);
+    grid.appendChild(card);
+  });
+
+  // Add card
+  const add = document.createElement('div');
+  add.className = 'bookmark-card bm-add';
+  add.innerHTML = `<div class="bm-add-icon">+</div><span class="bm-add-label">Add Bookmark</span>`;
+  add.addEventListener('click', openAdd);
+  grid.appendChild(add);
+}
+
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── drag-and-drop reorder ─────────────────────────────────────────────
+let _dragIdx = null;
+
+function wireDrag(card) {
+  card.addEventListener('dragstart', e => {
+    _dragIdx = parseInt(card.dataset.idx);
+    card.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+  });
+  card.addEventListener('dragend', () => {
+    card.classList.remove('dragging');
+    document.querySelectorAll('.bookmark-card').forEach(c => c.classList.remove('drag-over'));
+  });
+  card.addEventListener('dragover', e => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    document.querySelectorAll('.bookmark-card').forEach(c => c.classList.remove('drag-over'));
+    card.classList.add('drag-over');
+  });
+  card.addEventListener('drop', e => {
+    e.preventDefault();
+    const targetIdx = parseInt(card.dataset.idx);
+    if (_dragIdx === null || _dragIdx === targetIdx) return;
+    const moved = _bookmarks.splice(_dragIdx, 1)[0];
+    _bookmarks.splice(targetIdx, 0, moved);
+    _dragIdx = null;
+    renderGrid();
+    persistBookmarks();
+  });
+}
+
+// ── add / edit modal ──────────────────────────────────────────────────
+function buildColorPicker() {
+  const row = document.getElementById('bm-color-row');
+  COLORS.forEach(c => {
+    const sw = document.createElement('div');
+    sw.className = 'bm-swatch' + (c === _selColor ? ' selected' : '');
+    sw.style.background = c;
+    sw.title = c;
+    sw.addEventListener('click', () => {
+      _selColor = c;
+      document.querySelectorAll('.bm-swatch').forEach(s => s.classList.remove('selected'));
+      sw.classList.add('selected');
+    });
+    row.appendChild(sw);
+  });
+}
+
+function selectColor(color) {
+  _selColor = color;
+  document.querySelectorAll('.bm-swatch').forEach(s => {
+    s.classList.toggle('selected', s.style.background === color || s.title === color);
+  });
+}
+
+function openAdd() {
+  _editIdx = null;
+  document.getElementById('bm-modal-title').textContent = 'Add Bookmark';
+  document.getElementById('bm-inp-name').value = '';
+  document.getElementById('bm-inp-url').value  = '';
+  document.getElementById('bm-modal-err').textContent = '';
+  selectColor(COLORS[0]);
+  document.getElementById('bm-overlay').classList.add('open');
+  document.getElementById('bm-inp-name').focus();
+}
+
+function openEdit(idx) {
+  _editIdx = idx;
+  const bm = _bookmarks[idx];
+  document.getElementById('bm-modal-title').textContent = 'Edit Bookmark';
+  document.getElementById('bm-inp-name').value = bm.name;
+  document.getElementById('bm-inp-url').value  = bm.url;
+  document.getElementById('bm-modal-err').textContent = '';
+  selectColor(bm.color || COLORS[0]);
+  document.getElementById('bm-overlay').classList.add('open');
+  document.getElementById('bm-inp-name').focus();
+}
+
+function closeModal() {
+  document.getElementById('bm-overlay').classList.remove('open');
+}
+
+async function saveModal() {
+  const name = document.getElementById('bm-inp-name').value.trim();
+  const url  = document.getElementById('bm-inp-url').value.trim();
+  const err  = document.getElementById('bm-modal-err');
+  if (!name) { err.textContent = 'Name is required.'; return; }
+  if (!url)  { err.textContent = 'URL is required.'; return; }
+  const urlFixed = url.startsWith('http') ? url : 'https://' + url;
+
+  if (_editIdx === null) {
+    _bookmarks.push({
+      id: name.toLowerCase().replace(/\s+/g,'_').slice(0,24) + '_' + Date.now(),
+      name, url: urlFixed, color: _selColor,
+    });
+  } else {
+    _bookmarks[_editIdx] = { ..._bookmarks[_editIdx], name, url: urlFixed, color: _selColor };
   }
+
+  closeModal();
+  renderGrid();
+  await persistBookmarks();
+}
+
+async function deleteBM(idx) {
+  if (!confirm(`Delete "${_bookmarks[idx].name}"?`)) return;
+  _bookmarks.splice(idx, 1);
+  renderGrid();
+  await persistBookmarks();
+}
+
+// close modal on overlay click
+document.getElementById('bm-overlay').addEventListener('click', e => {
+  if (e.target === document.getElementById('bm-overlay')) closeModal();
+});
+
+// enter key in modal inputs
+['bm-inp-name','bm-inp-url'].forEach(id => {
+  document.getElementById(id).addEventListener('keydown', e => {
+    if (e.key === 'Enter') saveModal();
+    if (e.key === 'Escape') closeModal();
+  });
+});
 </script>
 <script src="js/chat.js"></script>
 <script>

@@ -1,4 +1,4 @@
-// LAC Client Health Dashboard
+// LAC AR Aging Dashboard
 
 let _allClients = [];
 let _filtered   = [];
@@ -26,6 +26,12 @@ async function loadClients() {
     renderSummary(data.summary);
     applyFilter();
     setStatus(`Updated ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} · ${data.clients.length} clients`);
+
+    const target = new URLSearchParams(window.location.search).get('client');
+    if (target) {
+      const idx = _filtered.findIndex(c => c.name === target);
+      if (idx !== -1) showDetail(idx);
+    }
   } catch (err) {
     setStatus(`Error: ${err.message}`);
     document.getElementById('error-banner').textContent = err.message;
@@ -171,6 +177,7 @@ function showDetail(idx) {
         `<button class="btn-pay" onclick="openPayment('${escA(i.invoice)}',${i.outstanding})">
            Record Payment
          </button>`;
+      const delBtn = `<button class="btn-delete" onclick="openDelModal('${escA(i.invoice)}')">Delete</button>`;
       return `
         <tr class="${isPaid ? 'row-paid' : ''}">
           <td class="mono">${i.invoice}</td>
@@ -181,7 +188,7 @@ function showDetail(idx) {
             : i.days_overdue > 0
               ? `<span class="badge badge--${i.days_overdue > 30 ? 'danger' : 'warning'}">${i.days_overdue}d overdue</span>`
               : '<span class="badge badge--ok">Current</span>'}</td>
-          <td>${i.status}${payBtn}</td>
+          <td>${i.status}${payBtn}${delBtn}</td>
         </tr>`;
     }).join('');
     invHtml = `
@@ -282,6 +289,48 @@ async function submitPayment() {
     loadClients(); // refresh list
   } else {
     errEl.textContent = res?.error || 'Payment failed.';
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Delete modal
+// ---------------------------------------------------------------------------
+
+let _delInvoice = '';
+
+function openDelModal(invoice) {
+  _delInvoice = invoice;
+  document.getElementById('del-invoice-label').textContent = invoice;
+  document.getElementById('del-error').textContent = '';
+  const btn = document.getElementById('del-confirm-btn');
+  btn.disabled = false;
+  btn.textContent = 'Delete';
+  document.getElementById('del-modal').classList.add('open');
+}
+
+function closeDelModal() {
+  document.getElementById('del-modal').classList.remove('open');
+}
+
+async function submitDelete() {
+  const btn = document.getElementById('del-confirm-btn');
+  btn.disabled = true;
+  btn.textContent = 'Deleting…';
+
+  const res = await apiFetch('/ar/delete', {
+    method: 'POST',
+    body: JSON.stringify({ invoice: _delInvoice }),
+  });
+
+  btn.disabled = false;
+  btn.textContent = 'Delete';
+
+  if (res?.ok) {
+    closeDelModal();
+    closeDetail();
+    loadClients();
+  } else {
+    document.getElementById('del-error').textContent = res?.error || 'Delete failed.';
   }
 }
 

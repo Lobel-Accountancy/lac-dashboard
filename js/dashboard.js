@@ -82,7 +82,9 @@ function urgencyLabel(days) {
 
 function renderKPIs(data) {
   const { ar, pipeline } = data;
-  const grid = document.getElementById('kpi-grid');
+  const revMtd = data.revenue_mtd;
+  const month  = new Date().toLocaleString('en-US', { month: 'long' });
+  const grid   = document.getElementById('kpi-grid');
   grid.innerHTML = `
     <div class="kpi-card">
       <div class="kpi-label">Total AR Outstanding</div>
@@ -93,6 +95,11 @@ function renderKPIs(data) {
       <div class="kpi-label">Overdue</div>
       <div class="kpi-value">${fmt$(ar.overdue_amount)}</div>
       <div class="kpi-sub">${ar.overdue_count} invoice${ar.overdue_count !== 1 ? 's' : ''} past due</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Revenue — ${month}</div>
+      <div class="kpi-value">${revMtd != null ? fmt$(revMtd) : '—'}</div>
+      <div class="kpi-sub">Income Statement · Total Revenue</div>
     </div>
     <div class="kpi-card">
       <div class="kpi-label">Active Matters</div>
@@ -115,14 +122,16 @@ function renderAR(ar) {
     return;
   }
 
-  const rows = overdue.map(i => `
-    <tr class="row--${urgencyClass(i.days_overdue > 0 ? -i.days_overdue : 0)}">
+  const rows = overdue.map(i => {
+    const href = `clients.html?client=${encodeURIComponent(i.client)}`;
+    return `
+    <tr class="row--${urgencyClass(i.days_overdue > 0 ? -i.days_overdue : 0)} row-link" onclick="window.location.href='${href}'" style="cursor:pointer" title="Open in AR Aging">
       <td>${i.client}</td>
       <td class="mono">${i.invoice}</td>
       <td class="num">${fmt$(i.outstanding)}</td>
       <td><span class="badge badge--${i.days_overdue > 30 ? 'danger' : i.days_overdue > 14 ? 'warning' : 'muted'}">${i.days_overdue}d</span></td>
-    </tr>
-  `).join('');
+    </tr>`;
+  }).join('');
 
   body.innerHTML = `
     <table class="data-table">

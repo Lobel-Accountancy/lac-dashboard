@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <link rel="icon" type="image/jpeg" href="favicon.jpg">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>LAC Client Health</title>
+  <title>LAC AR Aging</title>
   <link rel="stylesheet" href="css/style.css">
   <style>
     /* Nav links */
@@ -228,6 +228,30 @@
     .pay-field input { width: 100%; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 14px; box-sizing: border-box; }
     .pay-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 18px; }
     .pay-error { font-size: 12px; color: #C0392B; margin-top: 6px; }
+
+    .btn-delete {
+      margin-left: 6px; padding: 2px 9px; font-size: 11px; font-weight: 600;
+      background: #C0392B; color: white; border: none; border-radius: 4px;
+      cursor: pointer; vertical-align: middle;
+    }
+    .btn-delete:hover { background: #A93226; }
+
+    .del-modal-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,.4); z-index: 600;
+      align-items: center; justify-content: center;
+    }
+    .del-modal-overlay.open { display: flex; }
+    .del-modal {
+      background: white; border-radius: 12px; padding: 28px;
+      width: 360px; max-width: 92vw;
+      box-shadow: 0 8px 32px rgba(0,0,0,.18);
+    }
+    .del-modal h3 { font-size: 16px; font-weight: 700; color: #C0392B; margin-bottom: 4px; }
+    .del-modal .inv-id { font-size: 12px; color: var(--text-2); margin-bottom: 12px; font-family: monospace; }
+    .del-modal p { font-size: 13px; color: var(--text); margin-bottom: 18px; }
+    .del-actions { display: flex; gap: 8px; justify-content: flex-end; }
+    .del-error { font-size: 12px; color: #C0392B; margin-top: 6px; }
   </style>
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#1B2A3F">
@@ -244,7 +268,7 @@
     <div class="nav-links">
     <a class="nav-link" href="index.html">Briefing</a>
     <a class="nav-link" href="bi.html">Analytics</a>
-    <a class="nav-link active" href="clients.html">Clients</a>
+    <a class="nav-link active" href="clients.html">AR Aging</a>
     <a class="nav-link" href="forecast.html">Forecast</a>
     <a class="nav-link" href="budget.html">Budget</a>
     <a class="nav-link" href="financials.html">Financials</a>
@@ -256,6 +280,7 @@
       <a class="nav-link" href="ai.html">AI</a>
       <a class="nav-link" href="pdf.html">PDF Tools</a>
       <a class="nav-link" href="docuseal.html">DocuSeal</a>
+      <a class="nav-link" href="prospecting.html">Prospecting</a>
       <a class="nav-link" href="https://clients.lobelaccountancy.com" target="_blank" rel="noopener">Client Portal ↗</a>
       <a class="nav-link" href="bookmarks.html">Bookmarks</a>
     </div>
@@ -267,7 +292,7 @@
 </nav>
 
 <main class="main">
-  <div class="greeting">Client Health</div>
+  <div class="greeting">AR Aging</div>
   <div class="date-line" id="date-line"></div>
 
   <div class="error-banner" id="error-banner" hidden></div>
@@ -364,6 +389,20 @@
     <div class="pay-actions">
       <button class="btn-sm" onclick="closePayModal()">Cancel</button>
       <button class="btn-sm btn-primary" onclick="submitPayment()">Record Payment</button>
+    </div>
+  </div>
+</div>
+
+<!-- Delete confirm modal -->
+<div class="del-modal-overlay" id="del-modal">
+  <div class="del-modal">
+    <h3>Delete Invoice</h3>
+    <div class="inv-id" id="del-invoice-label"></div>
+    <p>This will permanently remove the invoice from AR Aging. This cannot be undone.</p>
+    <div class="del-error" id="del-error"></div>
+    <div class="del-actions">
+      <button class="btn-sm" onclick="closeDelModal()">Cancel</button>
+      <button class="btn-sm" style="background:#C0392B;color:white;border-color:#C0392B" id="del-confirm-btn" onclick="submitDelete()">Delete</button>
     </div>
   </div>
 </div>

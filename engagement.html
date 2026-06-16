@@ -7,87 +7,162 @@
   <title>LAC Engagement Pipeline</title>
   <link rel="stylesheet" href="css/style.css">
   <style>
-    .eng-wrap { padding: 28px 32px; }
-    .eng-header { display: flex; align-items: center; gap: 16px; margin-bottom: 24px; }
-    .eng-header h1 { font-size: 20px; font-weight: 600; color: var(--text-1); margin: 0; }
-    .template-row { display: flex; align-items: center; gap: 10px; margin-left: auto; }
-    .template-row label { font-size: 13px; color: var(--text-3); }
-    .template-select {
-      background: var(--card);
-      border: 1px solid var(--border);
-      color: var(--text-1);
-      padding: 6px 10px;
-      border-radius: 6px;
-      font-size: 13px;
-      min-width: 220px;
+    /* ── Controls bar ── */
+    .controls-bar {
+      display: flex; align-items: center; gap: 10px;
+      margin-bottom: 16px; flex-wrap: wrap;
     }
+    .search-input {
+      padding: 7px 12px; border: 1px solid var(--border);
+      border-radius: 6px; font-size: 13px; color: var(--text);
+      outline: none; width: 220px; background: white;
+    }
+    .search-input:focus { border-color: var(--navy); }
+    .filter-select {
+      padding: 7px 10px; border: 1px solid var(--border);
+      border-radius: 6px; font-size: 13px; color: var(--text);
+      background: white; outline: none; cursor: pointer;
+    }
+    .filter-select:focus { border-color: var(--navy); }
+    .btn-add {
+      margin-left: auto; padding: 8px 18px; font-size: 13px;
+      font-weight: 600; background: var(--navy); color: white;
+      border: none; border-radius: 6px; cursor: pointer;
+    }
+    .btn-add:hover { background: #2E3D52; }
+
+    /* ── Table ── */
     .eng-table { width: 100%; border-collapse: collapse; font-size: 13px; }
     .eng-table th {
-      text-align: left;
-      padding: 8px 12px;
-      color: var(--text-3);
-      font-weight: 500;
-      border-bottom: 1px solid var(--border);
+      text-align: left; padding: 9px 11px;
+      font-size: 11px; font-weight: 600; text-transform: uppercase;
+      letter-spacing: .05em; color: var(--text-2);
+      border-bottom: 2px solid var(--border); background: #FAFBFC;
       white-space: nowrap;
     }
     .eng-table td {
-      padding: 10px 12px;
-      border-bottom: 1px solid var(--border);
-      color: var(--text-1);
-      vertical-align: middle;
+      padding: 10px 11px; border-bottom: 1px solid var(--border);
+      vertical-align: middle; color: var(--text);
     }
-    .eng-table tr:hover td { background: var(--card-hover, rgba(255,255,255,.03)); }
+    .eng-table tr:last-child td { border-bottom: none; }
+    .eng-table tr:hover td { background: #F5F8FF; }
+    .client-name { font-weight: 500; color: var(--navy); }
+    .text-muted  { color: var(--text-3); }
+    .num         { text-align: right; }
+
+    /* ── Stage badges ── */
     .badge {
-      display: inline-block;
-      padding: 2px 8px;
-      border-radius: 20px;
-      font-size: 11px;
-      font-weight: 500;
+      display: inline-block; padding: 2px 9px;
+      border-radius: 20px; font-size: 11px; font-weight: 500;
     }
-    .badge-engaged  { background: #1e3a2f; color: #4ade80; }
-    .badge-prospect { background: #1e2a3a; color: #60a5fa; }
-    .badge-complete { background: #1e2a1e; color: #86efac; }
-    .badge-lost     { background: #2a1e1e; color: #f87171; }
-    .badge-default  { background: var(--card); color: var(--text-2); }
+    .badge-prospect             { background: #1e2a3a; color: #60a5fa; }
+    .badge-prospect-sent        { background: #2d1b69; color: #DDD6FE; }
+    .badge-engaged              { background: #1e3a2f; color: #4ade80; }
+    .badge-engaged-continuance  { background: #065F46; color: #6EE7B7; }
+    .badge-complete             { background: #1e2a1e; color: #86efac; }
+    .badge-lost                 { background: #2a1e1e; color: #f87171; }
+    .badge-default              { background: #f1f3f4; color: #555; }
+
+    /* ── Action buttons ── */
+    .btn-edit {
+      padding: 3px 10px; font-size: 11px; font-weight: 600;
+      background: white; color: var(--navy);
+      border: 1px solid var(--navy); border-radius: 4px; cursor: pointer;
+      margin-right: 5px;
+    }
+    .btn-edit:hover { background: var(--navy); color: white; }
     .btn-send {
-      background: var(--accent);
-      color: #fff;
-      border: none;
-      padding: 5px 13px;
-      border-radius: 6px;
-      font-size: 12px;
-      cursor: pointer;
-      white-space: nowrap;
+      padding: 3px 10px; font-size: 11px; font-weight: 600;
+      background: var(--navy); color: white;
+      border: none; border-radius: 4px; cursor: pointer;
     }
-    .btn-send:disabled { opacity: .5; cursor: not-allowed; }
-    .btn-send.sending  { opacity: .7; }
-    .send-status { font-size: 11px; margin-top: 3px; }
-    .send-status.ok  { color: #4ade80; }
-    .send-status.err { color: #f87171; }
-    .no-template-msg {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 16px 20px;
-      color: var(--text-2);
-      font-size: 13px;
-      margin-bottom: 20px;
+    .btn-send:disabled { opacity: .45; cursor: not-allowed; }
+    .send-status { font-size: 11px; margin-top: 2px; }
+    .send-status.ok  { color: #1A7A4A; }
+    .send-status.err { color: #C0392B; }
+
+    /* ── Template bar ── */
+    .tpl-bar {
+      display: flex; align-items: center; gap: 10px;
+      margin-bottom: 14px; flex-wrap: wrap;
     }
-    .no-template-msg a { color: var(--accent); }
+    .tpl-bar label { font-size: 12px; color: var(--text-2); }
+    .template-select {
+      padding: 6px 10px; border: 1px solid var(--border);
+      border-radius: 6px; font-size: 13px; min-width: 200px;
+      background: white; color: var(--text);
+    }
     .btn-upload-tpl {
-      background: transparent;
-      border: 1px solid var(--border);
-      color: var(--text-2);
-      padding: 5px 12px;
-      border-radius: 6px;
-      font-size: 12px;
-      cursor: pointer;
-      white-space: nowrap;
+      padding: 5px 12px; font-size: 12px; cursor: pointer;
+      background: white; border: 1px solid var(--border);
+      border-radius: 6px; color: var(--text-2);
     }
-    .btn-upload-tpl:hover { border-color: var(--accent); color: var(--accent); }
-    .upload-status { font-size: 12px; margin-left: 8px; color: var(--text-3); }
-    .upload-status.ok  { color: #4ade80; }
-    .upload-status.err { color: #f87171; }
+    .btn-upload-tpl:hover { border-color: var(--navy); color: var(--navy); }
+    .upload-status { font-size: 12px; color: var(--text-2); }
+    .upload-status.ok  { color: #1A7A4A; }
+    .upload-status.err { color: #C0392B; }
+
+    /* ── Slide-out panel ── */
+    .panel-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,.25);
+      z-index: 300; opacity: 0; pointer-events: none; transition: opacity .2s;
+    }
+    .panel-overlay.open { opacity: 1; pointer-events: auto; }
+
+    .panel {
+      position: fixed; top: 0; right: 0;
+      width: 480px; max-width: 100vw; height: 100vh;
+      background: white; z-index: 301;
+      box-shadow: -6px 0 32px rgba(0,0,0,.12);
+      transform: translateX(100%); transition: transform .22s ease;
+      display: flex; flex-direction: column; overflow: hidden;
+    }
+    .panel.open { transform: translateX(0); }
+
+    .panel-header {
+      background: var(--navy); padding: 20px 24px; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .panel-title { font-size: 17px; font-weight: 700; color: white; }
+    .panel-close {
+      background: rgba(255,255,255,.15); border: none; color: white;
+      width: 28px; height: 28px; border-radius: 50%; font-size: 18px;
+      line-height: 1; cursor: pointer; display: flex; align-items: center; justify-content: center;
+    }
+    .panel-close:hover { background: rgba(255,255,255,.25); }
+
+    .panel-body { overflow-y: auto; flex: 1; padding: 20px 24px 16px; }
+
+    .field-row { margin-bottom: 14px; }
+    .field-row label {
+      display: block; font-size: 12px; font-weight: 600;
+      color: var(--text-2); margin-bottom: 4px;
+    }
+    .field-row input,
+    .field-row select,
+    .field-row textarea {
+      width: 100%; padding: 8px 10px;
+      border: 1px solid var(--border); border-radius: 6px;
+      font-size: 14px; color: var(--text); box-sizing: border-box;
+      background: white; font-family: inherit;
+    }
+    .field-row input:focus,
+    .field-row select:focus,
+    .field-row textarea:focus { outline: none; border-color: var(--navy); }
+    .field-row input[readonly] { background: #f7f8fa; color: var(--text-2); }
+    .field-two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+    .panel-footer {
+      padding: 14px 24px; border-top: 1px solid var(--border);
+      display: flex; gap: 8px; justify-content: flex-end; flex-shrink: 0;
+    }
+    .panel-error { font-size: 12px; color: #C0392B; margin-right: auto; align-self: center; }
+
+    @media (max-width: 768px) {
+      .panel { width: 100vw; }
+      .controls-bar { flex-direction: column; align-items: flex-start; }
+      .btn-add { margin-left: 0; }
+    }
   </style>
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#1B2A3F">
@@ -104,7 +179,7 @@
     <div class="nav-links">
       <a class="nav-link" href="index.html">Briefing</a>
       <a class="nav-link" href="bi.html">Analytics</a>
-      <a class="nav-link" href="clients.html">Clients</a>
+      <a class="nav-link" href="clients.html">AR Aging</a>
       <a class="nav-link active" href="engagement.html">Pipeline</a>
       <a class="nav-link" href="forecast.html">Forecast</a>
       <a class="nav-link" href="budget.html">Budget</a>
@@ -117,6 +192,7 @@
       <a class="nav-link" href="ai.html">AI</a>
       <a class="nav-link" href="pdf.html">PDF Tools</a>
       <a class="nav-link" href="docuseal.html">DocuSeal</a>
+      <a class="nav-link" href="prospecting.html">Prospecting</a>
       <a class="nav-link" href="https://clients.lobelaccountancy.com" target="_blank" rel="noopener">Client Portal ↗</a>
       <a class="nav-link" href="bookmarks.html">Bookmarks</a>
     </div>
@@ -127,208 +203,489 @@
   </div>
 </nav>
 
-<div class="main">
-<div class="eng-wrap">
-  <div class="eng-header">
-    <h1>Engagement Pipeline</h1>
-    <div class="template-row">
-      <label for="tpl-select">Engagement Letter Template:</label>
-      <select id="tpl-select" class="template-select">
-        <option value="">Loading templates…</option>
-      </select>
-      <input type="file" id="tpl-file-input" accept=".docx,.doc,.pdf,.odt,.rtf" style="display:none">
-      <button class="btn-upload-tpl" onclick="document.getElementById('tpl-file-input').click()">
-        Upload Template (.docx / .pdf)
-      </button>
-      <span class="upload-status" id="upload-status"></span>
+<main class="main">
+  <div class="greeting">Engagement Pipeline</div>
+  <div class="date-line" id="date-line"></div>
+
+  <div class="error-banner" id="error-banner" hidden></div>
+
+  <!-- Template upload bar -->
+  <div class="tpl-bar">
+    <label for="tpl-select">Engagement Letter Template:</label>
+    <select id="tpl-select" class="template-select">
+      <option value="">Loading templates…</option>
+    </select>
+    <input type="file" id="tpl-file-input" accept=".docx,.doc,.pdf,.odt,.rtf" style="display:none">
+    <button class="btn-upload-tpl" onclick="document.getElementById('tpl-file-input').click()">
+      Upload Template
+    </button>
+    <span class="upload-status" id="upload-status"></span>
+  </div>
+
+  <!-- Filters + Add -->
+  <div class="controls-bar">
+    <input class="search-input" id="search" placeholder="Search clients…" oninput="applyFilter()">
+    <select class="filter-select" id="filter-stage" onchange="applyFilter()">
+      <option value="">All Stages</option>
+      <option>Prospect</option>
+      <option>Prospect Sent</option>
+      <option>Engaged</option>
+      <option>Engaged - Continuance</option>
+    </select>
+    <select class="filter-select" id="filter-status" onchange="applyFilter()">
+      <option value="">All Statuses</option>
+      <option>Pending</option>
+      <option>Active</option>
+      <option>Complete</option>
+    </select>
+    <button class="btn-add" onclick="openPanel(null)">+ Add Client</button>
+  </div>
+
+  <!-- Table -->
+  <div class="card">
+    <div style="overflow-x:auto">
+      <table class="eng-table">
+        <thead>
+          <tr>
+            <th>Client</th>
+            <th>#</th>
+            <th>Stage</th>
+            <th>Type</th>
+            <th>Entity</th>
+            <th>Billing</th>
+            <th class="num">Fee</th>
+            <th>Status</th>
+            <th>FYE</th>
+            <th>Email</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="eng-body">
+          <tr><td colspan="11" style="padding:20px;color:var(--text-3)">Loading…</td></tr>
+        </tbody>
+      </table>
     </div>
   </div>
 
-  <div id="no-template-msg" class="no-template-msg" style="display:none">
-    No engagement letter template found. Go to
-    <a href="docuseal.html">DocuSeal</a>, upload your engagement letter PDF,
-    place the signature and field placeholders, then save it as a template.
-    The template will appear in the dropdown above.
+  <div class="refresh-bar">
+    <span id="refresh-status"></span>
+    <button class="btn-refresh" onclick="loadEngagements()">↻ Refresh</button>
   </div>
+</main>
 
-  <div id="loading" style="color:var(--text-3);font-size:13px;">Loading pipeline…</div>
-  <div id="table-wrap" style="display:none">
-    <table class="eng-table" id="eng-table">
-      <thead>
-        <tr>
-          <th>Client</th>
-          <th>Type</th>
-          <th>Entity</th>
-          <th>Stage</th>
-          <th>Fee</th>
-          <th>FYE</th>
-          <th>Issue Date</th>
-          <th>Email</th>
-          <th>Send Letter</th>
-        </tr>
-      </thead>
-      <tbody id="eng-body"></tbody>
-    </table>
+<!-- Slide-out panel -->
+<div class="panel-overlay" id="panel-overlay" onclick="closePanel()"></div>
+<div class="panel" id="panel">
+  <div class="panel-header">
+    <div class="panel-title" id="panel-title">Add Client</div>
+    <button class="panel-close" onclick="closePanel()">×</button>
   </div>
-</div>
+  <div class="panel-body">
+    <div class="field-two">
+      <div class="field-row">
+        <label>Client Name *</label>
+        <input type="text" id="f-client" placeholder="e.g. Acme Corp">
+      </div>
+      <div class="field-row">
+        <label>Client Number</label>
+        <input type="text" id="f-client-num" readonly>
+      </div>
+    </div>
+
+    <div class="field-two">
+      <div class="field-row">
+        <label>Stage</label>
+        <select id="f-stage">
+          <option>Prospect</option>
+          <option>Prospect Sent</option>
+          <option>Engaged</option>
+          <option>Engaged - Continuance</option>
+        </select>
+      </div>
+      <div class="field-row">
+        <label>Engagement Status</label>
+        <select id="f-status">
+          <option>Pending</option>
+          <option>Active</option>
+          <option>Complete</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="field-two">
+      <div class="field-row">
+        <label>Engagement Type</label>
+        <select id="f-eng-type">
+          <option value="">— Select —</option>
+          <option>Audit</option>
+          <option>Review</option>
+          <option>Compilation</option>
+          <option>Tax Preparation</option>
+          <option>Bookkeeping</option>
+          <option>Fractional CFO</option>
+          <option>Fractional Controller</option>
+          <option>Consulting</option>
+          <option>Other</option>
+        </select>
+      </div>
+      <div class="field-row">
+        <label>Billing Type</label>
+        <select id="f-billing">
+          <option>Fixed Fee</option>
+          <option>Billed Hourly</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="field-two">
+      <div class="field-row">
+        <label>Entity Type</label>
+        <select id="f-entity">
+          <option value="">— Select —</option>
+          <option>Sole Proprietor</option>
+          <option>Single-Member LLC</option>
+          <option>Multi-Member LLC</option>
+          <option>S-Corp</option>
+          <option>C-Corp</option>
+          <option>Partnership</option>
+          <option>LP</option>
+          <option>LLP</option>
+          <option>Non-Profit (501c3)</option>
+          <option>Trust</option>
+          <option>Estate</option>
+          <option>Individual</option>
+        </select>
+      </div>
+      <div class="field-row">
+        <label>Fee Amount ($)</label>
+        <input type="number" id="f-fee" min="0" step="0.01" placeholder="0.00">
+      </div>
+    </div>
+
+    <div class="field-two">
+      <div class="field-row">
+        <label>Start Date</label>
+        <input type="date" id="f-start-date">
+      </div>
+      <div class="field-row">
+        <label>Issuance Date</label>
+        <input type="date" id="f-issue-date">
+      </div>
+    </div>
+
+    <div class="field-two">
+      <div class="field-row">
+        <label>Fiscal Year End</label>
+        <input type="text" id="f-fye" placeholder="e.g. 12/31">
+      </div>
+      <div class="field-row">
+        <label>Client Title</label>
+        <input type="text" id="f-title" placeholder="e.g. President">
+      </div>
+    </div>
+
+    <div class="field-row">
+      <label>Client Email</label>
+      <input type="email" id="f-email" placeholder="client@example.com">
+    </div>
+
+    <div class="field-row">
+      <label>Client Address</label>
+      <textarea id="f-address" rows="2" placeholder="123 Main St, City, CA 90210"></textarea>
+    </div>
+  </div>
+  <div class="panel-footer">
+    <span class="panel-error" id="panel-error"></span>
+    <button class="btn-sm" onclick="closePanel()">Cancel</button>
+    <button class="btn-sm btn-primary" id="panel-save-btn" onclick="savePanel()">Save</button>
+  </div>
 </div>
 
 <script src="js/auth.js"></script>
 <script src="js/chat.js"></script>
 <script>
-let _engagements = [];
-let _templates   = [];
+// ---------------------------------------------------------------------------
+// State
+// ---------------------------------------------------------------------------
+let _allEngagements = [];
+let _filtered       = [];
+let _editingClient  = null; // null = add mode, string = edit mode
 
-async function uploadTemplate(file) {
-  const statusEl = document.getElementById('upload-status');
-  statusEl.textContent = 'Converting & uploading…';
-  statusEl.className = 'upload-status';
+// ---------------------------------------------------------------------------
+// Boot
+// ---------------------------------------------------------------------------
+document.addEventListener('DOMContentLoaded', () => {
+  if (!requireAuth()) return;
+  document.getElementById('nav-user').textContent = (jwtPayload(getJWT())?.email || '').split('@')[0];
+  document.getElementById('date-line').textContent = new Date().toLocaleDateString('en-US',
+    { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+  document.getElementById('tpl-file-input').addEventListener('change', e => {
+    if (e.target.files[0]) uploadTemplate(e.target.files[0]);
+    e.target.value = '';
+  });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closePanel(); });
+  Promise.all([loadTemplates(), loadEngagements()]);
+});
+
+// ---------------------------------------------------------------------------
+// Load
+// ---------------------------------------------------------------------------
+async function loadEngagements() {
+  document.getElementById('refresh-status').textContent = 'Loading…';
   try {
-    const fd = new FormData();
-    fd.append('file', file);
-    fd.append('name', file.name.replace(/\.[^.]+$/, ''));
-    const jwt = getJWT();
-    const res = await fetch('https://auth.lobelaccountancy.com/engagement/create-template', {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${jwt}` },
-      body: fd
-    });
-    const data = await res.json();
-    if (!res.ok || !data.ok) throw new Error(data.error || 'Upload failed');
-    statusEl.textContent = `✓ "${data.name}" created — place fields then save`;
-    statusEl.className = 'upload-status ok';
-    // Open DocuSeal template editor in new tab
-    window.open(data.edit_url, '_blank');
-    // Reload templates after short delay
-    setTimeout(loadTemplates, 3000);
+    const data = await apiFetch('/engagement/list');
+    _allEngagements = Array.isArray(data) ? data : [];
+    applyFilter();
+    document.getElementById('refresh-status').textContent =
+      `Updated ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} · ${_allEngagements.length} clients`;
   } catch (e) {
-    statusEl.textContent = e.message;
-    statusEl.className = 'upload-status err';
+    document.getElementById('refresh-status').textContent = 'Error: ' + e.message;
   }
 }
+
+// ---------------------------------------------------------------------------
+// Filter
+// ---------------------------------------------------------------------------
+function applyFilter() {
+  const q      = (document.getElementById('search').value || '').toLowerCase();
+  const stage  = document.getElementById('filter-stage').value;
+  const status = document.getElementById('filter-status').value;
+  _filtered = _allEngagements.filter(e => {
+    if (stage  && e.stage  !== stage)  return false;
+    if (status && e.status !== status) return false;
+    if (q && !e.client.toLowerCase().includes(q)) return false;
+    return true;
+  });
+  renderTable();
+}
+
+// ---------------------------------------------------------------------------
+// Render
+// ---------------------------------------------------------------------------
+function stageBadge(stage) {
+  const s   = (stage || '').toLowerCase().replace(/\s+/g, '-');
+  const cls = s === 'prospect'            ? 'badge-prospect'            :
+              s === 'prospect-sent'        ? 'badge-prospect-sent'        :
+              s === 'engaged'             ? 'badge-engaged'             :
+              s === 'engaged---continuance' || s === 'engaged-continuance' ? 'badge-engaged-continuance' :
+              s === 'complete'            ? 'badge-complete'            :
+              s === 'lost'               ? 'badge-lost'               : 'badge-default';
+  return `<span class="badge ${cls}">${stage || '—'}</span>`;
+}
+
+function fmt$(n) {
+  return n ? new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n) : '—';
+}
+
+function escA(s) { return String(s || '').replace(/'/g, "\\'"); }
+
+function renderTable() {
+  const tbody = document.getElementById('eng-body');
+  if (_filtered.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="11" style="padding:20px;color:var(--text-3)">No clients match this filter.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = _filtered.map((e, i) => `
+    <tr>
+      <td>
+        <div class="client-name">${e.client}</div>
+        ${e.client_title ? `<div style="font-size:11px;color:var(--text-3)">${e.client_title}</div>` : ''}
+      </td>
+      <td style="color:var(--text-3)">${e.client_num || '—'}</td>
+      <td>${stageBadge(e.stage)}</td>
+      <td>${e.eng_type || '<span class="text-muted">—</span>'}</td>
+      <td>${e.entity_type || '<span class="text-muted">—</span>'}</td>
+      <td>${e.billing_type || '<span class="text-muted">—</span>'}</td>
+      <td class="num">${fmt$(e.fee)}</td>
+      <td>${e.status || '<span class="text-muted">—</span>'}</td>
+      <td>${e.fye || '<span class="text-muted">—</span>'}</td>
+      <td>${e.email ? `<a href="mailto:${e.email}" style="color:var(--navy)">${e.email}</a>` : '<span class="text-muted">—</span>'}</td>
+      <td style="white-space:nowrap">
+        <button class="btn-edit" onclick="openPanel(${i})">Edit</button>
+        <button class="btn-send" id="send-btn-${i}" onclick="sendLetter(${i})"
+          ${!e.email ? 'disabled title="No email on file"' : ''}>Send Letter</button>
+        <div class="send-status" id="send-status-${i}"></div>
+      </td>
+    </tr>`).join('');
+}
+
+// ---------------------------------------------------------------------------
+// Panel (Add / Edit)
+// ---------------------------------------------------------------------------
+function openPanel(idx) {
+  _editingClient = null;
+  const isEdit   = idx !== null;
+  const e        = isEdit ? _filtered[idx] : {};
+
+  document.getElementById('panel-title').textContent = isEdit ? `Edit — ${e.client}` : 'Add Client';
+  document.getElementById('panel-error').textContent  = '';
+
+  // Populate fields
+  const fClient = document.getElementById('f-client');
+  fClient.value    = e.client || '';
+  fClient.readOnly = isEdit;
+  fClient.style.background = isEdit ? '#f7f8fa' : '';
+
+  document.getElementById('f-client-num').value  = e.client_num || (isEdit ? '' : 'Auto-assigned');
+  setSelect('f-stage',   e.stage   || 'Prospect');
+  setSelect('f-status',  e.status  || 'Pending');
+  setSelect('f-eng-type', e.eng_type || '');
+  setSelect('f-billing', e.billing_type || 'Fixed Fee');
+  setSelect('f-entity',  e.entity_type || '');
+  document.getElementById('f-fee').value        = e.fee || '';
+  document.getElementById('f-start-date').value = toDateInput(e.start_date);
+  document.getElementById('f-issue-date').value = toDateInput(e.issue_date);
+  document.getElementById('f-fye').value         = e.fye || '';
+  document.getElementById('f-title').value       = e.client_title || '';
+  document.getElementById('f-email').value       = e.email || '';
+  document.getElementById('f-address').value     = e.address || '';
+
+  if (isEdit) _editingClient = e.client;
+
+  document.getElementById('panel-overlay').classList.add('open');
+  document.getElementById('panel').classList.add('open');
+  if (!isEdit) document.getElementById('f-client').focus();
+}
+
+function closePanel() {
+  document.getElementById('panel-overlay').classList.remove('open');
+  document.getElementById('panel').classList.remove('open');
+}
+
+function setSelect(id, value) {
+  const sel = document.getElementById(id);
+  // Try exact match first, then fallback to leave at first option
+  for (const opt of sel.options) {
+    if (opt.value === value || opt.text === value) { sel.value = opt.value; return; }
+  }
+  sel.value = '';
+}
+
+function toDateInput(val) {
+  if (!val) return '';
+  // Accept MM/DD/YYYY or YYYY-MM-DD
+  if (/^\d{4}-\d{2}-\d{2}$/.test(val)) return val;
+  const m = val.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (m) return `${m[3]}-${m[1].padStart(2,'0')}-${m[2].padStart(2,'0')}`;
+  return '';
+}
+
+async function savePanel() {
+  const btn = document.getElementById('panel-save-btn');
+  const err = document.getElementById('panel-error');
+  err.textContent = '';
+
+  const client = document.getElementById('f-client').value.trim();
+  if (!client) { err.textContent = 'Client name is required.'; return; }
+
+  btn.disabled = true;
+  btn.textContent = 'Saving…';
+
+  const payload = {
+    stage:        document.getElementById('f-stage').value,
+    eng_type:     document.getElementById('f-eng-type').value,
+    billing_type: document.getElementById('f-billing').value,
+    entity_type:  document.getElementById('f-entity').value,
+    fee:          parseFloat(document.getElementById('f-fee').value) || 0,
+    status:       document.getElementById('f-status').value,
+    start_date:   document.getElementById('f-start-date').value,
+    issue_date:   document.getElementById('f-issue-date').value,
+    fye:          document.getElementById('f-fye').value.trim(),
+    client_title: document.getElementById('f-title').value.trim(),
+    email:        document.getElementById('f-email').value.trim(),
+    address:      document.getElementById('f-address').value.trim(),
+  };
+
+  let res;
+  if (_editingClient) {
+    res = await apiFetch('/wb/engagement/update', {
+      method: 'POST',
+      body: JSON.stringify({ client: _editingClient, updates: payload }),
+    });
+  } else {
+    res = await apiFetch('/wb/prospect/add', {
+      method: 'POST',
+      body: JSON.stringify({ client, ...payload }),
+    });
+  }
+
+  btn.disabled = false;
+  btn.textContent = 'Save';
+
+  if (res?.ok) {
+    closePanel();
+    loadEngagements();
+  } else {
+    err.textContent = res?.error || 'Save failed.';
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Templates + Send Letter
+// ---------------------------------------------------------------------------
+let _templates = [];
 
 async function loadTemplates() {
   try {
     const data = await apiFetch('/engagement/templates');
     _templates = Array.isArray(data) ? data : [];
     const sel = document.getElementById('tpl-select');
-    if (_templates.length === 0) {
-      sel.innerHTML = '<option value="">No templates — upload one above</option>';
-      document.getElementById('no-template-msg').style.display = '';
-    } else {
-      sel.innerHTML = _templates.map(t =>
-        `<option value="${t.id}">${t.name}</option>`
-      ).join('');
-      document.getElementById('no-template-msg').style.display = 'none';
-    }
+    sel.innerHTML = _templates.length
+      ? _templates.map(t => `<option value="${t.id}">${t.name}</option>`).join('')
+      : '<option value="">No templates — upload one</option>';
   } catch (e) {
-    document.getElementById('tpl-select').innerHTML = '<option value="">Error loading templates</option>';
+    document.getElementById('tpl-select').innerHTML = '<option value="">Error loading</option>';
   }
 }
 
-async function loadEngagements() {
+async function uploadTemplate(file) {
+  const statusEl = document.getElementById('upload-status');
+  statusEl.textContent = 'Uploading…'; statusEl.className = 'upload-status';
   try {
-    const data = await apiFetch('/engagement/list');
-    _engagements = Array.isArray(data) ? data : [];
-    renderTable();
-    document.getElementById('loading').style.display = 'none';
-    document.getElementById('table-wrap').style.display = '';
+    const fd = new FormData();
+    fd.append('file', file);
+    fd.append('name', file.name.replace(/\.[^.]+$/, ''));
+    const res  = await fetch('https://auth.lobelaccountancy.com/engagement/create-template',
+      { method: 'POST', headers: { Authorization: `Bearer ${getJWT()}` }, body: fd });
+    const data = await res.json();
+    if (!res.ok || !data.ok) throw new Error(data.error || 'Upload failed');
+    statusEl.textContent = `✓ "${data.name}" created`; statusEl.className = 'upload-status ok';
+    window.open(data.edit_url, '_blank');
+    setTimeout(loadTemplates, 3000);
   } catch (e) {
-    document.getElementById('loading').textContent = 'Error loading pipeline: ' + e.message;
+    statusEl.textContent = e.message; statusEl.className = 'upload-status err';
   }
-}
-
-function stageBadge(stage) {
-  const s = (stage || '').toLowerCase();
-  const cls = s === 'engaged'  ? 'badge-engaged'  :
-              s === 'prospect' ? 'badge-prospect' :
-              s === 'complete' ? 'badge-complete' :
-              s === 'lost'     ? 'badge-lost'     : 'badge-default';
-  return `<span class="badge ${cls}">${stage || '—'}</span>`;
-}
-
-function renderTable() {
-  const tbody = document.getElementById('eng-body');
-  if (_engagements.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="9" style="color:var(--text-3);padding:20px">No engagements found</td></tr>';
-    return;
-  }
-  tbody.innerHTML = _engagements.map((e, i) => `
-    <tr>
-      <td><strong>${e.client}</strong><br><small style="color:var(--text-3)">${e.client_title || ''}</small></td>
-      <td>${e.eng_type || '—'}</td>
-      <td>${e.entity_type || '—'}</td>
-      <td>${stageBadge(e.stage)}</td>
-      <td>${e.fee ? '$' + e.fee.toLocaleString('en-US', {minimumFractionDigits:2}) : '—'}</td>
-      <td>${e.fye || '—'}</td>
-      <td>${e.issue_date || '—'}</td>
-      <td>${e.email ? `<a href="mailto:${e.email}" style="color:var(--accent)">${e.email}</a>` : '<span style="color:var(--text-3)">—</span>'}</td>
-      <td>
-        <button class="btn-send" id="send-btn-${i}"
-          onclick="sendLetter(${i})"
-          ${!e.email ? 'disabled title="No email on file"' : ''}>
-          Send Letter
-        </button>
-        <div class="send-status" id="send-status-${i}"></div>
-      </td>
-    </tr>
-  `).join('');
 }
 
 async function sendLetter(idx) {
-  const e = _engagements[idx];
+  const e          = _filtered[idx];
   const templateId = document.getElementById('tpl-select').value;
-  if (!templateId) {
-    alert('Please select an engagement letter template first.');
-    return;
-  }
-  if (!e.email) {
-    alert('No email address on file for this client.');
-    return;
-  }
+  if (!templateId) { alert('Select an engagement letter template first.'); return; }
+  if (!e.email)    { alert('No email address on file.'); return; }
+
   const btn    = document.getElementById(`send-btn-${idx}`);
   const status = document.getElementById(`send-status-${idx}`);
-  btn.disabled = true;
-  btn.classList.add('sending');
-  btn.textContent = 'Sending…';
-  status.textContent = '';
-  status.className = 'send-status';
+  btn.disabled = true; btn.textContent = 'Sending…'; status.textContent = '';
+
   try {
     const res = await apiFetch('/engagement/send-letter', {
       method: 'POST',
-      body: JSON.stringify({ client: e.client, template_id: parseInt(templateId) })
+      body: JSON.stringify({ client: e.client, template_id: parseInt(templateId) }),
     });
-    if (res.ok) {
+    if (res?.ok) {
       btn.textContent = '✓ Sent';
-      status.textContent = 'Email sent to ' + e.email;
-      status.className = 'send-status ok';
+      status.textContent = `Sent to ${e.email}`; status.className = 'send-status ok';
     } else {
-      throw new Error(res.error || 'Unknown error');
+      throw new Error(res?.error || 'Unknown error');
     }
   } catch (err) {
-    btn.disabled = false;
-    btn.classList.remove('sending');
-    btn.textContent = 'Send Letter';
-    status.textContent = err.message;
-    status.className = 'send-status err';
+    btn.disabled = false; btn.textContent = 'Send Letter';
+    status.textContent = err.message; status.className = 'send-status err';
   }
 }
-
-document.addEventListener('DOMContentLoaded', () => {
-  if (!requireAuth()) return;
-  const payload = jwtPayload(getJWT());
-  document.getElementById('nav-user').textContent = (payload?.email || '').split('@')[0];
-  Promise.all([loadTemplates(), loadEngagements()]);
-  document.getElementById('tpl-file-input').addEventListener('change', e => {
-    if (e.target.files[0]) uploadTemplate(e.target.files[0]);
-    e.target.value = '';
-  });
-});
 </script>
 <script>
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/sw.js');
-  }
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');
 </script>
 </body>
 </html>

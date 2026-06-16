@@ -7,27 +7,34 @@
   <title>LAC DocuSeal</title>
   <link rel="stylesheet" href="css/style.css">
   <style>
-    body, html { height: 100%; overflow: hidden; }
-    .main { padding: 0; height: calc(100vh - 52px); }
-    .sign-frame {
-      width: 100%;
-      height: 100%;
-      border: none;
-      display: block;
+    .launch-card {
+      max-width: 480px;
+      margin: 80px auto;
+      text-align: center;
+      padding: 40px 32px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
     }
-    .sign-loading {
-      position: absolute;
-      top: 52px; left: 0; right: 0; bottom: 0;
-      display: flex;
+    .launch-card h2 { font-size: 22px; margin: 0 0 8px; color: var(--navy); }
+    .launch-card p  { font-size: 14px; color: var(--text-2); margin: 0 0 28px; }
+    .btn-launch {
+      display: inline-flex;
       align-items: center;
-      justify-content: center;
-      background: var(--bg);
-      color: var(--text-3);
-      font-size: 14px;
-      pointer-events: none;
-      transition: opacity .3s;
+      gap: 8px;
+      background: var(--navy);
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 12px 28px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+      transition: background .15s;
     }
-    .sign-loading.hidden { opacity: 0; }
+    .btn-launch:hover { background: #2a3d5c; }
+    .launch-note { margin-top: 16px; font-size: 12px; color: var(--text-3); }
   </style>
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#1B2A3F">
@@ -44,7 +51,7 @@
     <div class="nav-links">
       <a class="nav-link" href="index.html">Briefing</a>
       <a class="nav-link" href="bi.html">Analytics</a>
-      <a class="nav-link" href="clients.html">Clients</a>
+      <a class="nav-link" href="clients.html">AR Aging</a>
       <a class="nav-link" href="engagement.html">Pipeline</a>
       <a class="nav-link" href="forecast.html">Forecast</a>
       <a class="nav-link" href="budget.html">Budget</a>
@@ -57,6 +64,7 @@
       <a class="nav-link" href="ai.html">AI</a>
       <a class="nav-link" href="pdf.html">PDF Tools</a>
       <a class="nav-link active" href="docuseal.html">DocuSeal</a>
+      <a class="nav-link" href="prospecting.html">Prospecting</a>
       <a class="nav-link" href="https://clients.lobelaccountancy.com" target="_blank" rel="noopener">Client Portal ↗</a>
       <a class="nav-link" href="bookmarks.html">Bookmarks</a>
     </div>
@@ -67,14 +75,15 @@
   </div>
 </nav>
 
-<div class="sign-loading" id="sign-loading">Loading DocuSeal…</div>
 <main class="main">
-  <iframe
-    class="sign-frame"
-    id="sign-frame"
-    src="https://sign.lobelaccountancy.com"
-    title="LAC Signatures"
-  ></iframe>
+  <div class="launch-card">
+    <h2>DocuSeal</h2>
+    <p>E-signature and document management. Opens in a new tab.</p>
+    <a class="btn-launch" href="https://sign.lobelaccountancy.com" target="_blank" rel="noopener">
+      Open DocuSeal ↗
+    </a>
+    <div class="launch-note">sign.lobelaccountancy.com</div>
+  </div>
 </main>
 
 <script src="js/auth.js"></script>
@@ -84,9 +93,6 @@
     if (!requireAuth()) return;
     const payload = jwtPayload(getJWT());
     document.getElementById('nav-user').textContent = (payload?.email || '').split('@')[0];
-    document.getElementById('sign-frame').addEventListener('load', () => {
-      document.getElementById('sign-loading').classList.add('hidden');
-    });
   });
 </script>
 <script>
