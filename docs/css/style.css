@@ -647,6 +647,8 @@ body.has-sidebar {
   background: #4A8BC4;
   border-radius: 0 2px 2px 0;
 }
+.nav-icon  { flex-shrink: 0; font-size: 14px; line-height: 1; }
+.nav-label { white-space: nowrap; overflow: hidden; }
 .nav-item-badge {
   margin-left: auto;
   background: #C0392B;
@@ -670,7 +672,10 @@ body.has-sidebar {
 .sidebar.collapsed .palette-trigger kbd,
 .sidebar.collapsed .sidebar-user-name,
 .sidebar.collapsed .sidebar-user-caret,
-.sidebar.collapsed .nav-item-badge { display: none; }
+.sidebar.collapsed .nav-item-badge,
+.sidebar.collapsed .nav-label { display: none; }
+.sidebar.collapsed .sidebar-header { padding: 14px 0; justify-content: center; gap: 0; }
+.sidebar.collapsed .sidebar-brand  { display: none; }
 .sidebar.collapsed .sidebar-search { padding: 8px 6px; }
 .sidebar.collapsed .palette-trigger { justify-content: center; padding: 7px; }
 .sidebar.collapsed .nav-item { padding: 8px; justify-content: center; }

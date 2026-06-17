@@ -60,16 +60,17 @@ const NAV_GROUPS = [
         const active = isActive(item.href) ? ' active' : '';
         const target = item.external ? ' target="_blank" rel="noopener"' : '';
         const badge = item.badgeId ? `<span class="nav-item-badge" id="${item.badgeId}" hidden></span>` : '';
-        return `<a class="nav-item${active}" href="${item.href}"${target}>${item.label}${badge}</a>`;
+        return `<a class="nav-item${active}" href="${item.href}"${target} title="${item.label}"><span class="nav-icon">${item.icon}</span><span class="nav-label">&nbsp;${item.label}</span>${badge}</a>`;
       }).join('');
       return `<div class="nav-group"><div class="nav-group-label">${g.label}</div>${items}</div>`;
     }).join('');
 
+    const isCollapsed = localStorage.getItem(COLLAPSED_KEY) === '1';
     el.innerHTML = `
       <div class="sidebar-header">
         <img class="sidebar-brand" src="favicon.jpg" alt="LAC" width="28" height="28">
         <span class="sidebar-title">Lobel Accountancy</span>
-        <button class="sidebar-toggle" id="sidebar-toggle-btn" title="Collapse sidebar">&#8249;</button>
+        <button class="sidebar-toggle" id="sidebar-toggle-btn" title="${isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}">${isCollapsed ? '&#8250;' : '&#8249;'}</button>
       </div>
       <div class="sidebar-search">
         <button class="palette-trigger" id="palette-trigger">
@@ -91,7 +92,11 @@ const NAV_GROUPS = [
     // Toggle collapse
     document.getElementById('sidebar-toggle-btn').addEventListener('click', () => {
       el.classList.toggle('collapsed');
-      localStorage.setItem(COLLAPSED_KEY, el.classList.contains('collapsed') ? '1' : '0');
+      const nowCollapsed = el.classList.contains('collapsed');
+      localStorage.setItem(COLLAPSED_KEY, nowCollapsed ? '1' : '0');
+      const btn = document.getElementById('sidebar-toggle-btn');
+      btn.innerHTML = nowCollapsed ? '&#8250;' : '&#8249;';
+      btn.title = nowCollapsed ? 'Expand sidebar' : 'Collapse sidebar';
     });
 
     // Palette trigger
