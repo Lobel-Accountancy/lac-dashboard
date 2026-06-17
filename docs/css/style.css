@@ -534,8 +534,8 @@ body.has-sidebar {
 .sidebar-header {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 16px 14px 12px;
+  gap: 8px;
+  padding: 14px 10px 12px;
   border-bottom: 1px solid rgba(255,255,255,.08);
   flex-shrink: 0;
 }
@@ -545,13 +545,13 @@ body.has-sidebar {
   flex-shrink: 0;
 }
 .sidebar-title {
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 700;
   color: white;
   flex: 1;
-  letter-spacing: .02em;
   white-space: nowrap;
   overflow: hidden;
+  text-overflow: ellipsis;
 }
 .sidebar-toggle {
   background: transparent;
@@ -704,7 +704,6 @@ body.has-sidebar {
   transition: background .15s;
   position: relative;
   white-space: nowrap;
-  overflow: hidden;
 }
 .sidebar-user-btn:hover { background: rgba(255,255,255,.08); }
 .sidebar-user-avatar {
