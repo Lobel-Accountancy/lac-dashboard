@@ -3511,6 +3511,25 @@ def _patch_bs_equity(bs_rows, txn_data, available_months):
                 ta['months'].get(mo, 0) - tl_eq['months'].get(mo, 0), 2)
 
 
+def _add_ytd(rows, available_months, cumulative=True):
+    """Add a ytd dict to each row.
+    For P&L (cumulative=True): ytd[month] = sum from first month through that month.
+    For BS (cumulative=False): ytd[month] = same as months[month] (balance is already point-in-time).
+    """
+    for row in rows:
+        ytd = {}
+        running = 0.0
+        for mi in available_months:
+            mo = MONTHS[mi - 1]
+            v  = row['months'].get(mo, 0.0) or 0.0
+            if cumulative:
+                running = round(running + v, 2)
+                ytd[mo] = running
+            else:
+                ytd[mo] = v
+        row['ytd'] = ytd
+
+
 @app.route('/data/financials', methods=['GET'])
 @require_jwt
 def financials():
@@ -3524,6 +3543,8 @@ def financials():
         bs_rows = _parse_financials_sheet(wb['Balance Sheet'],    available, txn_data)
         _patch_pl_totals(pl_rows, txn_data, available)
         _patch_bs_equity(bs_rows, txn_data, available)
+        _add_ytd(pl_rows, available, cumulative=True)
+        _add_ytd(bs_rows, available, cumulative=False)
         month_labels = [MONTHS[m-1] for m in available]
         return jsonify({'months': month_labels, 'pl': pl_rows, 'bs': bs_rows})
     except Exception as e:

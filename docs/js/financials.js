@@ -88,10 +88,8 @@ function dynamicLabel(label, v) {
 
 const MONTH_ORDER = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
-function buildTable(rows, month, ytdMonths, isBS = false) {
+function buildTable(rows, month, showYTD = false) {
   if (!rows || rows.length === 0) return '<div class="fin-empty">No data</div>';
-
-  const showYTD = ytdMonths.length > 0;
 
   const colgroup = showYTD
     ? `<colgroup><col class="col-label"><col class="col-month"><col class="col-ytd"></colgroup>`
@@ -106,11 +104,9 @@ function buildTable(rows, month, ytdMonths, isBS = false) {
   rows.forEach(row => {
     if (row.label === 'Balance Check [should be $0]:') return;
 
-    const v   = row.months[month] ?? 0;
-    // P&L: sum all months up to selected. BS: balance is already cumulative.
-    const ytd = isBS ? v : ytdMonths.reduce((sum, m) => sum + (row.months[m] ?? 0), 0);
+    const v   = row.months?.[month] ?? 0;
+    const ytd = row.ytd?.[month]   ?? 0;
     const isNetIncome = row.label.toUpperCase().includes('NET INCOME');
-    // Don't apply val-zero to YTD — zero is still meaningful data and val-zero makes it invisible
     const ytdNegCls = ytd < 0 ? 'val-neg' : '';
     const ytdCell = showYTD ? `<td class="col-ytd ${ytdNegCls}">${fmt(ytd)}</td>` : '';
 
@@ -144,11 +140,8 @@ function buildTable(rows, month, ytdMonths, isBS = false) {
 }
 
 function renderStatements(month) {
-  const selIdx   = MONTH_ORDER.indexOf(month);
-  const ytdMonths = finData.months.filter(m => MONTH_ORDER.indexOf(m) <= selIdx);
-
-  const plHtml = buildTable(finData.pl, month, ytdMonths, false);
-  const bsHtml = buildTable(finData.bs, month, [], true);
+  const plHtml = buildTable(finData.pl, month, true);
+  const bsHtml = buildTable(finData.bs, month, false);
 
   document.getElementById('fin-body').innerHTML = `
     <div class="stmt-grid">
