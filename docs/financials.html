@@ -37,6 +37,12 @@
     }
     @media (max-width: 900px) { .stmt-grid { grid-template-columns: 1fr; } }
 
+    @media (max-width: 600px) {
+      .stmt-table { font-size: 12px; }
+      .stmt-table td, .stmt-table thead th { padding: 5px 8px; }
+      .stmt-table td:first-child { width: 45%; }
+    }
+
     /* ---- Statement table ---- */
     .stmt-card {
       background: var(--surface);
@@ -44,6 +50,7 @@
       border-radius: var(--radius);
       box-shadow: var(--shadow);
       overflow: hidden;
+      overflow-x: auto;
     }
     .stmt-title {
       padding: 14px 20px;
