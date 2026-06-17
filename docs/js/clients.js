@@ -325,16 +325,17 @@ async function submitPayment() {
   applyFilter();
   _refreshOpenDetail();
 
-  const res = await apiFetch('/ar/payment', {
-    method: 'POST',
-    body: JSON.stringify({ invoice, paid_amount: amount, note }),
-  });
-
-  if (!res?.success) {
+  try {
+    const res = await apiFetch('/ar/payment', {
+      method: 'POST',
+      body: JSON.stringify({ invoice, paid_amount: amount, note }),
+    });
+    if (!res?.success) throw new Error(res?.error || 'Payment failed.');
+  } catch (err) {
     if (inv && snap) { Object.assign(inv, snap); client.ar = arSnap; }
     applyFilter();
     _refreshOpenDetail();
-    showToast(res?.error || 'Payment failed.', 'error');
+    showToast(err.message || 'Payment failed.', 'error');
   }
 }
 
@@ -374,15 +375,16 @@ async function submitDelete() {
   closeDetail();
   applyFilter();
 
-  const res = await apiFetch('/ar/delete', {
-    method: 'POST',
-    body: JSON.stringify({ invoice }),
-  });
-
-  if (!res?.ok) {
+  try {
+    const res = await apiFetch('/ar/delete', {
+      method: 'POST',
+      body: JSON.stringify({ invoice }),
+    });
+    if (!res?.ok) throw new Error(res?.error || 'Delete failed.');
+  } catch (err) {
     if (snap) { client.ar.invoices.splice(invIdx, 0, snap.invoice); client.ar = snap.ar; }
     applyFilter();
-    showToast(res?.error || 'Delete failed.', 'error');
+    showToast(err.message || 'Delete failed.', 'error');
   }
 }
 

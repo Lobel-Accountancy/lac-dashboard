@@ -282,6 +282,7 @@ _DRIVE_RW_SCOPES  = ['https://www.googleapis.com/auth/drive']
 
 _wb_cache: dict = {'wb': None, 'fetched_at': 0.0}
 _WB_TTL = 600  # 10-minute cache
+_wb_file_id_cache: dict = {'id': None}  # permanent cache — file ID never changes
 
 
 def _drive_service():
@@ -1714,13 +1715,16 @@ def _wb_download_fresh():
     from googleapiclient.http import MediaIoBaseDownload as _DL
     creds   = _sa.Credentials.from_service_account_file(CREDENTIALS_PATH, scopes=DRIVE_RW_SCOPES)
     svc     = _build('drive', 'v3', credentials=creds)
-    files   = svc.files().list(
-        q=f"name='{WORKBOOK_NAME}' and mimeType='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'",
-        fields='files(id)'
-    ).execute().get('files', [])
-    if not files:
-        raise RuntimeError('Workbook not found on Drive')
-    file_id = files[0]['id']
+    file_id = _wb_file_id_cache.get('id')
+    if not file_id:
+        files = svc.files().list(
+            q=f"name='{WORKBOOK_NAME}' and mimeType='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'",
+            fields='files(id)'
+        ).execute().get('files', [])
+        if not files:
+            raise RuntimeError('Workbook not found on Drive')
+        file_id = files[0]['id']
+        _wb_file_id_cache['id'] = file_id
     buf = _io.BytesIO()
     dl  = _DL(buf, svc.files().get_media(fileId=file_id))
     done = False
@@ -1747,6 +1751,43 @@ def _wb_upload(wb, file_id, svc):
     ).execute()
     _wb_cache['wb'] = None
     _wb_cache['fetched_at'] = 0
+
+
+def _wb_upload_async(wb, file_id, svc):
+    """Update the read cache immediately with modified wb, then upload to Drive in background.
+
+    Reads that arrive during the upload (typically 3-5s) see the correct post-change
+    data from cache rather than the stale pre-change version.
+    """
+    import io as _io
+    import threading as _threading
+    from googleapiclient.http import MediaFileUpload as _UL
+
+    # Immediately make modified data visible to reads
+    _wb_cache['wb'] = wb
+    _wb_cache['fetched_at'] = time.time()
+
+    def _do_upload():
+        try:
+            out = _io.BytesIO()
+            wb.save(out)
+            out.seek(0)
+            with open(WB_LOCAL_PATH, 'wb') as f:
+                f.write(out.read())
+            svc.files().update(
+                fileId=file_id,
+                media_body=_UL(WB_LOCAL_PATH,
+                               mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+            ).execute()
+            # Reset TTL from upload-complete time
+            _wb_cache['fetched_at'] = time.time()
+        except Exception as e:
+            app.logger.error('Background wb upload failed: %s', e)
+            # Bust cache so next read re-fetches from Drive
+            _wb_cache['wb'] = None
+            _wb_cache['fetched_at'] = 0
+
+    _threading.Thread(target=_do_upload, daemon=True).start()
 
 
 @app.route('/ar/payment', methods=['POST'])
@@ -1817,7 +1858,7 @@ def ar_payment():
         if not found:
             return jsonify({'error': f'Invoice {invoice_id} not found'}), 404
 
-        _wb_upload(wb, file_id, svc)
+        _wb_upload_async(wb, file_id, svc)
 
         actor = 'admin'
         detail = f'{invoice_id}: ${paid_amount:,.2f} payment recorded → {new_status}'
@@ -1872,7 +1913,7 @@ def ar_delete():
         for col in range(1, AR_C_REMINDER + 2):
             ws.cell(row=found_row, column=col).value = None
 
-        _wb_upload(wb, file_id, svc)
+        _wb_upload_async(wb, file_id, svc)
         _log_activity(client_name, 'admin', 'Invoice Deleted', f'{invoice_id} removed from AR Aging')
 
         return jsonify({'ok': True, 'invoice': invoice_id})
@@ -3337,16 +3378,32 @@ def _txn_value(txn_data, acct_int, month):
     debit  = entry.get('debit',  0.0)
     credit = entry.get('credit', 0.0)
     if 4000 <= acct_int <= 4999:
-        return credit - debit   # revenue = credit-normal
+        return credit - debit
     elif 1000 <= acct_int <= 1999:
-        return debit - credit   # asset = debit-normal
+        return debit - credit
     elif 2000 <= acct_int <= 3999:
-        return credit - debit   # liability/equity = credit-normal
+        return credit - debit
     else:
-        return debit - credit   # expenses = debit-normal
+        return debit - credit
 
 
-def _parse_financials_sheet(ws, available_months, txn_data=None):
+def _txn_cumulative(txn_data, acct_int, through_month):
+    """Running balance from inception (month 1) through through_month.
+    Used for balance sheet accounts so each period shows the full balance,
+    not just that month's activity."""
+    total_debit  = sum(txn_data.get((acct_int, m), {}).get('debit',  0.0) for m in range(1, through_month + 1))
+    total_credit = sum(txn_data.get((acct_int, m), {}).get('credit', 0.0) for m in range(1, through_month + 1))
+    if 4000 <= acct_int <= 4999:
+        return total_credit - total_debit
+    elif 1000 <= acct_int <= 1999:
+        return total_debit  - total_credit
+    elif 2000 <= acct_int <= 3999:
+        return total_credit - total_debit
+    else:
+        return total_debit  - total_credit
+
+
+def _parse_financials_sheet(ws, available_months, txn_data=None, bs_mode=False):
     """
     Parse a P&L or Balance Sheet worksheet into structured sections.
     Returns list of {label, is_section, is_total, months: {idx: value}}.
@@ -3384,11 +3441,18 @@ def _parse_financials_sheet(ws, available_months, txn_data=None):
             if raw is not None and raw != 0:
                 v = round(float(raw), 2)
             elif txn_data is not None and acct_int:
-                # Compute from Transactions
-                v = round(_txn_value(txn_data, acct_int, mi), 2)
+                # Balance sheet needs the running balance (all months through mi),
+                # P&L needs only the current month's activity.
+                if bs_mode:
+                    v = round(_txn_cumulative(txn_data, acct_int, mi), 2)
+                else:
+                    v = round(_txn_value(txn_data, acct_int, mi), 2)
             elif txn_data is not None and is_total:
                 # For total rows, sum the section accounts accumulated so far
-                v = round(sum(_txn_value(txn_data, a, mi) for a in section_accounts), 2)
+                if bs_mode:
+                    v = round(sum(_txn_cumulative(txn_data, a, mi) for a in section_accounts), 2)
+                else:
+                    v = round(sum(_txn_value(txn_data, a, mi) for a in section_accounts), 2)
             else:
                 v = 0.0
             month_vals[MONTHS[mi - 1]] = v
@@ -3539,8 +3603,8 @@ def financials():
     try:
         wb = _workbook()
         txn_data = _build_txn_data(wb)
-        pl_rows = _parse_financials_sheet(wb['Income Statement'], available, txn_data)
-        bs_rows = _parse_financials_sheet(wb['Balance Sheet'],    available, txn_data)
+        pl_rows = _parse_financials_sheet(wb['Income Statement'], available, txn_data, bs_mode=False)
+        bs_rows = _parse_financials_sheet(wb['Balance Sheet'],    available, txn_data, bs_mode=True)
         _patch_pl_totals(pl_rows, txn_data, available)
         _patch_bs_equity(bs_rows, txn_data, available)
         _add_ytd(pl_rows, available, cumulative=True)
@@ -5929,7 +5993,13 @@ def _parse_log_tail(log_path, n_lines=8):
             lines = f.readlines()
         tail = ''.join(lines[-n_lines:]).strip()
         low = tail.lower()
-        status = 'error' if any(w in low for w in ['error', 'exception', 'traceback', 'failed']) else 'ok'
+        error_signals = [
+            'error', 'exception', 'traceback', 'failed',
+            'no such file', 'cannot find', 'not found',
+            'permission denied', 'command not found',
+            'errno', 'ioerror', 'oserror', 'filenotfounderror',
+        ]
+        status = 'error' if any(w in low for w in error_signals) else 'ok'
         return last_run_iso, tail or '(empty)', status
     except Exception:
         return None, None, 'unknown'
