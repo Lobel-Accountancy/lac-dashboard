@@ -67,13 +67,36 @@
     }
     .stmt-table tr:last-child td { border-bottom: none; }
 
+    /* Column headers */
+    .stmt-table thead th {
+      padding: 6px 16px;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      color: var(--text-2);
+      text-align: right;
+      border-bottom: 1px solid var(--border);
+      background: #FAFBFC;
+    }
+    .stmt-table thead th:first-child { text-align: left; }
+
     /* Label column */
-    .stmt-table td:first-child { width: 65%; }
-    /* Value column */
-    .stmt-table td:last-child {
+    .stmt-table td:first-child { width: 55%; }
+    /* Value columns */
+    .col-month, .col-ytd {
       text-align: right;
       font-variant-numeric: tabular-nums;
       white-space: nowrap;
+    }
+    .col-ytd {
+      color: var(--text-2);
+      background: #FAFBFC;
+      border-left: 1px solid var(--border);
+    }
+    .row-total .col-ytd, .row-net-pos .col-ytd, .row-net-neg .col-ytd {
+      background: inherit;
+      color: inherit;
     }
 
     /* Section header rows */

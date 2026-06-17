@@ -85,34 +85,50 @@ function dynamicLabel(label, v) {
   return label;
 }
 
-function buildTable(rows, month) {
+const MONTH_ORDER = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+function buildTable(rows, month, ytdMonths, isBS = false) {
   if (!rows || rows.length === 0) return '<div class="fin-empty">No data</div>';
 
-  let html = '<table class="stmt-table"><tbody>';
-  rows.forEach(row => {
-    if (row.label === 'Balance Check [should be $0]:') return; // skip internal check row
+  const showYTD = ytdMonths.length > 0;
 
-    const v = row.months[month] ?? 0;
+  let html = `<table class="stmt-table"><thead><tr>
+    <th></th>
+    <th class="col-month">${month}</th>
+    ${showYTD ? `<th class="col-ytd">YTD</th>` : ''}
+  </tr></thead><tbody>`;
+
+  rows.forEach(row => {
+    if (row.label === 'Balance Check [should be $0]:') return;
+
+    const v   = row.months[month] ?? 0;
+    // P&L: sum all months up to selected. BS: balance is already cumulative.
+    const ytd = isBS ? v : ytdMonths.reduce((sum, m) => sum + (row.months[m] ?? 0), 0);
     const isNetIncome = row.label.toUpperCase().includes('NET INCOME');
+    const ytdCell = showYTD ? `<td class="col-ytd ${valClass(ytd)}">${fmt(ytd)}</td>` : '';
 
     if (row.is_section) {
-      html += `<tr class="row-section"><td colspan="2">${row.label}</td></tr>`;
+      const span = showYTD ? 3 : 2;
+      html += `<tr class="row-section"><td colspan="${span}">${row.label}</td></tr>`;
     } else if (isNetIncome) {
       const cls = v >= 0 ? 'row-net-pos' : 'row-net-neg';
       html += `<tr class="${cls}">
         <td>${dynamicLabel(row.label, v)}</td>
         <td>${fmt(v)}</td>
+        ${ytdCell}
       </tr>`;
     } else if (row.is_total) {
       html += `<tr class="row-total">
         <td>${dynamicLabel(row.label, v)}</td>
         <td>${fmt(v)}</td>
+        ${ytdCell}
       </tr>`;
     } else {
       const vc = valClass(v);
       html += `<tr>
         <td style="padding-left:28px">${dynamicLabel(row.label, v)}</td>
         <td class="${vc}">${fmt(v)}</td>
+        ${ytdCell}
       </tr>`;
     }
   });
@@ -121,8 +137,11 @@ function buildTable(rows, month) {
 }
 
 function renderStatements(month) {
-  const plHtml  = buildTable(finData.pl, month);
-  const bsHtml  = buildTable(finData.bs, month);
+  const selIdx   = MONTH_ORDER.indexOf(month);
+  const ytdMonths = finData.months.filter(m => MONTH_ORDER.indexOf(m) <= selIdx);
+
+  const plHtml = buildTable(finData.pl, month, ytdMonths, false);
+  const bsHtml = buildTable(finData.bs, month, ytdMonths, true);
 
   document.getElementById('fin-body').innerHTML = `
     <div class="stmt-grid">
