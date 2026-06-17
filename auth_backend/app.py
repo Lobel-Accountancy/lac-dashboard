@@ -6099,6 +6099,7 @@ _CRON_JOBS = [
     {'name': 'Clockify',              'script': 'clockify.py',              'log': '/home/jlobel/lac_automation/clockify.log',                   'schedule': 'Weekly Fri'},
     {'name': 'HubSpot Sync',          'script': 'hubspot_sync.py',          'log': '/home/jlobel/lac_automation/hubspot.log',                    'schedule': 'Daily'},
     {'name': 'Paperless Sync',        'script': 'paperless_sync.py',        'log': '/home/jlobel/lac_automation/paperless.log',                  'schedule': 'Hourly'},
+    {'name': 'Cash Recon Alert',      'script': 'cash_recon_alert.py',      'log': '/home/jlobel/lac_automation/logs/cash_recon.log',              'schedule': 'Daily 2:15am'},
 ]
 
 def _parse_log_tail(log_path, n_lines=8):
