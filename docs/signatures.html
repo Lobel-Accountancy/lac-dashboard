@@ -7,8 +7,9 @@
   <title>LAC Signatures</title>
   <link rel="stylesheet" href="css/style.css">
   <style>
-    body, html { height: 100%; overflow: hidden; }
-    .main { padding: 0; height: calc(100vh - 52px); }
+    body.has-sidebar { height: 100vh; overflow: hidden; }
+    .page-body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+    .main { padding: 0; flex: 1; overflow: hidden; position: relative; }
     .sign-frame {
       width: 100%;
       height: 100%;
@@ -17,7 +18,7 @@
     }
     .sign-loading {
       position: absolute;
-      top: 52px; left: 0; right: 0; bottom: 0;
+      inset: 0;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -28,6 +29,9 @@
       transition: opacity .3s;
     }
     .sign-loading.hidden { opacity: 0; }
+    @media (max-width: 768px) {
+      .main { padding-top: 56px; }
+    }
   </style>
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#1B2A3F">
@@ -37,36 +41,8 @@
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
 </head>
 <body>
-
-<nav class="nav">
-  <div class="nav-left">
-    <img class="nav-brand" src="favicon.jpg" alt="Lobel Accountancy" width="32" height="32" style="height:32px;width:32px;border-radius:4px;flex-shrink:0;">
-    <div class="nav-links">
-      <a class="nav-link" href="index.html">Briefing</a>
-      <a class="nav-link" href="bi.html">Analytics</a>
-      <a class="nav-link" href="clients.html">AR Aging</a>
-      <a class="nav-link" href="engagement.html">Pipeline</a>
-      <a class="nav-link" href="forecast.html">Forecast</a>
-      <a class="nav-link" href="budget.html">Budget</a>
-      <a class="nav-link" href="financials.html">Financials</a>
-      <a class="nav-link" href="docs.html">Documents</a>
-      <a class="nav-link" href="emails.html">Emails</a>
-      <a class="nav-link" href="activity.html">Activity</a>
-      <a class="nav-link" href="audit-tools.html">Audit Tools</a>
-      <a class="nav-link" href="ai.html">AI</a>
-      <a class="nav-link" href="pdf.html">PDF Tools</a>
-      <a class="nav-link active" href="docuseal.html">DocuSeal</a>
-      <a class="nav-link" href="prospecting.html">Prospecting</a>
-      <a class="nav-link" href="https://clients.lobelaccountancy.com" target="_blank" rel="noopener">Client Portal ↗</a>
-      <a class="nav-link" href="bookmarks.html">Bookmarks</a>
-    </div>
-  </div>
-  <div class="nav-right">
-    <span class="nav-user" id="nav-user"></span>
-    <button class="nav-logout" onclick="logout()">Sign out</button>
-  </div>
-</nav>
-
+<aside id="lac-sidebar"></aside>
+<div class="page-body">
 <div class="sign-loading" id="sign-loading">Loading Signatures…</div>
 <main class="main">
   <iframe
@@ -76,14 +52,16 @@
     title="LAC Signatures"
   ></iframe>
 </main>
+</div>
 
+<script src="js/nav.js"></script>
+<script src="js/toast.js"></script>
+<script src="js/palette.js"></script>
 <script src="js/auth.js"></script>
 <script src="js/chat.js"></script>
 <script>
   document.addEventListener('DOMContentLoaded', () => {
     if (!requireAuth()) return;
-    const payload = jwtPayload(getJWT());
-    document.getElementById('nav-user').textContent = (payload?.email || '').split('@')[0];
     document.getElementById('sign-frame').addEventListener('load', () => {
       document.getElementById('sign-loading').classList.add('hidden');
     });
