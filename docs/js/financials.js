@@ -141,7 +141,7 @@ function renderStatements(month) {
   const ytdMonths = finData.months.filter(m => MONTH_ORDER.indexOf(m) <= selIdx);
 
   const plHtml = buildTable(finData.pl, month, ytdMonths, false);
-  const bsHtml = buildTable(finData.bs, month, ytdMonths, true);
+  const bsHtml = buildTable(finData.bs, month, [], true);
 
   document.getElementById('fin-body').innerHTML = `
     <div class="stmt-grid">
