@@ -148,6 +148,25 @@
       color: var(--text-2); font-size: 14px;
     }
 
+    /* ---- KPI tiles ---- */
+    .kpi-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 16px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+    .kpi-clickable { cursor: pointer; transition: border-color .15s, box-shadow .15s; }
+    .kpi-clickable:hover { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(37,99,235,.1); }
+    .kpi-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: var(--text-2); }
+    .kpi-value { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.15; }
+    .kpi-sub   { font-size: 11px; color: var(--text-2); }
+    @media (max-width: 700px) { #kpi-bar { grid-template-columns: repeat(2,1fr); } }
+    @media (max-width: 440px) { #kpi-bar { grid-template-columns: 1fr; } }
+
     /* ---- Drillable cells ---- */
     .val-drillable { cursor: pointer; }
     .val-drillable:hover {
@@ -173,13 +192,8 @@
   </div>
   <div class="error-banner" id="error-banner" hidden></div>
 
-  <!-- Revenue trend chart -->
-  <div class="card card--full" style="margin-bottom:24px;" id="revenue-chart-card">
-    <div class="card-header">Revenue vs. Expenses — Monthly</div>
-    <div class="card-body" style="padding:16px 20px;">
-      <canvas id="revenue-chart" height="120"></canvas>
-    </div>
-  </div>
+  <!-- KPI summary bar -->
+  <div id="kpi-bar" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:24px;"></div>
 
   <div class="month-bar" id="month-bar"></div>
 
@@ -206,7 +220,6 @@
   </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 <script src="js/nav.js"></script>
 <script src="js/toast.js"></script>
 <script src="js/palette.js"></script>
