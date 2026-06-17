@@ -2,14 +2,11 @@ const REFRESH_INTERVAL = 2 * 60 * 1000;
 const ALIASES          = ['jlobel', 'info', 'billing'];
 
 let currentAlias  = 'jlobel';
-let emailData     = [];       // current page emails
-let _allLoaded    = [];       // accumulates across load-more pages
-let _showAll      = false;
+let emailData     = [];
+let _showAll      = true;
 let _searchQuery  = '';
-let _currentPage  = 1;
-let _hasMore      = false;
 let _loading      = false;
-let _composeEmailIndex = -1;  // email index for reply/forward draft
+let _composeEmailIndex = -1;
 
 const SIGNATURE = `\n\n--\nJeffrey Lobel, CPA\nLobel Accountancy Corporation\n(949) 345-1925\njlobel@lobelaccountancy.com`;
 
@@ -86,7 +83,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('nav-user').textContent = (payload?.email || '').split('@')[0];
 
   loadEmails();
-  setInterval(() => { if (!_showAll) loadEmails(); }, REFRESH_INTERVAL);
+  setInterval(loadEmails, REFRESH_INTERVAL);
 
   // Close compose modal on backdrop click
   document.getElementById('compose-modal').addEventListener('click', e => {
@@ -116,9 +113,10 @@ function switchAlias(key) {
 
 function toggleShowAll() {
   _showAll = !_showAll;
-  document.getElementById('btn-show-all').classList.toggle('active', _showAll);
-  document.getElementById('btn-show-all').textContent = _showAll ? 'Unread only' : 'Show all';
-  resetAndLoad();
+  const btn = document.getElementById('btn-show-all');
+  btn.classList.toggle('active', _showAll);
+  btn.textContent = _showAll ? 'Unread only' : 'Show all';
+  renderFiltered();
 }
 
 // ---------------------------------------------------------------------------
@@ -131,9 +129,8 @@ function onSearch(val) {
 }
 
 function resetAndLoad() {
-  _currentPage = 1;
-  _allLoaded   = [];
-  emailData    = [];
+  _loading  = false;
+  emailData = [];
   loadEmails();
 }
 
@@ -141,7 +138,7 @@ function resetAndLoad() {
 // Data loading
 // ---------------------------------------------------------------------------
 
-async function loadEmails(force = false) {
+async function loadEmails() {
   if (_loading) return;
   _loading = true;
 
@@ -149,16 +146,9 @@ async function loadEmails(force = false) {
   statusEl.textContent = 'Loading…';
 
   try {
-    const params = new URLSearchParams({
-      alias: currentAlias,
-      page:  _currentPage,
-    });
-    if (_showAll) params.set('all', '1');
+    const data = await apiFetch(`/data/emails?alias=${currentAlias}`);
+    if (!data) return;
 
-    const data = await apiFetch(`/data/emails?${params}`);
-    if (!data) { _loading = false; return; }
-
-    // Update unread counts on all tabs
     const counts = data.counts || {};
     ALIASES.forEach(k => {
       const badge = document.getElementById(`count-${k}`);
@@ -177,24 +167,8 @@ async function loadEmails(force = false) {
       errBanner.hidden = true;
     }
 
-    const incoming = data.emails || [];
-    _hasMore = !!data.has_more;
-
-    if (_currentPage === 1) {
-      _allLoaded = incoming;
-    } else {
-      _allLoaded = [..._allLoaded, ...incoming];
-    }
-    emailData = _allLoaded;
-
+    emailData = data.emails || [];
     renderFiltered();
-
-    // Load-more button
-    const lmRow = document.getElementById('load-more-row');
-    const lmBtn = document.getElementById('load-more-btn');
-    lmRow.hidden = !_hasMore;
-    lmBtn.disabled = false;
-    lmBtn.textContent = 'Load more';
 
     const now = new Date();
     statusEl.textContent = `Updated ${now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`;
@@ -207,29 +181,19 @@ async function loadEmails(force = false) {
   }
 }
 
-async function loadMore() {
-  const btn = document.getElementById('load-more-btn');
-  btn.disabled = true;
-  btn.textContent = 'Loading…';
-  _currentPage++;
-  await loadEmails();
-}
-
 // ---------------------------------------------------------------------------
 // Rendering
 // ---------------------------------------------------------------------------
 
 function renderFiltered() {
+  let filtered = _showAll ? emailData : emailData.filter(isUnread);
   const q = _searchQuery;
-  const filtered = q
-    ? emailData.filter(e =>
-        (e.from_name  || '').toLowerCase().includes(q) ||
-        (e.from_email || '').toLowerCase().includes(q) ||
-        (e.subject    || '').toLowerCase().includes(q) ||
-        (e.snippet    || '').toLowerCase().includes(q) ||
-        (e.body       || '').toLowerCase().includes(q))
-    : emailData;
-
+  if (q) filtered = filtered.filter(e =>
+    (e.from_name  || '').toLowerCase().includes(q) ||
+    (e.from_email || '').toLowerCase().includes(q) ||
+    (e.subject    || '').toLowerCase().includes(q) ||
+    (e.snippet    || '').toLowerCase().includes(q) ||
+    (e.body       || '').toLowerCase().includes(q));
   renderEmails(filtered);
 }
 
