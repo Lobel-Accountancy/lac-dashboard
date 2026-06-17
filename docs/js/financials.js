@@ -15,6 +15,7 @@ async function loadFinancials() {
   if (!data) return;
 
   finData = data;
+  console.log('[financials] months:', data.months, '| sample PL row:', data.pl?.[1]);
 
   if (!data.months || data.months.length === 0) {
     document.getElementById('fin-body').innerHTML =
@@ -109,7 +110,9 @@ function buildTable(rows, month, ytdMonths, isBS = false) {
     // P&L: sum all months up to selected. BS: balance is already cumulative.
     const ytd = isBS ? v : ytdMonths.reduce((sum, m) => sum + (row.months[m] ?? 0), 0);
     const isNetIncome = row.label.toUpperCase().includes('NET INCOME');
-    const ytdCell = showYTD ? `<td class="col-ytd ${valClass(ytd)}">${fmt(ytd)}</td>` : '';
+    // Don't apply val-zero to YTD — zero is still meaningful data and val-zero makes it invisible
+    const ytdNegCls = ytd < 0 ? 'val-neg' : '';
+    const ytdCell = showYTD ? `<td class="col-ytd ${ytdNegCls}">${fmt(ytd)}</td>` : '';
 
     if (row.is_section) {
       const span = showYTD ? 3 : 2;
