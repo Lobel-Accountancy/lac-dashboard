@@ -3663,6 +3663,68 @@ def financials():
         return jsonify({'error': str(e)}), 503
 
 
+@app.route('/data/transactions', methods=['GET'])
+@require_jwt
+def get_transactions():
+    """Return individual transaction rows for a GL account + month.
+    Query params: account=<int>, month=<1-12>
+    """
+    try:
+        account   = int(request.args.get('account', 0))
+        month_num = int(request.args.get('month', 0))
+    except (TypeError, ValueError):
+        return jsonify({'error': 'account and month must be integers'}), 400
+    if not account or not month_num:
+        return jsonify({'error': 'account and month are required'}), 400
+    try:
+        wb = _workbook()
+    except Exception as exc:
+        return jsonify({'error': str(exc)}), 503
+    if 'Transactions' not in wb.sheetnames:
+        return jsonify({'account': account, 'month': MONTHS[month_num - 1], 'transactions': []})
+    ws = wb['Transactions']
+    results = []
+    for row in ws.iter_rows(min_row=3, values_only=True):
+        if not row or row[0] is None:
+            continue
+        date_val = row[0]
+        je_num   = str(row[1] or '').strip()
+        desc     = str(row[2] or '').strip()
+        acct     = row[3]
+        notes    = str(row[7] or '').strip() if len(row) > 7 else ''
+        debit    = row[5]
+        credit   = row[6]
+        try:
+            acct_int = int(float(acct))
+        except (TypeError, ValueError):
+            continue
+        if acct_int != account:
+            continue
+        if isinstance(date_val, (datetime, date)):
+            row_month = date_val.month
+            date_str  = date_val.strftime('%b %d, %Y')
+        elif isinstance(date_val, (int, float)):
+            try:
+                d = _EXCEL_EPOCH + timedelta(days=int(date_val))
+                row_month = d.month
+                date_str  = d.strftime('%b %d, %Y')
+            except Exception:
+                continue
+        else:
+            continue
+        if row_month != month_num:
+            continue
+        results.append({
+            'date':   date_str,
+            'je':     je_num,
+            'desc':   desc,
+            'debit':  round(float(debit), 2)  if debit  else None,
+            'credit': round(float(credit), 2) if credit else None,
+            'notes':  notes,
+        })
+    return jsonify({'account': account, 'month': MONTHS[month_num - 1], 'transactions': results})
+
+
 # ---------------------------------------------------------------------------
 # PBC (Prepared by Client) Request System
 # ---------------------------------------------------------------------------
