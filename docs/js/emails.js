@@ -1,13 +1,54 @@
 const REFRESH_INTERVAL = 2 * 60 * 1000;
-let currentAlias = 'jlobel';
-let emailData    = [];
+const ALIASES          = ['jlobel', 'info', 'billing'];
+
+let currentAlias  = 'jlobel';
+let emailData     = [];       // current page emails
+let _allLoaded    = [];       // accumulates across load-more pages
+let _showAll      = false;
+let _searchQuery  = '';
+let _currentPage  = 1;
+let _hasMore      = false;
+let _loading      = false;
+let _composeEmailIndex = -1;  // email index for reply/forward draft
+
+const SIGNATURE = `\n\n--\nJeffrey Lobel, CPA\nLobel Accountancy Corporation\n(949) 345-1925\njlobel@lobelaccountancy.com`;
+
+// ---------------------------------------------------------------------------
+// Local read-state tracking (so we can show unread indicators)
+// ---------------------------------------------------------------------------
+
+const _readSet = new Set(JSON.parse(localStorage.getItem('lac_read_emails') || '[]'));
+
+function _saveReadSet() {
+  localStorage.setItem('lac_read_emails', JSON.stringify([..._readSet].slice(-1000)));
+}
+
+function markReadLocally(msgId) {
+  if (!msgId) return;
+  if (_readSet.has(msgId)) return;
+  _readSet.add(msgId);
+  _saveReadSet();
+}
+
+function markUnreadLocally(msgId) {
+  if (!msgId) return;
+  _readSet.delete(msgId);
+  _saveReadSet();
+}
+
+function isUnread(e) {
+  if (!e.message_id) return !!e.unread;
+  return !_readSet.has(e.message_id) && (e.unread !== false);
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
 
 const AVATAR_COLORS = [
   '#1B2A3F','#2563EB','#059669','#D97706','#7C3AED',
   '#DB2777','#0891B2','#65A30D','#EA580C','#6366F1',
 ];
-
-const SIGNATURE = `\n\n--\nJeffrey Lobel, CPA\nLobel Accountancy Corporation\n(949) 345-1925\njlobel@lobelaccountancy.com`;
 
 function avatarColor(str) {
   let h = 0;
@@ -16,9 +57,22 @@ function avatarColor(str) {
 }
 
 function initials(name) {
-  const parts = name.trim().split(/\s+/);
+  const parts = (name || '').trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return '?';
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
+function escHtml(str) {
+  return (str || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function aliasAddress(alias) {
+  return `${alias}@lobelaccountancy.com`;
 }
 
 // ---------------------------------------------------------------------------
@@ -29,11 +83,20 @@ document.addEventListener('DOMContentLoaded', () => {
   if (!requireAuth()) return;
 
   const payload = jwtPayload(getJWT());
-  const name = (payload?.email || '').split('@')[0];
-  document.getElementById('nav-user').textContent = name;
+  document.getElementById('nav-user').textContent = (payload?.email || '').split('@')[0];
 
   loadEmails();
-  setInterval(loadEmails, REFRESH_INTERVAL);
+  setInterval(() => { if (!_showAll) loadEmails(); }, REFRESH_INTERVAL);
+
+  // Close compose modal on backdrop click
+  document.getElementById('compose-modal').addEventListener('click', e => {
+    if (e.target === e.currentTarget) closeCompose();
+  });
+
+  // Close on Escape
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') closeCompose();
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -42,9 +105,35 @@ document.addEventListener('DOMContentLoaded', () => {
 
 function switchAlias(key) {
   currentAlias = key;
-  ['jlobel', 'info', 'billing'].forEach(k => {
-    document.getElementById(`tab-${k}`).classList.toggle('active', k === key);
-  });
+  ALIASES.forEach(k =>
+    document.getElementById(`tab-${k}`).classList.toggle('active', k === key));
+  resetAndLoad();
+}
+
+// ---------------------------------------------------------------------------
+// Show-all toggle
+// ---------------------------------------------------------------------------
+
+function toggleShowAll() {
+  _showAll = !_showAll;
+  document.getElementById('btn-show-all').classList.toggle('active', _showAll);
+  document.getElementById('btn-show-all').textContent = _showAll ? 'Unread only' : 'Show all';
+  resetAndLoad();
+}
+
+// ---------------------------------------------------------------------------
+// Search
+// ---------------------------------------------------------------------------
+
+function onSearch(val) {
+  _searchQuery = val.trim().toLowerCase();
+  renderFiltered();
+}
+
+function resetAndLoad() {
+  _currentPage = 1;
+  _allLoaded   = [];
+  emailData    = [];
   loadEmails();
 }
 
@@ -53,21 +142,32 @@ function switchAlias(key) {
 // ---------------------------------------------------------------------------
 
 async function loadEmails(force = false) {
+  if (_loading) return;
+  _loading = true;
+
   const statusEl = document.getElementById('refresh-status');
   statusEl.textContent = 'Loading…';
 
   try {
-    const data = await apiFetch(`/data/emails?alias=${currentAlias}`);
-    if (!data) return;
+    const params = new URLSearchParams({
+      alias: currentAlias,
+      page:  _currentPage,
+    });
+    if (_showAll) params.set('all', '1');
 
+    const data = await apiFetch(`/data/emails?${params}`);
+    if (!data) { _loading = false; return; }
+
+    // Update unread counts on all tabs
     const counts = data.counts || {};
-    for (const [key, count] of Object.entries(counts)) {
-      const badge = document.getElementById(`count-${key}`);
+    ALIASES.forEach(k => {
+      const badge = document.getElementById(`count-${k}`);
       if (badge) {
-        badge.textContent = count;
-        badge.dataset.count = count;
+        const n = counts[k] ?? 0;
+        badge.textContent = n;
+        badge.dataset.count = n;
       }
-    }
+    });
 
     const errBanner = document.getElementById('error-banner');
     if (data.error) {
@@ -77,8 +177,24 @@ async function loadEmails(force = false) {
       errBanner.hidden = true;
     }
 
-    emailData = data.emails || [];
-    renderEmails(emailData);
+    const incoming = data.emails || [];
+    _hasMore = !!data.has_more;
+
+    if (_currentPage === 1) {
+      _allLoaded = incoming;
+    } else {
+      _allLoaded = [..._allLoaded, ...incoming];
+    }
+    emailData = _allLoaded;
+
+    renderFiltered();
+
+    // Load-more button
+    const lmRow = document.getElementById('load-more-row');
+    const lmBtn = document.getElementById('load-more-btn');
+    lmRow.hidden = !_hasMore;
+    lmBtn.disabled = false;
+    lmBtn.textContent = 'Load more';
 
     const now = new Date();
     statusEl.textContent = `Updated ${now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`;
@@ -86,38 +202,73 @@ async function loadEmails(force = false) {
     document.getElementById('error-banner').textContent = err.message;
     document.getElementById('error-banner').hidden = false;
     statusEl.textContent = 'Error';
+  } finally {
+    _loading = false;
   }
+}
+
+async function loadMore() {
+  const btn = document.getElementById('load-more-btn');
+  btn.disabled = true;
+  btn.textContent = 'Loading…';
+  _currentPage++;
+  await loadEmails();
 }
 
 // ---------------------------------------------------------------------------
 // Rendering
 // ---------------------------------------------------------------------------
 
+function renderFiltered() {
+  const q = _searchQuery;
+  const filtered = q
+    ? emailData.filter(e =>
+        (e.from_name  || '').toLowerCase().includes(q) ||
+        (e.from_email || '').toLowerCase().includes(q) ||
+        (e.subject    || '').toLowerCase().includes(q) ||
+        (e.snippet    || '').toLowerCase().includes(q) ||
+        (e.body       || '').toLowerCase().includes(q))
+    : emailData;
+
+  renderEmails(filtered);
+}
+
 function renderEmails(emails) {
   const container = document.getElementById('email-list');
 
   if (!emails.length) {
-    container.innerHTML = '<span class="empty-state">No unread emails</span>';
+    const msg = _searchQuery
+      ? `No emails match "${escHtml(_searchQuery)}"`
+      : _showAll ? 'No emails.' : 'No unread emails.';
+    container.innerHTML = `<span class="empty-state">${msg}</span>`;
     return;
   }
 
   container.innerHTML = emails.map((e, i) => {
-    const color = avatarColor(e.from_email || e.from_name || String(i));
-    const abbr  = initials(e.from_name || e.from_email || '?');
+    const color   = avatarColor(e.from_email || e.from_name || String(i));
+    const abbr    = initials(e.from_name || e.from_email);
+    const unread  = isUnread(e);
+    const bodyText = (e.body || e.snippet || '').trim();
+    const hasBody = bodyText.length > (e.snippet || '').length;
 
     return `
-      <div class="email-item" id="email-${i}" onclick="toggleEmail(${i})">
+      <div class="email-item${unread ? ' unread' : ''}" id="email-${i}" onclick="toggleEmail(${i})">
         <div class="email-avatar" style="background:${color}">${abbr}</div>
         <div class="email-body">
           <div class="email-top">
-            <span class="email-from">${escHtml(e.from_name)}</span>
+            <span class="email-from">${escHtml(e.from_name || e.from_email)}</span>
             <span class="email-date">${escHtml(e.date)}</span>
           </div>
           <div class="email-subject">${escHtml(e.subject)}</div>
-          <div class="email-snippet collapsed" id="snippet-${i}">${escHtml(e.snippet)}</div>
-          <div class="reply-row" id="reply-row-${i}" hidden>
+          <div class="email-preview collapsed" id="preview-${i}">${escHtml(e.snippet)}</div>
+          <div class="email-full-body" id="fullbody-${i}">${escHtml(bodyText || e.snippet)}</div>
+          <div class="action-row" id="action-row-${i}">
             <button class="btn-reply" onclick="event.stopPropagation();openReply(${i})">↩ Reply</button>
+            <button class="btn-forward" onclick="event.stopPropagation();openForward(${i})">→ Forward</button>
             <button class="btn-ai-sm" id="summarize-btn-${i}" onclick="event.stopPropagation();summarizeEmail(${i})">✦ Summarize</button>
+            <button class="btn-mark-unread" onclick="event.stopPropagation();toggleReadState(${i})" id="read-btn-${i}">
+              ${unread ? 'Mark read' : 'Mark unread'}
+            </button>
           </div>
           <div class="email-ai-summary" id="ai-summary-${i}" hidden></div>
         </div>
@@ -126,142 +277,215 @@ function renderEmails(emails) {
 }
 
 function toggleEmail(i) {
-  const item    = document.getElementById(`email-${i}`);
-  const snippet = document.getElementById(`snippet-${i}`);
-  const replyRow = document.getElementById(`reply-row-${i}`);
+  const item = document.getElementById(`email-${i}`);
+  if (!item) return;
   const expanded = item.classList.toggle('expanded');
-  snippet.classList.toggle('collapsed', !expanded);
-  replyRow.hidden = !expanded;
+  if (expanded) {
+    // Mark as read on open
+    const e = emailData[i];
+    if (e && isUnread(e)) {
+      markReadLocally(e.message_id);
+      item.classList.remove('unread');
+      const readBtn = document.getElementById(`read-btn-${i}`);
+      if (readBtn) readBtn.textContent = 'Mark unread';
+    }
+  }
+}
+
+function toggleReadState(i) {
+  const e = emailData[i];
+  if (!e) return;
+  const item = document.getElementById(`email-${i}`);
+  const readBtn = document.getElementById(`read-btn-${i}`);
+  if (isUnread(e)) {
+    markReadLocally(e.message_id);
+    item && item.classList.remove('unread');
+    if (readBtn) readBtn.textContent = 'Mark unread';
+  } else {
+    markUnreadLocally(e.message_id);
+    item && item.classList.add('unread');
+    if (readBtn) readBtn.textContent = 'Mark read';
+  }
 }
 
 // ---------------------------------------------------------------------------
-// Reply modal
+// Compose / Reply / Forward modal (unified)
 // ---------------------------------------------------------------------------
 
-let _replyEmailIndex = -1;
+function _openComposeModal({ title, from, to = '', cc = '', subject = '', body = '', inReplyTo = '', showDraft = false, emailIndex = -1 }) {
+  _composeEmailIndex = emailIndex;
+  document.getElementById('compose-title').textContent   = title;
+  document.getElementById('compose-from').value          = from;
+  document.getElementById('compose-to').value            = to;
+  document.getElementById('compose-cc').value            = cc;
+  document.getElementById('compose-subject').value       = subject;
+  document.getElementById('compose-body').value          = body;
+  document.getElementById('compose-in-reply-to').value   = inReplyTo;
+  document.getElementById('compose-error').textContent   = '';
+  document.getElementById('compose-send-btn').disabled   = false;
+  document.getElementById('compose-send-btn').textContent = 'Send';
+
+  const draftBtn = document.getElementById('compose-draft-btn');
+  draftBtn.hidden   = !showDraft;
+  draftBtn.disabled = false;
+  draftBtn.textContent = '✦ Draft Reply';
+
+  const modal = document.getElementById('compose-modal');
+  modal.hidden = false;
+
+  // Focus: to if empty, else body
+  const toInput = document.getElementById('compose-to');
+  if (!to) {
+    toInput.focus();
+  } else {
+    const ta = document.getElementById('compose-body');
+    ta.focus();
+    ta.setSelectionRange(0, 0);
+    ta.scrollTop = 0;
+  }
+}
+
+function openCompose() {
+  _openComposeModal({
+    title:      'New Message',
+    from:       aliasAddress(currentAlias),
+    body:       SIGNATURE,
+    showDraft:  false,
+  });
+}
 
 function openReply(i) {
   const e = emailData[i];
   if (!e) return;
-  _replyEmailIndex = i;
+  const to      = e.reply_to || e.from_email;
+  const subject = e.subject?.toLowerCase().startsWith('re:') ? e.subject : `Re: ${e.subject}`;
+  const quoted  = e.body || e.snippet
+    ? `\n\n--- Original message from ${e.from_name || e.from_email} ---\n${(e.body || e.snippet || '').trim()}`
+    : '';
 
-  const toAddr  = e.reply_to || e.from_email;
-  const subject = e.subject.toLowerCase().startsWith('re:') ? e.subject : `Re: ${e.subject}`;
-
-  document.getElementById('reply-to').value      = toAddr;
-  document.getElementById('reply-subject').value = subject;
-  document.getElementById('reply-body').value    = SIGNATURE;
-  document.getElementById('reply-message-id').value = e.message_id || '';
-  document.getElementById('reply-error').textContent = '';
-  document.getElementById('reply-send-btn').disabled = false;
-  document.getElementById('reply-send-btn').textContent = 'Send';
-  const draftBtn = document.getElementById('draft-btn');
-  if (draftBtn) { draftBtn.disabled = false; draftBtn.textContent = '✦ Draft Reply'; }
-
-  const ta = document.getElementById('reply-body');
-  ta.focus();
-  ta.setSelectionRange(0, 0);
-  ta.scrollTop = 0;
-
-  document.getElementById('reply-modal').hidden = false;
+  _openComposeModal({
+    title:      'Reply',
+    from:       aliasAddress(currentAlias),
+    to,
+    subject,
+    body:       SIGNATURE + quoted,
+    inReplyTo:  e.message_id || '',
+    showDraft:  true,
+    emailIndex: i,
+  });
 }
 
-function closeReply() {
-  document.getElementById('reply-modal').hidden = true;
+function openForward(i) {
+  const e = emailData[i];
+  if (!e) return;
+  const subject = e.subject?.toLowerCase().startsWith('fwd:') ? e.subject : `Fwd: ${e.subject}`;
+  const header  = `\n\n--- Forwarded message ---\nFrom: ${e.from_name || e.from_email}\nDate: ${e.date}\nSubject: ${e.subject}\n\n${(e.body || e.snippet || '').trim()}`;
+
+  _openComposeModal({
+    title:      'Forward',
+    from:       aliasAddress(currentAlias),
+    subject,
+    body:       SIGNATURE + header,
+    showDraft:  false,
+    emailIndex: i,
+  });
 }
 
-async function sendReply() {
-  const to         = document.getElementById('reply-to').value.trim();
-  const subject    = document.getElementById('reply-subject').value.trim();
-  const body       = document.getElementById('reply-body').value;
-  const inReplyTo  = document.getElementById('reply-message-id').value.trim();
-  const errEl      = document.getElementById('reply-error');
-  const sendBtn    = document.getElementById('reply-send-btn');
+function closeCompose() {
+  document.getElementById('compose-modal').hidden = true;
+  _composeEmailIndex = -1;
+}
 
-  if (!body.trim()) {
-    errEl.textContent = 'Message body is required.';
-    return;
-  }
+async function sendCompose() {
+  const to       = document.getElementById('compose-to').value.trim();
+  const cc       = document.getElementById('compose-cc').value.trim();
+  const subject  = document.getElementById('compose-subject').value.trim();
+  const body     = document.getElementById('compose-body').value;
+  const inReplyTo = document.getElementById('compose-in-reply-to').value.trim();
+  const errEl    = document.getElementById('compose-error');
+  const sendBtn  = document.getElementById('compose-send-btn');
 
-  sendBtn.disabled = true;
+  if (!to)   { errEl.textContent = 'To address is required.'; return; }
+  if (!body.trim()) { errEl.textContent = 'Message body is required.'; return; }
+
+  sendBtn.disabled    = true;
   sendBtn.textContent = 'Sending…';
-  errEl.textContent = '';
+  errEl.textContent   = '';
 
   try {
     await apiFetch('/data/email/reply', {
       method: 'POST',
-      body: JSON.stringify({ to, subject, body, in_reply_to: inReplyTo, alias: currentAlias }),
+      body: JSON.stringify({ to, cc, subject, body, in_reply_to: inReplyTo, alias: currentAlias }),
     });
-    closeReply();
+    closeCompose();
+    showToast('Email sent.', 'success', 3000);
   } catch (err) {
-    errEl.textContent = err.message;
-    sendBtn.disabled = false;
+    errEl.textContent   = err.message || 'Send failed.';
+    sendBtn.disabled    = false;
     sendBtn.textContent = 'Send';
   }
 }
 
-// Close modal on backdrop click
-document.addEventListener('DOMContentLoaded', () => {
-  document.getElementById('reply-modal').addEventListener('click', e => {
-    if (e.target === e.currentTarget) closeReply();
-  });
-});
+// ---------------------------------------------------------------------------
+// AI: Summarize
+// ---------------------------------------------------------------------------
 
 async function summarizeEmail(i) {
   const e = emailData[i];
   if (!e) return;
   const btn = document.getElementById(`summarize-btn-${i}`);
   const box = document.getElementById(`ai-summary-${i}`);
-  btn.disabled = true;
+  btn.disabled    = true;
   btn.textContent = '✦ …';
-  box.hidden = false;
-  box.className = 'email-ai-summary loading';
+  box.hidden      = false;
+  box.className   = 'email-ai-summary loading';
   box.textContent = 'Summarizing…';
   try {
     const data = await apiFetch('/email/summarize', {
       method: 'POST',
       body: JSON.stringify({ subject: e.subject, from_name: e.from_name, body: e.body || e.snippet }),
     });
-    box.className = 'email-ai-summary';
+    box.className   = 'email-ai-summary';
     box.textContent = data.summary || 'No summary returned.';
     btn.textContent = '✦ Summarized';
   } catch (err) {
-    box.className = 'email-ai-summary error';
+    box.className   = 'email-ai-summary error';
     box.textContent = 'Summary failed: ' + (err.message || 'error');
-    btn.disabled = false;
+    btn.disabled    = false;
     btn.textContent = '✦ Summarize';
   }
 }
 
-async function draftReply(i) {
-  const e = emailData[i];
+// ---------------------------------------------------------------------------
+// AI: Draft reply (fills compose body)
+// ---------------------------------------------------------------------------
+
+async function draftReply() {
+  const i   = _composeEmailIndex;
+  const e   = i >= 0 ? emailData[i] : null;
   if (!e) return;
-  const btn = document.getElementById('draft-btn');
-  btn.disabled = true;
+
+  const btn = document.getElementById('compose-draft-btn');
+  btn.disabled    = true;
   btn.textContent = '✦ Drafting…';
+
   try {
     const data = await apiFetch('/email/draft', {
       method: 'POST',
       body: JSON.stringify({ subject: e.subject, from_name: e.from_name, body: e.body || e.snippet }),
     });
-    const ta = document.getElementById('reply-body');
-    const draft = (data.draft || '').trim();
-    ta.value = draft + SIGNATURE;
+    const ta   = document.getElementById('compose-body');
+    const quoted = (e.body || e.snippet)
+      ? `\n\n--- Original message ---\n${(e.body || e.snippet || '').trim()}`
+      : '';
+    ta.value = ((data.draft || '').trim()) + SIGNATURE + quoted;
     ta.focus();
     ta.setSelectionRange(0, 0);
     ta.scrollTop = 0;
   } catch (err) {
-    document.getElementById('reply-error').textContent = 'Draft failed: ' + (err.message || 'error');
+    document.getElementById('compose-error').textContent = 'Draft failed: ' + (err.message || 'error');
   } finally {
-    btn.disabled = false;
+    btn.disabled    = false;
     btn.textContent = '✦ Draft Reply';
   }
-}
-
-function escHtml(str) {
-  return (str || '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
 }

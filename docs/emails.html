@@ -7,20 +7,41 @@
   <title>LAC Email</title>
   <link rel="stylesheet" href="css/style.css">
   <style>
+    /* ---- Header row ---- */
+    .inbox-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 4px;
+    }
+    .btn-compose {
+      background: var(--navy);
+      color: white;
+      border: none;
+      border-radius: 6px;
+      padding: 7px 16px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity .15s;
+    }
+    .btn-compose:hover { opacity: .85; }
+
     /* ---- Alias tab bar ---- */
     .alias-bar {
       display: flex;
       align-items: center;
       gap: 8px;
-      padding: 16px 0 12px;
+      padding: 14px 0 10px;
       border-bottom: 2px solid var(--border);
-      margin-bottom: 16px;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
     }
     .alias-btn {
       display: flex;
       align-items: center;
       gap: 6px;
-      padding: 6px 14px;
+      padding: 5px 13px;
       border: 1px solid var(--border);
       border-radius: 20px;
       background: var(--surface);
@@ -29,6 +50,7 @@
       font-weight: 500;
       cursor: pointer;
       transition: all .15s;
+      white-space: nowrap;
     }
     .alias-btn:hover  { border-color: var(--blue); color: var(--blue); }
     .alias-btn.active {
@@ -49,8 +71,76 @@
       background: var(--danger);
       color: white;
     }
-    .alias-btn.active .alias-badge  { background: rgba(255,255,255,.25); }
-    .alias-badge[data-count="0"]    { display: none; }
+    .alias-btn.active .alias-badge { background: rgba(255,255,255,.25); }
+    .alias-badge[data-count="0"]   { display: none; }
+
+    /* ---- Toolbar (search + filters) ---- */
+    .email-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 14px;
+      flex-wrap: wrap;
+    }
+    .search-wrap {
+      flex: 1;
+      min-width: 160px;
+      position: relative;
+    }
+    .search-icon {
+      position: absolute;
+      left: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 13px;
+      color: var(--text-3);
+      pointer-events: none;
+    }
+    .email-search-input {
+      width: 100%;
+      padding: 7px 10px 7px 30px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 13px;
+      background: var(--surface);
+      color: var(--text);
+      outline: none;
+      box-sizing: border-box;
+    }
+    .email-search-input:focus { border-color: var(--blue); }
+
+    .btn-show-all {
+      padding: 5px 13px;
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      background: var(--surface);
+      color: var(--text-2);
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all .15s;
+    }
+    .btn-show-all:hover { border-color: var(--blue); color: var(--blue); }
+    .btn-show-all.active { background: var(--blue); border-color: var(--blue); color: white; }
+
+    .alias-status {
+      font-size: 12px;
+      color: var(--text-3);
+      white-space: nowrap;
+      margin-left: auto;
+    }
+    .btn-refresh {
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 4px 10px;
+      font-size: 12px;
+      color: var(--text-2);
+      cursor: pointer;
+      transition: background .15s;
+    }
+    .btn-refresh:hover { background: var(--muted-bg); }
 
     /* ---- Email list ---- */
     .email-list { display: flex; flex-direction: column; gap: 2px; }
@@ -65,9 +155,17 @@
       border-radius: var(--radius);
       cursor: pointer;
       transition: background .1s;
+      position: relative;
     }
     .email-item:hover { background: #f5f7fa; }
     .email-item.expanded { background: #f8fafc; }
+
+    /* Unread: bold text + blue left accent */
+    .email-item.unread {
+      border-left: 3px solid var(--blue);
+    }
+    .email-item.unread .email-from  { font-weight: 700; color: var(--navy); }
+    .email-item.unread .email-subject { font-weight: 600; }
 
     .email-avatar {
       flex-shrink: 0;
@@ -82,7 +180,6 @@
       color: white;
       margin-top: 1px;
     }
-
     .email-body { flex: 1; min-width: 0; }
 
     .email-top {
@@ -94,7 +191,7 @@
     }
     .email-from {
       font-size: 13px;
-      font-weight: 600;
+      font-weight: 500;
       color: var(--text);
       white-space: nowrap;
       overflow: hidden;
@@ -114,54 +211,46 @@
       text-overflow: ellipsis;
       margin-bottom: 3px;
     }
-    .email-snippet {
+    .email-preview {
       font-size: 12px;
       color: var(--text-2);
       line-height: 1.5;
     }
-    .email-snippet.collapsed {
+    .email-preview.collapsed {
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
     }
 
-    /* ---- Status bar ---- */
-    .email-status {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 12px;
-    }
-    .email-status-text { font-size: 12px; color: var(--text-3); }
-
-    .btn-refresh {
-      background: none;
-      border: 1px solid var(--border);
-      border-radius: 4px;
-      padding: 4px 10px;
-      font-size: 12px;
-      color: var(--text-2);
-      cursor: pointer;
-      transition: background .15s;
-    }
-    .btn-refresh:hover { background: var(--muted-bg); }
-
-    .error-banner {
-      background: var(--danger-bg);
-      color: var(--danger);
-      padding: 10px 14px;
-      border-radius: var(--radius);
-      font-size: 13px;
-      margin-bottom: 12px;
-    }
-
-    /* ---- Reply button ---- */
-    .reply-row {
+    /* Full body when expanded */
+    .email-full-body {
+      display: none;
       margin-top: 10px;
+      padding: 12px;
+      background: var(--muted-bg);
+      border-radius: 4px;
+      font-size: 13px;
+      line-height: 1.7;
+      color: var(--text);
+      white-space: pre-wrap;
+      word-break: break-word;
+      max-height: 360px;
+      overflow-y: auto;
     }
-    .btn-reply {
-      background: var(--navy);
-      color: white;
+    .email-item.expanded .email-full-body { display: block; }
+    .email-item.expanded .email-preview   { display: none; }
+
+    /* ---- Action row ---- */
+    .action-row {
+      display: none;
+      align-items: center;
+      gap: 8px;
+      margin-top: 10px;
+      flex-wrap: wrap;
+    }
+    .email-item.expanded .action-row { display: flex; }
+
+    .btn-reply, .btn-forward {
       border: none;
       border-radius: 4px;
       padding: 5px 12px;
@@ -170,117 +259,22 @@
       cursor: pointer;
       transition: opacity .15s;
     }
-    .btn-reply:hover { opacity: .85; }
+    .btn-reply   { background: var(--navy); color: white; }
+    .btn-forward { background: var(--muted-bg); border: 1px solid var(--border); color: var(--text-2); }
+    .btn-reply:hover, .btn-forward:hover { opacity: .8; }
 
-    /* ---- Reply modal ---- */
-    .modal-backdrop {
-      position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,.4);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 1000;
-    }
-    .modal-box {
-      background: white;
-      border-radius: 8px;
-      box-shadow: 0 8px 32px rgba(0,0,0,.2);
-      width: 560px;
-      max-width: calc(100vw - 32px);
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-    }
-    .modal-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 14px 18px;
-      background: var(--navy);
-      color: white;
-    }
-    .modal-header h3 { margin: 0; font-size: 15px; font-weight: 600; }
-    .modal-close {
+    .btn-mark-unread {
       background: none;
       border: none;
-      color: rgba(255,255,255,.7);
-      font-size: 20px;
+      color: var(--text-3);
+      font-size: 12px;
       cursor: pointer;
-      line-height: 1;
-      padding: 0 4px;
-    }
-    .modal-close:hover { color: white; }
-    .modal-fields {
-      padding: 16px 18px 0;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
-    .modal-field {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-size: 13px;
-    }
-    .modal-field label {
-      width: 56px;
-      flex-shrink: 0;
-      color: var(--text-2);
-      font-weight: 500;
-    }
-    .modal-field input {
-      flex: 1;
-      border: 1px solid var(--border);
+      margin-left: auto;
+      padding: 4px 8px;
       border-radius: 4px;
-      padding: 5px 8px;
-      font-size: 13px;
-      color: var(--text);
-      background: var(--muted-bg);
+      transition: color .15s;
     }
-    .modal-body-wrap { padding: 10px 18px 0; }
-    .modal-body-wrap textarea {
-      width: 100%;
-      height: 200px;
-      border: 1px solid var(--border);
-      border-radius: 4px;
-      padding: 8px;
-      font-size: 13px;
-      font-family: inherit;
-      resize: vertical;
-      box-sizing: border-box;
-      line-height: 1.5;
-    }
-    .modal-footer {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 12px 18px 16px;
-    }
-    .modal-error { font-size: 12px; color: var(--danger); }
-    .btn-send {
-      background: var(--navy);
-      color: white;
-      border: none;
-      border-radius: 4px;
-      padding: 8px 20px;
-      font-size: 13px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: opacity .15s;
-    }
-    .btn-send:hover   { opacity: .85; }
-    .btn-send:disabled { opacity: .5; cursor: default; }
-    .btn-cancel {
-      background: none;
-      border: 1px solid var(--border);
-      border-radius: 4px;
-      padding: 8px 16px;
-      font-size: 13px;
-      color: var(--text-2);
-      cursor: pointer;
-    }
-    .btn-cancel:hover { background: var(--muted-bg); }
+    .btn-mark-unread:hover { color: var(--blue); }
 
     /* ---- AI buttons ---- */
     .btn-ai-sm {
@@ -309,8 +303,154 @@
       white-space: pre-wrap;
     }
     .email-ai-summary.loading { color: var(--text-3); font-style: italic; }
-    .email-ai-summary.error { background: var(--danger-bg); border-color: var(--danger); color: var(--danger); }
+    .email-ai-summary.error   { background: var(--danger-bg); border-color: var(--danger); color: var(--danger); }
 
+    /* ---- Error banner ---- */
+    .error-banner {
+      background: var(--danger-bg);
+      color: var(--danger);
+      padding: 10px 14px;
+      border-radius: var(--radius);
+      font-size: 13px;
+      margin-bottom: 12px;
+    }
+
+    /* ---- Load more ---- */
+    .load-more-row {
+      text-align: center;
+      padding: 16px 0 4px;
+    }
+    .btn-load-more {
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 8px 28px;
+      font-size: 13px;
+      color: var(--text-2);
+      cursor: pointer;
+      transition: background .15s;
+    }
+    .btn-load-more:hover    { background: var(--muted-bg); }
+    .btn-load-more:disabled { opacity: .5; cursor: default; }
+
+    /* ---- Compose/Reply/Forward modal ---- */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.4);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+    .modal-box {
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 8px 32px rgba(0,0,0,.2);
+      width: 580px;
+      max-width: calc(100vw - 32px);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      max-height: calc(100vh - 48px);
+    }
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 18px;
+      background: var(--navy);
+      color: white;
+      flex-shrink: 0;
+    }
+    .modal-header h3 { margin: 0; font-size: 15px; font-weight: 600; }
+    .modal-close {
+      background: none;
+      border: none;
+      color: rgba(255,255,255,.7);
+      font-size: 20px;
+      cursor: pointer;
+      line-height: 1;
+      padding: 0 4px;
+    }
+    .modal-close:hover { color: white; }
+    .modal-fields {
+      padding: 14px 18px 0;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+    .modal-field {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+    }
+    .modal-field label {
+      width: 60px;
+      flex-shrink: 0;
+      color: var(--text-2);
+      font-weight: 500;
+    }
+    .modal-field input {
+      flex: 1;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 5px 8px;
+      font-size: 13px;
+      color: var(--text);
+      background: var(--surface);
+    }
+    .modal-field input[readonly] { background: var(--muted-bg); color: var(--text-2); }
+    .modal-field input:focus { outline: none; border-color: var(--blue); }
+    .modal-body-wrap { padding: 10px 18px 0; flex: 1; min-height: 0; }
+    .modal-body-wrap textarea {
+      width: 100%;
+      height: 200px;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 8px;
+      font-size: 13px;
+      font-family: inherit;
+      resize: vertical;
+      box-sizing: border-box;
+      line-height: 1.5;
+    }
+    .modal-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 18px 16px;
+      flex-shrink: 0;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .modal-error { font-size: 12px; color: var(--danger); }
+    .modal-footer-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .btn-send {
+      background: var(--navy);
+      color: white;
+      border: none;
+      border-radius: 4px;
+      padding: 8px 20px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity .15s;
+    }
+    .btn-send:hover    { opacity: .85; }
+    .btn-send:disabled { opacity: .5; cursor: default; }
+    .btn-cancel {
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 8px 16px;
+      font-size: 13px;
+      color: var(--text-2);
+      cursor: pointer;
+    }
+    .btn-cancel:hover { background: var(--muted-bg); }
     .btn-draft {
       background: none;
       border: 1px solid var(--blue, #2E6DA4);
@@ -324,6 +464,12 @@
     }
     .btn-draft:hover:not(:disabled) { background: var(--blue, #2E6DA4); color: #fff; }
     .btn-draft:disabled { opacity: .5; cursor: default; }
+
+    @media (max-width: 600px) {
+      .email-toolbar { flex-wrap: nowrap; }
+      .search-wrap   { min-width: 0; }
+      .btn-show-all  { font-size: 11px; padding: 5px 10px; }
+    }
   </style>
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#1B2A3F">
@@ -336,8 +482,10 @@
 <aside id="lac-sidebar"></aside>
 <div class="page-body">
 <main class="main">
-  <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:4px;">
+
+  <div class="inbox-header">
     <h2 style="font-size:20px;font-weight:700;color:var(--navy);">Inbox</h2>
+    <button class="btn-compose" onclick="openCompose()">✎&nbsp; Compose</button>
   </div>
 
   <div class="alias-bar">
@@ -350,42 +498,64 @@
     <button class="alias-btn" id="tab-billing" onclick="switchAlias('billing')">
       billing@ <span class="alias-badge" id="count-billing" data-count="0">0</span>
     </button>
-    <div style="flex:1;"></div>
-    <span id="refresh-status" style="font-size:12px;color:var(--text-3);"></span>
+    <span class="alias-status" id="refresh-status"></span>
     <button class="btn-refresh" onclick="loadEmails(true)">↻ Refresh</button>
+  </div>
+
+  <div class="email-toolbar">
+    <div class="search-wrap">
+      <span class="search-icon">⌕</span>
+      <input class="email-search-input" id="email-search" type="search"
+             placeholder="Search sender, subject, or message…"
+             oninput="onSearch(this.value)">
+    </div>
+    <button class="btn-show-all" id="btn-show-all" onclick="toggleShowAll()">Show all</button>
   </div>
 
   <div id="error-banner" class="error-banner" hidden></div>
   <div id="email-list"><span class="empty-state">Loading…</span></div>
+  <div class="load-more-row" id="load-more-row" hidden>
+    <button class="btn-load-more" id="load-more-btn" onclick="loadMore()">Load more</button>
+  </div>
+
 </main>
 
-<!-- Reply modal -->
-<div id="reply-modal" class="modal-backdrop" hidden>
+<!-- Unified Compose / Reply / Forward modal -->
+<div id="compose-modal" class="modal-backdrop" hidden>
   <div class="modal-box">
     <div class="modal-header">
-      <h3>Reply</h3>
-      <button class="modal-close" onclick="closeReply()">&times;</button>
+      <h3 id="compose-title">Compose</h3>
+      <button class="modal-close" onclick="closeCompose()">&times;</button>
     </div>
     <div class="modal-fields">
       <div class="modal-field">
+        <label>From</label>
+        <input id="compose-from" type="text" readonly>
+      </div>
+      <div class="modal-field">
         <label>To</label>
-        <input id="reply-to" type="email" readonly>
+        <input id="compose-to" type="email" placeholder="recipient@example.com">
+      </div>
+      <div class="modal-field">
+        <label>CC</label>
+        <input id="compose-cc" type="email" placeholder="Optional">
       </div>
       <div class="modal-field">
         <label>Subject</label>
-        <input id="reply-subject" type="text">
+        <input id="compose-subject" type="text" placeholder="Subject">
       </div>
     </div>
     <div class="modal-body-wrap">
-      <textarea id="reply-body" placeholder="Write your reply…"></textarea>
+      <textarea id="compose-body" placeholder="Write your message…"></textarea>
     </div>
-    <input type="hidden" id="reply-message-id">
+    <input type="hidden" id="compose-in-reply-to">
+    <input type="hidden" id="compose-mode">
     <div class="modal-footer">
-      <span class="modal-error" id="reply-error"></span>
-      <div style="display:flex;gap:8px;align-items:center;">
-        <button class="btn-draft" id="draft-btn" onclick="draftReply(_replyEmailIndex)">✦ Draft Reply</button>
-        <button class="btn-cancel" onclick="closeReply()">Cancel</button>
-        <button class="btn-send" id="reply-send-btn" onclick="sendReply()">Send</button>
+      <span class="modal-error" id="compose-error"></span>
+      <div class="modal-footer-actions">
+        <button class="btn-draft" id="compose-draft-btn" onclick="draftReply()">✦ Draft Reply</button>
+        <button class="btn-cancel" onclick="closeCompose()">Cancel</button>
+        <button class="btn-send" id="compose-send-btn" onclick="sendCompose()">Send</button>
       </div>
     </div>
   </div>
