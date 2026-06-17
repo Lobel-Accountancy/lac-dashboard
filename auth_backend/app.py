@@ -3273,16 +3273,18 @@ def email_reply():
 
 MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 
+COMPANY_START_MONTH = 5  # May — company inception
+
 def _available_months():
-    """Return list of month indices (1-12) whose close+5d has passed."""
+    """Return month indices from May through the current month.
+    Past months require close+5d; the current month is always included."""
     today = date.today()
     available = []
-    for m in range(1, 13):
-        # month-end is last day of month m in current year
-        if m == 12:
-            month_end = date(today.year, 12, 31)
-        else:
-            month_end = date(today.year, m + 1, 1) - timedelta(days=1)
+    for m in range(COMPANY_START_MONTH, today.month + 1):
+        if m == today.month:
+            available.append(m)  # always show current month
+            continue
+        month_end = date(today.year, m + 1, 1) - timedelta(days=1)
         if today >= month_end + timedelta(days=5):
             available.append(m)
     return available
