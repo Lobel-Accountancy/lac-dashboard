@@ -5893,6 +5893,144 @@ def apollo_save_prospect():
         return jsonify({'error': str(exc)}), 500
 
 
+# ---------------------------------------------------------------------------
+# Cron Monitor
+# ---------------------------------------------------------------------------
+
+import subprocess as _subprocess
+
+_CRON_JOBS = [
+    {'name': 'Activity Digest',       'script': 'activity_digest.py',       'log': '/home/jlobel/lac_automation/logs/activity_digest.log',      'schedule': 'Daily 8am'},
+    {'name': 'Approval Queue Digest', 'script': 'approval_queue_digest.py', 'log': '/home/jlobel/lac_automation/logs/approval_queue_digest.log', 'schedule': 'Daily 8am'},
+    {'name': 'Shareholder Sync',      'script': 'shareholder_sync.py',      'log': '/home/jlobel/lac_automation/logs/shareholder_sync.log',      'schedule': 'Weekly Mon'},
+    {'name': 'Backup',                'script': 'backup.py',                'log': '/home/jlobel/lac_automation/backup.log',                     'schedule': 'Daily 2am'},
+    {'name': 'Drive Organizer',       'script': 'drive_organizer.py',       'log': '/home/jlobel/lac_automation/drive_organizer.log',            'schedule': 'Daily 3am'},
+    {'name': 'Realization Alert',     'script': 'realization_alert.py',     'log': '/home/jlobel/lac_automation/realization.log',                'schedule': 'Weekly Mon'},
+    {'name': 'Weekly KPI Digest',     'script': 'weekly_kpi_digest.py',     'log': '/home/jlobel/lac_automation/phase5/digest.log',              'schedule': 'Weekly Mon'},
+    {'name': 'Daily Briefing',        'script': 'daily_briefing.py',        'log': '/home/jlobel/lac_automation/phase6/daily_briefing.log',      'schedule': 'Daily 7am'},
+    {'name': 'Deadline Tracker',      'script': 'deadline_tracker.py',      'log': '/home/jlobel/lac_automation/phase6/deadline_tracker.log',    'schedule': 'Daily 8am'},
+    {'name': 'Regulatory Scraper',    'script': 'regulatory_scraper.py',    'log': '/home/jlobel/lac_automation/phase6/regulatory_scraper.log',  'schedule': 'Weekly Sun'},
+    {'name': 'Invoice Automation',    'script': 'invoice_automation.py',    'log': '/home/jlobel/lac_automation/invoice.log',                    'schedule': 'Monthly 1st'},
+    {'name': 'Clockify',              'script': 'clockify.py',              'log': '/home/jlobel/lac_automation/clockify.log',                   'schedule': 'Weekly Fri'},
+    {'name': 'HubSpot Sync',          'script': 'hubspot_sync.py',          'log': '/home/jlobel/lac_automation/hubspot.log',                    'schedule': 'Daily'},
+    {'name': 'Paperless Sync',        'script': 'paperless_sync.py',        'log': '/home/jlobel/lac_automation/paperless.log',                  'schedule': 'Hourly'},
+]
+
+def _parse_log_tail(log_path, n_lines=8):
+    """Read last n lines of a log file; return (last_modified_iso, lines_text, status)."""
+    import os as _os
+    if not _os.path.exists(log_path):
+        return None, None, 'unknown'
+    try:
+        mtime = _os.path.getmtime(log_path)
+        last_run_iso = date.fromtimestamp(mtime).isoformat() + 'T' + \
+                       time.strftime('%H:%M:%S', time.localtime(mtime))
+        with open(log_path, 'r', errors='replace') as f:
+            lines = f.readlines()
+        tail = ''.join(lines[-n_lines:]).strip()
+        low = tail.lower()
+        status = 'error' if any(w in low for w in ['error', 'exception', 'traceback', 'failed']) else 'ok'
+        return last_run_iso, tail or '(empty)', status
+    except Exception:
+        return None, None, 'unknown'
+
+
+@app.route('/cron/status', methods=['GET'])
+@require_jwt
+def cron_status():
+    try:
+        # Read actual crontab
+        try:
+            ct = _subprocess.run(['crontab', '-l'], capture_output=True, text=True, timeout=5)
+            crontab_lines = ct.stdout.splitlines() if ct.returncode == 0 else []
+        except Exception:
+            crontab_lines = []
+
+        jobs = []
+        for job in _CRON_JOBS:
+            last_run, last_lines, status = _parse_log_tail(job['log'])
+            # Try to get exit code from last log line pattern (not always available)
+            schedule = job['schedule']
+            # Match crontab line to get real schedule
+            for line in crontab_lines:
+                if job['script'] in line and not line.startswith('#'):
+                    parts = line.split()
+                    if len(parts) >= 5:
+                        schedule = ' '.join(parts[:5])
+                    break
+            jobs.append({
+                'name':       job['name'],
+                'script':     job['script'],
+                'log_file':   job['log'],
+                'schedule':   schedule,
+                'last_run':   last_run,
+                'last_lines': last_lines,
+                'exit_code':  None,
+                'status':     status,
+            })
+
+        return jsonify({'jobs': jobs})
+    except Exception as exc:
+        return jsonify({'error': str(exc)}), 500
+
+
+# ---------------------------------------------------------------------------
+# Global Search
+# ---------------------------------------------------------------------------
+
+@app.route('/search/global', methods=['GET'])
+@require_jwt
+def global_search():
+    q = (request.args.get('q') or '').strip().lower()
+    if len(q) < 2:
+        return jsonify({'results': []})
+    try:
+        results = []
+        # Search clients / pipeline from workbook
+        try:
+            wb = _workbook()
+            client_map = _build_client_map(wb)
+            for name in client_map:
+                if q in name.lower():
+                    results.append({'type': 'client', 'label': name, 'href': 'clients.html', 'sub': 'Client'})
+            # Search pipeline descriptions
+            if 'Engagement Pipeline' in wb.sheetnames:
+                ws = wb['Engagement Pipeline']
+                for row in ws.iter_rows(min_row=2, values_only=True):
+                    if not row or not row[0]:
+                        continue
+                    desc = str(row[1] if len(row) > 1 else '')
+                    client = str(row[0])
+                    if q in desc.lower() or q in client.lower():
+                        label = f"{client}: {desc}" if desc else client
+                        if not any(r['label'] == label for r in results):
+                            results.append({'type': 'matter', 'label': label, 'href': 'engagement.html', 'sub': 'Pipeline'})
+        except Exception:
+            pass
+
+        # Search Paperless documents
+        try:
+            import requests as _req
+            pl_url  = os.getenv('PAPERLESS_URL', 'http://localhost:8000')
+            pl_key  = os.getenv('PAPERLESS_API_KEY', '')
+            r = _req.get(f'{pl_url}/api/documents/', params={'query': q, 'page_size': 5},
+                         headers={'Authorization': f'Token {pl_key}'}, timeout=4)
+            if r.ok:
+                for doc in r.json().get('results', []):
+                    results.append({
+                        'type': 'document',
+                        'label': doc.get('title', 'Untitled'),
+                        'href':  'docs.html',
+                        'sub':   'Document',
+                    })
+        except Exception:
+            pass
+
+        return jsonify({'results': results[:20], 'query': q})
+    except Exception as exc:
+        return jsonify({'error': str(exc)}), 500
+
+
 if __name__ == '__main__':
     port = int(os.getenv('AUTH_PORT', 5001))
     app.run(host='0.0.0.0', port=port, debug=False)

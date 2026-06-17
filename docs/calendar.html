@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <link rel="icon" type="image/jpeg" href="favicon.jpg">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LAC Calendar</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.css">
+  <style>
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 14px;
+      margin-bottom: 16px;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--text-2);
+    }
+    .legend-dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+    }
+    .fc { font-family: inherit; font-size: 13px; }
+    .fc .fc-toolbar-title { font-size: 16px; font-weight: 700; color: var(--navy); }
+    .fc .fc-button { background: var(--navy); border-color: var(--navy); font-size: 12px; }
+    .fc .fc-button:hover { background: var(--navy-dark); }
+    .fc .fc-button-primary:not(:disabled).fc-button-active,
+    .fc .fc-button-primary:not(:disabled):active { background: var(--blue); border-color: var(--blue); }
+    .fc .fc-daygrid-day.fc-day-today { background: rgba(46, 109, 164, 0.06); }
+    .fc .fc-daygrid-event { font-size: 11px; padding: 1px 4px; border-radius: 3px; }
+    .fc-event-compliance { background: #C0392B; border-color: #C0392B; }
+    .fc-event-deadline   { background: #D4880A; border-color: #D4880A; }
+    .fc-event-calendar   { background: #2E6DA4; border-color: #2E6DA4; }
+    .fc-event-overdue    { background: #8B0000; border-color: #8B0000; }
+    [data-theme="dark"] .fc .fc-toolbar-title { color: var(--text); }
+    [data-theme="dark"] .fc .fc-scrollgrid,
+    [data-theme="dark"] .fc .fc-daygrid-day { border-color: var(--border); }
+    [data-theme="dark"] .fc .fc-daygrid-day-number,
+    [data-theme="dark"] .fc .fc-col-header-cell-cushion { color: var(--text-2); }
+    [data-theme="dark"] .fc .fc-daygrid-day.fc-day-today { background: rgba(74, 139, 196, 0.1); }
+    [data-theme="dark"] .fc-theme-standard td,
+    [data-theme="dark"] .fc-theme-standard th { border-color: var(--border); }
+    [data-theme="dark"] .fc-theme-standard .fc-scrollgrid { border-color: var(--border); }
+    [data-theme="dark"] .fc .fc-daygrid-body-natural .fc-daygrid-day-events { background: none; }
+  </style>
+</head>
+<body>
+<aside id="lac-sidebar"></aside>
+<div class="page-body">
+<main class="main">
+  <div class="greeting">Calendar</div>
+  <div class="date-line" id="date-line"></div>
+
+  <div class="error-banner" id="error-banner" hidden></div>
+
+  <div class="legend">
+    <div class="legend-item"><div class="legend-dot" style="background:#C0392B"></div>Compliance Deadline</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#D4880A"></div>Engagement Deadline</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#2E6DA4"></div>Calendar Event</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#8B0000"></div>Overdue</div>
+  </div>
+
+  <div class="card card--full">
+    <div class="card-body" style="padding:20px;">
+      <div id="calendar-el"></div>
+    </div>
+  </div>
+</main>
+</div><!-- .page-body -->
+
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js"></script>
+<script src="js/nav.js"></script>
+<script src="js/toast.js"></script>
+<script src="js/palette.js"></script>
+<script src="js/auth.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', async () => {
+  if (!requireAuth()) return;
+  const payload = jwtPayload(getJWT());
+  document.getElementById('nav-user').textContent = (payload?.email || '').split('@')[0];
+  document.getElementById('date-line').textContent = new Date().toLocaleDateString('en-US', {
+    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+  });
+
+  let allEvents = [];
+
+  try {
+    const [briefing, compliance, cal] = await Promise.all([
+      apiFetch('/data/morning-briefing').catch(() => null),
+      apiFetch('/data/compliance-dates').catch(() => null),
+      apiFetch('/data/calendar').catch(() => null),
+    ]);
+
+    // Pipeline deadlines (engagement)
+    if (briefing?.pipeline?.upcoming) {
+      briefing.pipeline.upcoming.forEach(d => {
+        if (!d.due_date) return;
+        const overdue = d.days_until < 0;
+        allEvents.push({
+          title: `${d.client_name}: ${d.description}`,
+          start: d.due_date,
+          className: overdue ? 'fc-event-overdue' : 'fc-event-deadline',
+          extendedProps: { type: 'deadline', client: d.client_name },
+        });
+      });
+    }
+
+    // Compliance dates
+    if (compliance?.dates) {
+      compliance.dates.forEach(d => {
+        if (!d.due_date) return;
+        const overdue = d.days_until < 0;
+        allEvents.push({
+          title: `${d.obligation}${d.client_name ? ' — ' + d.client_name : ''}`,
+          start: d.due_date,
+          className: overdue ? 'fc-event-overdue' : 'fc-event-compliance',
+          extendedProps: { type: 'compliance', notes: d.notes },
+        });
+      });
+    }
+
+    // Calendar events
+    if (cal?.events) {
+      cal.events.forEach(e => {
+        allEvents.push({
+          title: e.summary || '(no title)',
+          start: e.start_dt ? e.start_dt.substring(0, 10) : e.start_date,
+          end:   e.end_dt   ? e.end_dt.substring(0, 10)   : e.end_date,
+          className: 'fc-event-calendar',
+          extendedProps: { type: 'calendar', location: e.location },
+        });
+      });
+    }
+  } catch (err) {
+    document.getElementById('error-banner').textContent = err.message;
+    document.getElementById('error-banner').hidden = false;
+  }
+
+  const calendar = new FullCalendar.Calendar(document.getElementById('calendar-el'), {
+    initialView: 'dayGridMonth',
+    headerToolbar: {
+      left:   'prev,next today',
+      center: 'title',
+      right:  'dayGridMonth,listMonth',
+    },
+    events: allEvents,
+    eventClick(info) {
+      const p = info.event.extendedProps;
+      const lines = [info.event.title];
+      if (p.client) lines.push('Client: ' + p.client);
+      if (p.notes)  lines.push('Notes: ' + p.notes);
+      if (p.location) lines.push('Location: ' + p.location);
+      alert(lines.join('\n'));
+    },
+    height: 'auto',
+    firstDay: 0,
+  });
+  calendar.render();
+});
+</script>
+</body>
+</html>

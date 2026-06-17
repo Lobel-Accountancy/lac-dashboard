@@ -7,15 +7,6 @@
   <title>LAC Prospecting</title>
   <link rel="stylesheet" href="css/style.css">
   <style>
-    .nav-links { display: flex; gap: 4px; margin: 0 16px; }
-    .nav-link {
-      color: rgba(255,255,255,.65); text-decoration: none;
-      font-size: 13px; padding: 4px 10px; border-radius: 4px;
-      transition: color .15s, background .15s;
-    }
-    .nav-link:hover   { color: white; background: rgba(255,255,255,.1); }
-    .nav-link--active { color: white; background: rgba(255,255,255,.15); }
-
     /* ── email counter bar ── */
     .email-bar {
       display: flex; align-items: center; gap: 16px;
@@ -178,36 +169,8 @@
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
 </head>
 <body>
-
-<nav class="nav">
-  <div class="nav-left">
-    <img class="nav-brand" src="favicon.jpg" alt="Lobel Accountancy" width="32" height="32" style="height:32px;width:32px;border-radius:4px;flex-shrink:0;">
-    <div class="nav-links">
-      <a class="nav-link" href="index.html">Briefing</a>
-      <a class="nav-link" href="bi.html">Analytics</a>
-      <a class="nav-link" href="clients.html">AR Aging</a>
-      <a class="nav-link" href="engagement.html">Pipeline</a>
-      <a class="nav-link" href="forecast.html">Forecast</a>
-      <a class="nav-link" href="budget.html">Budget</a>
-      <a class="nav-link" href="financials.html">Financials</a>
-      <a class="nav-link" href="docs.html">Documents</a>
-      <a class="nav-link" href="emails.html">Emails</a>
-      <a class="nav-link" href="activity.html">Activity</a>
-      <a class="nav-link" href="audit-tools.html">Audit Tools</a>
-      <a class="nav-link" href="ai.html">AI</a>
-      <a class="nav-link" href="pdf.html">PDF Tools</a>
-      <a class="nav-link" href="docuseal.html">DocuSeal</a>
-      <a class="nav-link nav-link--active" href="prospecting.html">Prospecting</a>
-      <a class="nav-link" href="https://clients.lobelaccountancy.com" target="_blank" rel="noopener">Client Portal ↗</a>
-      <a class="nav-link" href="bookmarks.html">Bookmarks</a>
-    </div>
-  </div>
-  <div class="nav-right">
-    <span class="nav-user" id="nav-user"></span>
-    <button class="nav-logout" onclick="logout()">Sign out</button>
-  </div>
-</nav>
-
+<aside id="lac-sidebar"></aside>
+<div class="page-body">
 <main class="main">
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">
     <h2 style="font-size:20px;font-weight:700;color:var(--navy);margin:0;">Prospecting</h2>
@@ -372,6 +335,9 @@
   </div>
 </div>
 
+<script src="js/nav.js"></script>
+<script src="js/toast.js"></script>
+<script src="js/palette.js"></script>
 <script src="js/auth.js"></script>
 <script>
 // ── state ──────────────────────────────────────────────────────────────
@@ -669,5 +635,6 @@ document.getElementById('compose-overlay').addEventListener('click', e => {
     navigator.serviceWorker.register('/sw.js');
   }
 </script>
+</div><!-- .page-body -->
 </body>
 </html>

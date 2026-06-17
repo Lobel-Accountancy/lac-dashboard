@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <link rel="icon" type="image/jpeg" href="favicon.jpg">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LAC Client Health</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .health-summary-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+    .health-kpi { text-align: center; }
+    .health-kpi .kpi-value--needs { color: var(--danger); }
+    .health-kpi .kpi-value--risk  { color: var(--warning); }
+    .health-kpi .kpi-value--ok    { color: var(--ok); }
+
+    .health-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 14px;
+    }
+    .health-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      border-left: 4px solid var(--border);
+    }
+    .health-card--needs_attention { border-left-color: var(--danger); }
+    .health-card--at_risk         { border-left-color: var(--warning); }
+    .health-card--healthy         { border-left-color: var(--ok); }
+
+    .health-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 16px 10px;
+      border-bottom: 1px solid var(--border);
+    }
+    .health-client-name {
+      font-weight: 600;
+      font-size: 14px;
+      color: var(--text);
+    }
+    .health-status-badge {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 3px 10px;
+      border-radius: 10px;
+    }
+    .health-status-badge--needs_attention { background: var(--danger-bg); color: var(--danger); }
+    .health-status-badge--at_risk         { background: var(--warning-bg); color: var(--warning); }
+    .health-status-badge--healthy         { background: var(--ok-bg); color: var(--ok); }
+
+    .health-card-body {
+      padding: 12px 16px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .health-metric-label {
+      font-size: 11px;
+      color: var(--text-3);
+      text-transform: uppercase;
+      letter-spacing: .04em;
+      font-weight: 600;
+      margin-bottom: 2px;
+    }
+    .health-metric-value {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text);
+    }
+    .health-metric-value--danger  { color: var(--danger); }
+    .health-metric-value--warning { color: var(--warning); }
+    .health-metric-value--ok      { color: var(--ok); }
+    .health-deadline {
+      font-size: 12px;
+      color: var(--text-2);
+      margin-top: 2px;
+    }
+
+    .controls-bar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+    .search-input {
+      padding: 8px 14px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 14px;
+      color: var(--text);
+      outline: none;
+      background: var(--surface);
+      flex: 1;
+      min-width: 200px;
+      max-width: 320px;
+      transition: border-color .15s;
+    }
+    .search-input:focus { border-color: var(--blue); }
+    .filter-btn {
+      background: var(--muted-bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 7px 14px;
+      font-size: 13px;
+      cursor: pointer;
+      color: var(--text-2);
+      transition: all .15s;
+    }
+    .filter-btn:hover { background: var(--border); color: var(--text); }
+    .filter-btn.active { background: var(--navy); color: white; border-color: var(--navy); }
+
+    @media (max-width: 768px) {
+      .health-summary-grid { grid-template-columns: 1fr; }
+      .health-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+<aside id="lac-sidebar"></aside>
+<div class="page-body">
+<main class="main">
+  <div class="greeting">Client Health Score</div>
+  <div class="date-line" id="date-line"></div>
+
+  <div class="error-banner" id="error-banner" hidden></div>
+
+  <!-- Summary KPIs -->
+  <div class="health-summary-grid" id="summary-grid">
+    <div class="kpi-card health-kpi">
+      <div class="kpi-label">Needs Attention</div>
+      <div class="kpi-value kpi-value--needs" id="kpi-needs">—</div>
+      <div class="kpi-sub">clients</div>
+    </div>
+    <div class="kpi-card health-kpi">
+      <div class="kpi-label">At Risk</div>
+      <div class="kpi-value kpi-value--risk" id="kpi-risk">—</div>
+      <div class="kpi-sub">clients</div>
+    </div>
+    <div class="kpi-card health-kpi">
+      <div class="kpi-label">Healthy</div>
+      <div class="kpi-value kpi-value--ok" id="kpi-ok">—</div>
+      <div class="kpi-sub">clients</div>
+    </div>
+  </div>
+
+  <!-- Filters -->
+  <div class="controls-bar">
+    <input class="search-input" id="search-input" placeholder="Filter clients…" type="search">
+    <button class="filter-btn active" data-filter="all">All</button>
+    <button class="filter-btn" data-filter="needs_attention">Needs Attention</button>
+    <button class="filter-btn" data-filter="at_risk">At Risk</button>
+    <button class="filter-btn" data-filter="healthy">Healthy</button>
+  </div>
+
+  <!-- Health cards -->
+  <div class="health-grid" id="health-grid">
+    <!-- Skeleton -->
+    <div class="skeleton-block"></div>
+    <div class="skeleton-block"></div>
+    <div class="skeleton-block"></div>
+    <div class="skeleton-block"></div>
+    <div class="skeleton-block"></div>
+    <div class="skeleton-block"></div>
+  </div>
+</main>
+</div><!-- .page-body -->
+
+<script src="js/nav.js"></script>
+<script src="js/toast.js"></script>
+<script src="js/palette.js"></script>
+<script src="js/auth.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  if (!requireAuth()) return;
+  const payload = jwtPayload(getJWT());
+  document.getElementById('nav-user').textContent = (payload?.email || '').split('@')[0];
+  document.getElementById('date-line').textContent = new Date().toLocaleDateString('en-US', {
+    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+  });
+
+  let allClients = [];
+  let activeFilter = 'all';
+
+  loadData();
+
+  document.getElementById('search-input').addEventListener('input', render);
+  document.querySelectorAll('.filter-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      activeFilter = btn.dataset.filter;
+      render();
+    });
+  });
+
+  async function loadData() {
+    try {
+      const data = await apiFetch('/data/clients');
+      allClients = data.clients || [];
+      const s = data.summary || {};
+      document.getElementById('kpi-needs').textContent = s.needs_attention ?? 0;
+      document.getElementById('kpi-risk').textContent  = s.at_risk ?? 0;
+      document.getElementById('kpi-ok').textContent    = s.healthy ?? 0;
+      render();
+    } catch (err) {
+      document.getElementById('error-banner').textContent = err.message;
+      document.getElementById('error-banner').hidden = false;
+      document.getElementById('health-grid').innerHTML = '';
+    }
+  }
+
+  function render() {
+    const q = document.getElementById('search-input').value.trim().toLowerCase();
+    let clients = allClients;
+    if (activeFilter !== 'all') clients = clients.filter(c => c.health === activeFilter);
+    if (q) clients = clients.filter(c => c.name.toLowerCase().includes(q));
+
+    const grid = document.getElementById('health-grid');
+    if (!clients.length) {
+      grid.innerHTML = '<div style="grid-column:1/-1;padding:32px;text-align:center;color:var(--text-3);">No clients match this filter.</div>';
+      return;
+    }
+
+    grid.innerHTML = clients.map(c => {
+      const ar = c.ar;
+      const pl = c.pipeline;
+      const next = pl.next_deadline;
+      const arClass = ar.overdue_amount > 0 ? 'health-metric-value--danger' : ar.total_outstanding > 0 ? 'health-metric-value--warning' : 'health-metric-value--ok';
+      const overdueClass = ar.max_overdue_days > 30 ? 'health-metric-value--danger' : ar.max_overdue_days > 0 ? 'health-metric-value--warning' : 'health-metric-value--ok';
+      const statusLabel = { needs_attention: 'Needs Attention', at_risk: 'At Risk', healthy: 'Healthy' }[c.health] || c.health;
+      return `
+        <div class="health-card health-card--${c.health}">
+          <div class="health-card-header">
+            <span class="health-client-name">${c.name}</span>
+            <span class="health-status-badge health-status-badge--${c.health}">${statusLabel}</span>
+          </div>
+          <div class="health-card-body">
+            <div>
+              <div class="health-metric-label">AR Outstanding</div>
+              <div class="health-metric-value ${arClass}">${fmt$(ar.total_outstanding)}</div>
+              ${ar.overdue_amount > 0 ? `<div class="health-deadline">${fmt$(ar.overdue_amount)} overdue</div>` : ''}
+            </div>
+            <div>
+              <div class="health-metric-label">Max Days Overdue</div>
+              <div class="health-metric-value ${overdueClass}">${ar.max_overdue_days}d</div>
+            </div>
+            <div>
+              <div class="health-metric-label">Active Matters</div>
+              <div class="health-metric-value">${pl.active_count}</div>
+            </div>
+            <div>
+              <div class="health-metric-label">YTD Billed</div>
+              <div class="health-metric-value">${fmt$(c.ytd_billed)}</div>
+            </div>
+          </div>
+          ${next ? `<div style="padding:0 16px 12px;font-size:12px;color:var(--text-2);">Next: ${next.description} — ${next.days_until}d</div>` : ''}
+        </div>
+      `;
+    }).join('');
+  }
+
+  function fmt$(n) {
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n);
+  }
+});
+</script>
+</body>
+</html>

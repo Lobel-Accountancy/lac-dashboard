@@ -128,36 +128,8 @@
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
 </head>
 <body>
-
-<nav class="nav">
-  <div class="nav-left">
-    <img class="nav-brand" src="favicon.jpg" alt="Lobel Accountancy" width="32" height="32" style="height:32px;width:32px;border-radius:4px;flex-shrink:0;">
-    <div class="nav-links">
-    <a class="nav-link" href="index.html">Briefing</a>
-    <a class="nav-link" href="bi.html">Analytics</a>
-    <a class="nav-link" href="clients.html">AR Aging</a>
-      <a class="nav-link" href="engagement.html">Pipeline</a>
-    <a class="nav-link" href="forecast.html">Forecast</a>
-    <a class="nav-link active" href="budget.html">Budget</a>
-    <a class="nav-link" href="financials.html">Financials</a>
-    <a class="nav-link" href="docs.html">Documents</a>
-    <a class="nav-link" href="emails.html">Emails</a>
-      <a class="nav-link" href="activity.html">Activity</a>
-      <a class="nav-link" href="audit-tools.html">Audit Tools</a>
-      <a class="nav-link" href="ai.html">AI</a>
-      <a class="nav-link" href="pdf.html">PDF Tools</a>
-      <a class="nav-link" href="docuseal.html">DocuSeal</a>
-      <a class="nav-link" href="prospecting.html">Prospecting</a>
-      <a class="nav-link" href="https://clients.lobelaccountancy.com" target="_blank" rel="noopener">Client Portal ↗</a>
-      <a class="nav-link" href="bookmarks.html">Bookmarks</a>
-    </div>
-  </div>
-  <div class="nav-right">
-    <span class="nav-user" id="nav-user"></span>
-    <button class="nav-logout" onclick="logout()">Sign out</button>
-  </div>
-</nav>
-
+<aside id="lac-sidebar"></aside>
+<div class="page-body">
 <main class="main">
   <div class="greeting">Engagement Budget</div>
   <div class="date-line">Set hour budgets by work area · Actuals sync nightly from Clockify</div>
@@ -231,6 +203,9 @@
 
 <div class="toast" id="toast"></div>
 
+<script src="js/nav.js"></script>
+<script src="js/toast.js"></script>
+<script src="js/palette.js"></script>
 <script src="js/auth.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', () => {
@@ -436,5 +411,6 @@ function showToast(msg, isError = false) {
     navigator.serviceWorker.register('/sw.js');
   }
 </script>
+</div><!-- .page-body -->
 </body>
 </html>

@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <link rel="icon" type="image/jpeg" href="favicon.jpg">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LAC Cron Monitor</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .cron-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+      gap: 14px;
+    }
+    .cron-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      border-left: 4px solid var(--ok);
+    }
+    .cron-card--error   { border-left-color: var(--danger); }
+    .cron-card--warning { border-left-color: var(--warning); }
+    .cron-card--unknown { border-left-color: var(--border); }
+    .cron-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px 8px;
+      border-bottom: 1px solid var(--border);
+    }
+    .cron-name { font-weight: 600; font-size: 13px; color: var(--text); }
+    .cron-status {
+      font-size: 11px; font-weight: 600; padding: 2px 9px; border-radius: 8px;
+    }
+    .cron-status--ok      { background: var(--ok-bg);      color: var(--ok); }
+    .cron-status--error   { background: var(--danger-bg);  color: var(--danger); }
+    .cron-status--unknown { background: var(--muted-bg);   color: var(--text-3); }
+    .cron-card-meta {
+      padding: 10px 16px;
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .cron-meta-label { font-size: 10px; color: var(--text-3); text-transform: uppercase; letter-spacing:.04em; font-weight:600; }
+    .cron-meta-value { font-size: 12px; color: var(--text); margin-top: 1px; font-variant-numeric: tabular-nums; }
+    .cron-log {
+      padding: 0 16px 12px;
+    }
+    .cron-log-pre {
+      background: var(--muted-bg);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 8px 10px;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 11px;
+      color: var(--text-2);
+      white-space: pre-wrap;
+      word-break: break-all;
+      max-height: 100px;
+      overflow-y: auto;
+      margin: 0;
+    }
+    .refresh-btn {
+      background: var(--muted-bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 7px 16px;
+      font-size: 13px;
+      color: var(--text-2);
+      cursor: pointer;
+      transition: background .15s;
+    }
+    .refresh-btn:hover { background: var(--border); color: var(--text); }
+    .controls-bar {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 16px;
+    }
+    .last-checked { font-size: 12px; color: var(--text-3); }
+    @media (max-width: 768px) { .cron-grid { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+<aside id="lac-sidebar"></aside>
+<div class="page-body">
+<main class="main">
+  <div class="greeting">Cron Monitor</div>
+  <div class="date-line" id="date-line"></div>
+  <div class="error-banner" id="error-banner" hidden></div>
+
+  <div class="controls-bar">
+    <span class="last-checked" id="last-checked"></span>
+    <button class="refresh-btn" id="btn-refresh">↻ Refresh</button>
+  </div>
+
+  <div class="cron-grid" id="cron-grid">
+    <div class="skeleton-block"></div>
+    <div class="skeleton-block"></div>
+    <div class="skeleton-block"></div>
+    <div class="skeleton-block"></div>
+    <div class="skeleton-block"></div>
+    <div class="skeleton-block"></div>
+  </div>
+</main>
+</div><!-- .page-body -->
+
+<script src="js/nav.js"></script>
+<script src="js/toast.js"></script>
+<script src="js/palette.js"></script>
+<script src="js/auth.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  if (!requireAuth()) return;
+  const payload = jwtPayload(getJWT());
+  document.getElementById('nav-user').textContent = (payload?.email || '').split('@')[0];
+  document.getElementById('date-line').textContent = new Date().toLocaleDateString('en-US', {
+    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+  });
+
+  loadCron();
+  document.getElementById('btn-refresh').addEventListener('click', loadCron);
+
+  async function loadCron() {
+    document.getElementById('last-checked').textContent = '';
+    try {
+      const data = await apiFetch('/cron/status');
+      render(data.jobs || []);
+      document.getElementById('last-checked').textContent =
+        'Updated ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    } catch (err) {
+      document.getElementById('error-banner').textContent = err.message;
+      document.getElementById('error-banner').hidden = false;
+    }
+  }
+
+  function render(jobs) {
+    const grid = document.getElementById('cron-grid');
+    if (!jobs.length) {
+      grid.innerHTML = '<div style="grid-column:1/-1;padding:32px;text-align:center;color:var(--text-3);">No cron jobs found.</div>';
+      return;
+    }
+    grid.innerHTML = jobs.map(j => {
+      const statusClass = j.status === 'ok' ? '' : j.status === 'error' ? 'cron-card--error' : 'cron-card--unknown';
+      const badgeClass  = j.status === 'ok' ? 'cron-status--ok' : j.status === 'error' ? 'cron-status--error' : 'cron-status--unknown';
+      const statusLabel = j.status === 'ok' ? 'OK' : j.status === 'error' ? 'Error' : 'Unknown';
+      const lastRun     = j.last_run ? new Date(j.last_run).toLocaleString([], { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' }) : 'Never';
+      const logHtml = j.last_lines
+        ? `<div class="cron-log"><pre class="cron-log-pre">${escHtml(j.last_lines)}</pre></div>`
+        : '';
+      return `
+        <div class="cron-card ${statusClass}">
+          <div class="cron-card-header">
+            <span class="cron-name">${escHtml(j.name)}</span>
+            <span class="cron-status ${badgeClass}">${statusLabel}</span>
+          </div>
+          <div class="cron-card-meta">
+            <div>
+              <div class="cron-meta-label">Schedule</div>
+              <div class="cron-meta-value">${escHtml(j.schedule || '—')}</div>
+            </div>
+            <div>
+              <div class="cron-meta-label">Last Run</div>
+              <div class="cron-meta-value">${lastRun}</div>
+            </div>
+            <div>
+              <div class="cron-meta-label">Exit Code</div>
+              <div class="cron-meta-value">${j.exit_code !== null && j.exit_code !== undefined ? j.exit_code : '—'}</div>
+            </div>
+            <div>
+              <div class="cron-meta-label">Log File</div>
+              <div class="cron-meta-value" title="${escHtml(j.log_file || '')}" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+                ${j.log_file ? j.log_file.split('/').pop() : '—'}
+              </div>
+            </div>
+          </div>
+          ${logHtml}
+        </div>
+      `;
+    }).join('');
+  }
+
+  function escHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+});
+</script>
+</body>
+</html>

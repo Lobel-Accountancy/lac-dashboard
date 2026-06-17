@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <link rel="icon" type="image/jpeg" href="favicon.jpg">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LAC Time Tracking</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .time-grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+    .log-form {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr auto auto;
+      gap: 10px;
+      align-items: end;
+      margin-bottom: 4px;
+    }
+    .log-form .form-group { display: flex; flex-direction: column; gap: 4px; }
+    .log-form label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing:.05em; color: var(--text-2); }
+    .log-form input, .log-form select {
+      padding: 8px 12px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 13px;
+      color: var(--text);
+      background: var(--surface);
+      outline: none;
+      transition: border-color .15s;
+    }
+    .log-form input:focus, .log-form select:focus { border-color: var(--blue); }
+    .btn-log {
+      padding: 8px 18px;
+      background: var(--navy);
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background .15s;
+      white-space: nowrap;
+    }
+    .btn-log:hover { background: var(--navy-dark); }
+    .btn-log:disabled { opacity: .5; cursor: not-allowed; }
+    .tab-bar {
+      display: flex;
+      gap: 2px;
+      border-bottom: 2px solid var(--border);
+      margin-bottom: 20px;
+    }
+    .tab-btn {
+      background: none; border: none;
+      padding: 9px 18px;
+      font-size: 13px; font-weight: 500;
+      color: var(--text-2);
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -2px;
+      transition: color .15s, border-color .15s;
+    }
+    .tab-btn:hover { color: var(--navy); }
+    .tab-btn.active { color: var(--navy); border-bottom-color: var(--navy); font-weight: 600; }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    .entry-row {
+      display: flex; align-items: center; gap: 12px;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+    }
+    .entry-row:last-child { border-bottom: none; }
+    .entry-time {
+      font-size: 12px; color: var(--text-3); width: 80px; flex-shrink: 0;
+      font-variant-numeric: tabular-nums;
+    }
+    .entry-dur {
+      font-size: 13px; font-weight: 600; color: var(--navy);
+      width: 48px; flex-shrink: 0; text-align: right;
+    }
+    .entry-desc { flex: 1; color: var(--text); }
+    .entry-project { font-size: 11px; color: var(--text-3); }
+    .entry-client-label {
+      font-size: 11px; font-weight: 600; padding: 2px 8px;
+      border-radius: 8px; background: var(--muted-bg); color: var(--text-2);
+      flex-shrink: 0;
+    }
+
+    .client-bar {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .client-bar:last-child { border-bottom: none; }
+    .client-bar-name { width: 180px; flex-shrink: 0; font-size: 13px; font-weight: 500; color: var(--text); }
+    .client-bar-track { flex: 1; height: 8px; background: var(--muted-bg); border-radius: 4px; overflow: hidden; }
+    .client-bar-fill  { height: 100%; background: var(--blue); border-radius: 4px; transition: width .4s ease; }
+    .client-bar-hrs   { width: 60px; text-align: right; font-size: 13px; font-weight: 600; color: var(--navy); flex-shrink: 0; }
+
+    @media (max-width: 900px) {
+      .log-form { grid-template-columns: 1fr 1fr; }
+      .time-grid-3 { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+<aside id="lac-sidebar"></aside>
+<div class="page-body">
+<main class="main">
+  <div class="greeting">Time Tracking</div>
+  <div class="date-line" id="date-line"></div>
+  <div class="error-banner" id="error-banner" hidden></div>
+
+  <!-- KPIs -->
+  <div class="time-grid-3" id="kpi-grid">
+    <div class="kpi-card"><div class="kpi-label">Today</div><div class="kpi-value" id="kpi-today">—</div></div>
+    <div class="kpi-card"><div class="kpi-label">This Week</div><div class="kpi-value" id="kpi-week">—</div></div>
+    <div class="kpi-card"><div class="kpi-label">This Month</div><div class="kpi-value" id="kpi-month">—</div></div>
+  </div>
+
+  <!-- Log time form -->
+  <div class="card card--full" style="margin-bottom:16px;">
+    <div class="card-header">Log Time</div>
+    <div class="card-body">
+      <div class="log-form">
+        <div class="form-group">
+          <label>Description</label>
+          <input type="text" id="log-desc" placeholder="Task description">
+        </div>
+        <div class="form-group">
+          <label>Project</label>
+          <select id="log-project"><option value="">Loading…</option></select>
+        </div>
+        <div class="form-group">
+          <label>Hours</label>
+          <input type="number" id="log-hours" placeholder="1.5" step="0.25" min="0.25" max="24">
+        </div>
+        <div class="form-group">
+          <label>Date</label>
+          <input type="date" id="log-date">
+        </div>
+        <div class="form-group">
+          <label>&nbsp;</label>
+          <button class="btn-log" id="btn-log">Log Time</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tab-bar">
+    <button class="tab-btn active" data-tab="today">Today</button>
+    <button class="tab-btn" data-tab="week">This Week</button>
+    <button class="tab-btn" data-tab="clients">By Client</button>
+  </div>
+
+  <div class="tab-panel active" id="panel-today">
+    <div class="card card--full">
+      <div class="card-header">Today's Entries</div>
+      <div class="card-body" id="entries-today">
+        <div class="skeleton-line skeleton-line--full"></div>
+        <div class="skeleton-line skeleton-line--med"></div>
+        <div class="skeleton-line skeleton-line--full"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="tab-panel" id="panel-week">
+    <div class="card card--full">
+      <div class="card-header">This Week's Entries</div>
+      <div class="card-body" id="entries-week">
+        <div class="skeleton-line skeleton-line--full"></div>
+        <div class="skeleton-line skeleton-line--med"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="tab-panel" id="panel-clients">
+    <div class="card card--full">
+      <div class="card-header">Hours by Client — This Week</div>
+      <div class="card-body" id="entries-clients">
+        <div class="skeleton-line skeleton-line--full"></div>
+        <div class="skeleton-line skeleton-line--med"></div>
+      </div>
+    </div>
+  </div>
+</main>
+</div><!-- .page-body -->
+
+<script src="js/nav.js"></script>
+<script src="js/toast.js"></script>
+<script src="js/palette.js"></script>
+<script src="js/auth.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', async () => {
+  if (!requireAuth()) return;
+  const payload = jwtPayload(getJWT());
+  document.getElementById('nav-user').textContent = (payload?.email || '').split('@')[0];
+
+  const today = new Date();
+  document.getElementById('date-line').textContent = today.toLocaleDateString('en-US', {
+    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+  });
+  document.getElementById('log-date').value = today.toISOString().split('T')[0];
+
+  // Tabs
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('panel-' + btn.dataset.tab).classList.add('active');
+    });
+  });
+
+  // Load projects for dropdown
+  let projects = [];
+  try {
+    const tasks = await apiFetch('/clockify/tasks');
+    const seen = new Set();
+    if (tasks?.projects) {
+      tasks.projects.forEach(p => {
+        if (!seen.has(p.id)) { seen.add(p.id); projects.push(p); }
+      });
+    }
+    const sel = document.getElementById('log-project');
+    sel.innerHTML = projects.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+  } catch { /* ignore */ }
+
+  // Load time entries
+  let todayEntries = [], weekEntries = [];
+  try {
+    const [td, wk] = await Promise.all([
+      apiFetch('/clockify/entries?range=today').catch(() => ({ entries: [], total_hours: 0 })),
+      apiFetch('/clockify/entries?range=week').catch(() => ({ entries: [], total_hours: 0 })),
+    ]);
+    todayEntries = td.entries || [];
+    weekEntries  = wk.entries || [];
+
+    document.getElementById('kpi-today').textContent = fmtHrs(td.total_hours || 0);
+    document.getElementById('kpi-week').textContent  = fmtHrs(wk.total_hours || 0);
+    document.getElementById('kpi-month').textContent = '—';
+
+    renderEntries('entries-today', todayEntries);
+    renderEntries('entries-week', weekEntries);
+    renderByClient('entries-clients', weekEntries);
+  } catch (err) {
+    document.getElementById('error-banner').textContent = err.message;
+    document.getElementById('error-banner').hidden = false;
+  }
+
+  // Log time
+  document.getElementById('btn-log').addEventListener('click', async () => {
+    const desc    = document.getElementById('log-desc').value.trim();
+    const projId  = document.getElementById('log-project').value;
+    const hours   = parseFloat(document.getElementById('log-hours').value);
+    const date    = document.getElementById('log-date').value;
+
+    if (!desc)         { showToast('Enter a description.', 'warning'); return; }
+    if (!projId)       { showToast('Select a project.', 'warning'); return; }
+    if (!hours || hours <= 0) { showToast('Enter valid hours.', 'warning'); return; }
+
+    const btn = document.getElementById('btn-log');
+    btn.disabled = true;
+    btn.textContent = 'Logging…';
+    try {
+      await apiFetch('/clockify/log-time', {
+        method: 'POST',
+        body: JSON.stringify({ description: desc, project_id: projId, hours, date }),
+      });
+      showToast(`Logged ${hours}h — ${desc}`, 'success');
+      document.getElementById('log-desc').value = '';
+      document.getElementById('log-hours').value = '';
+      // Reload today entries
+      const td = await apiFetch('/clockify/entries?range=today').catch(() => ({ entries: [], total_hours: 0 }));
+      todayEntries = td.entries || [];
+      document.getElementById('kpi-today').textContent = fmtHrs(td.total_hours || 0);
+      renderEntries('entries-today', todayEntries);
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Log Time';
+    }
+  });
+
+  function renderEntries(containerId, entries) {
+    const el = document.getElementById(containerId);
+    if (!entries.length) {
+      el.innerHTML = '<div class="empty-state">No entries.</div>';
+      return;
+    }
+    el.innerHTML = entries.map(e => `
+      <div class="entry-row">
+        <span class="entry-time">${e.start_time || ''}</span>
+        <span class="entry-dur">${fmtHrs(e.hours)}</span>
+        <div>
+          <div class="entry-desc">${e.description || '—'}</div>
+          <div class="entry-project">${e.project_name || ''}</div>
+        </div>
+        ${e.client_name ? `<span class="entry-client-label">${e.client_name}</span>` : ''}
+      </div>
+    `).join('');
+  }
+
+  function renderByClient(containerId, entries) {
+    const el = document.getElementById(containerId);
+    if (!entries.length) { el.innerHTML = '<div class="empty-state">No entries this week.</div>'; return; }
+    const map = {};
+    entries.forEach(e => {
+      const key = e.client_name || e.project_name || 'Unassigned';
+      map[key] = (map[key] || 0) + (e.hours || 0);
+    });
+    const sorted = Object.entries(map).sort((a, b) => b[1] - a[1]);
+    const max = sorted[0][1];
+    el.innerHTML = sorted.map(([name, hrs]) => `
+      <div class="client-bar">
+        <div class="client-bar-name">${name}</div>
+        <div class="client-bar-track"><div class="client-bar-fill" style="width:${(hrs/max*100).toFixed(1)}%"></div></div>
+        <div class="client-bar-hrs">${fmtHrs(hrs)}</div>
+      </div>
+    `).join('');
+  }
+
+  function fmtHrs(h) {
+    const hrs = Math.floor(h);
+    const mins = Math.round((h - hrs) * 60);
+    return mins > 0 ? `${hrs}h ${mins}m` : `${hrs}h`;
+  }
+});
+</script>
+</body>
+</html>

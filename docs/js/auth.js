@@ -214,21 +214,43 @@ function _buildSettingsDropdown(username) {
 document.addEventListener('DOMContentLoaded', () => {
   _applySettings();
 
-  const navRight = document.querySelector('.nav-right');
-  const navUser  = document.getElementById('nav-user');
-  if (!navRight || !navUser) return;
+  const navUser = document.getElementById('nav-user');
+  if (!navUser) return;
 
-  // Hide original logout button — it moves into the dropdown
+  // Apply compact density if saved
+  const s = _getSettings();
+  if (s.density === 'compact') document.body.classList.add('density-compact');
+
+  // Sidebar layout: attach settings dropdown to sidebar user button
+  const sidebarBtn = document.getElementById('settings-btn');
+  if (sidebarBtn) {
+    const dropdown = _buildSettingsDropdown(navUser.textContent || 'Account');
+
+    new MutationObserver(() => {
+      const u = dropdown.querySelector('.settings-user');
+      if (u) u.textContent = navUser.textContent;
+    }).observe(navUser, { childList: true, characterData: true, subtree: true });
+
+    sidebarBtn.style.position = 'relative';
+    sidebarBtn.appendChild(dropdown);
+
+    sidebarBtn.addEventListener('click', e => { e.stopPropagation(); dropdown.classList.toggle('open'); });
+    document.addEventListener('click', () => dropdown.classList.remove('open'));
+    dropdown.addEventListener('click', e => e.stopPropagation());
+    return;
+  }
+
+  // Legacy top-nav fallback
+  const navRight = document.querySelector('.nav-right');
+  if (!navRight) return;
   const oldLogout = navRight.querySelector('.nav-logout');
   if (oldLogout) oldLogout.style.display = 'none';
 
-  // Build trigger button (wraps around nav-user)
   const btn = document.createElement('button');
   btn.className = 'settings-btn';
   btn.id = 'settings-btn';
   btn.style.position = 'relative';
 
-  // Mirror nav-user text into the button, including after it's set by the page
   const usernameSpan = document.createElement('span');
   new MutationObserver(() => { usernameSpan.textContent = navUser.textContent; })
     .observe(navUser, { childList: true, characterData: true, subtree: true });
@@ -242,8 +264,6 @@ document.addEventListener('DOMContentLoaded', () => {
   btn.appendChild(caret);
 
   const dropdown = _buildSettingsDropdown(navUser.textContent || 'Account');
-
-  // Keep dropdown username in sync
   new MutationObserver(() => {
     const u = dropdown.querySelector('.settings-user');
     if (u) u.textContent = navUser.textContent;
@@ -255,8 +275,4 @@ document.addEventListener('DOMContentLoaded', () => {
   btn.addEventListener('click', e => { e.stopPropagation(); dropdown.classList.toggle('open'); });
   document.addEventListener('click', () => dropdown.classList.remove('open'));
   dropdown.addEventListener('click', e => e.stopPropagation());
-
-  // Apply compact density if saved
-  const s = _getSettings();
-  if (s.density === 'compact') document.body.classList.add('density-compact');
 });
