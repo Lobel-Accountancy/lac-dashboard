@@ -517,11 +517,12 @@ def morning_briefing():
         return jsonify({'error': 'Could not load workbook from Drive'}), 503
 
     return jsonify({
-        'date':        date.today().isoformat(),
-        'ar':          _parse_ar(wb),
-        'pipeline':    _parse_pipeline(wb),
-        'revenue_mtd': _parse_is_revenue(wb),
-        'cached_age':  round(time.time() - _wb_cache['fetched_at']),
+        'date':          date.today().isoformat(),
+        'ar':            _parse_ar(wb),
+        'pipeline':      _parse_pipeline(wb),
+        'revenue_mtd':   _parse_is_revenue(wb),
+        'revenue_trend': _parse_revenue_trend(wb),
+        'cached_age':    round(time.time() - _wb_cache['fetched_at']),
     })
 
 
@@ -1506,6 +1507,53 @@ def _parse_is_revenue(wb):
                 return 0.0
 
     return None
+
+
+def _parse_revenue_trend(wb):
+    """Return [{month, revenue, expenses, net}] for all available months."""
+    if 'Income Statement' not in wb.sheetnames:
+        return []
+    ws = wb['Income Statement']
+    header_vals = None
+    for row in ws.iter_rows(min_row=1, max_row=15, values_only=True):
+        if row and str(row[0] or '').strip() == 'Account':
+            header_vals = list(row)
+            break
+    if not header_vals:
+        return []
+    MONTHS = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec']
+    month_cols = {}
+    for ci, val in enumerate(header_vals):
+        s = str(val or '').strip()
+        if s[:3].lower() in MONTHS:
+            month_cols[ci] = s[:3].capitalize()
+    rev_row = exp_row = None
+    for row in ws.iter_rows(min_row=1, values_only=True):
+        if not row:
+            continue
+        label = str(row[0] or '').strip()
+        if label == 'Total Revenue':
+            rev_row = list(row)
+        elif 'Total' in label and 'Expense' in label and exp_row is None:
+            exp_row = list(row)
+        if rev_row and exp_row:
+            break
+    result = []
+    for ci in sorted(month_cols):
+        month = month_cols[ci]
+        rev = 0.0
+        exp = 0.0
+        try:
+            rev = float(rev_row[ci] or 0) if rev_row and ci < len(rev_row) else 0.0
+        except (TypeError, ValueError):
+            pass
+        try:
+            exp = float(exp_row[ci] or 0) if exp_row and ci < len(exp_row) else 0.0
+        except (TypeError, ValueError):
+            pass
+        if rev != 0 or exp != 0:
+            result.append({'month': month, 'revenue': round(rev, 2), 'expenses': round(exp, 2), 'net': round(rev - exp, 2)})
+    return result
 
 
 def _parse_bi_revenue(wb):

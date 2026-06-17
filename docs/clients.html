@@ -316,6 +316,14 @@
     </div>
   </div>
 
+  <!-- AR Aging Chart -->
+  <div class="card card--full" style="margin-bottom:20px;">
+    <div class="card-header">AR Outstanding by Aging Bucket</div>
+    <div class="card-body" style="padding:16px 20px;">
+      <canvas id="aging-chart" height="90"></canvas>
+    </div>
+  </div>
+
   <!-- Controls -->
   <div class="controls-bar">
     <input class="search-input" id="search" placeholder="Search clients…" oninput="applyFilter()">
@@ -475,6 +483,7 @@
   </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 <script src="js/nav.js"></script>
 <script src="js/toast.js"></script>
 <script src="js/palette.js"></script>

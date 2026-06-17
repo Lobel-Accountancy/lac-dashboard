@@ -45,6 +45,7 @@ async function loadClients() {
     _allClients = data.clients;
     renderSummary(data.summary);
     applyFilter();
+    renderAgingChart(_allClients);
     setStatus(`Updated ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} · ${data.clients.length} clients`);
 
     const target = new URLSearchParams(window.location.search).get('client');
@@ -525,4 +526,78 @@ function fmtDateInput(d) {
   const mo = String(d.getMonth() + 1).padStart(2, '0');
   const dy = String(d.getDate()).padStart(2, '0');
   return `${y}-${mo}-${dy}`;
+}
+
+// ---------------------------------------------------------------------------
+// AR Aging bucket chart
+// ---------------------------------------------------------------------------
+
+let _agingChart = null;
+
+function renderAgingChart(clients) {
+  if (typeof Chart === 'undefined') return;
+  const canvas = document.getElementById('aging-chart');
+  if (!canvas) return;
+  if (_agingChart) { _agingChart.destroy(); _agingChart = null; }
+
+  const buckets = { 'Current': 0, '1–30 days': 0, '31–60 days': 0, '61–90 days': 0, '90+ days': 0 };
+  clients.forEach(c => {
+    (c.ar?.invoices || []).forEach(inv => {
+      const status = (inv.status || '').toLowerCase();
+      if (status === 'paid') return;
+      const outstanding = parseFloat(inv.outstanding) || 0;
+      if (outstanding <= 0) return;
+      const due  = inv.due_date ? new Date(inv.due_date) : null;
+      const days = due ? Math.floor((Date.now() - due.getTime()) / 86400000) : 0;
+      if (days <= 0)       buckets['Current']     += outstanding;
+      else if (days <= 30) buckets['1–30 days']   += outstanding;
+      else if (days <= 60) buckets['31–60 days']  += outstanding;
+      else if (days <= 90) buckets['61–90 days']  += outstanding;
+      else                 buckets['90+ days']    += outstanding;
+    });
+  });
+
+  const labels = Object.keys(buckets);
+  const values = labels.map(k => buckets[k]);
+  const COLORS = ['#1A7A4A', '#2563EB', '#D4880A', '#E67E22', '#C0392B'];
+  const fmt$ = n => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n);
+
+  _agingChart = new Chart(canvas, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        data: values,
+        backgroundColor: COLORS.map(c => c + 'CC'),
+        borderColor: COLORS,
+        borderWidth: 1,
+        borderRadius: 4,
+      }],
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      animation: { duration: 400 },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: { label: ctx => ` ${fmt$(ctx.parsed.x)}` },
+        },
+      },
+      scales: {
+        x: {
+          beginAtZero: true,
+          ticks: {
+            callback: v => '$' + (v >= 1000 ? (v/1000).toFixed(0) + 'k' : v),
+            font: { size: 11 }, color: '#8BA7C4',
+          },
+          grid: { color: 'rgba(0,0,0,.06)' },
+        },
+        y: {
+          ticks: { font: { size: 12 }, color: '#2C3E50' },
+          grid: { display: false },
+        },
+      },
+    },
+  });
 }

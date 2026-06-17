@@ -53,10 +53,21 @@
     </div>
   </div>
 
-  <!-- Pipeline -->
-  <div class="card card--full">
-    <div class="card-header">Pipeline by Stage</div>
-    <div class="card-body" id="pipeline-body"><span class="empty-state">Loading…</span></div>
+  <!-- Charts row -->
+  <div class="content-grid" style="grid-template-columns:1fr 1fr;align-items:start;">
+    <div class="card">
+      <div class="card-header">Pipeline by Stage</div>
+      <div class="card-body" id="pipeline-body" style="padding:16px 20px;">
+        <canvas id="pipeline-chart" height="160"></canvas>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header">AR Aging Mix</div>
+      <div class="card-body" id="ar-donut-body" style="padding:16px 20px;display:flex;align-items:center;justify-content:center;gap:24px;">
+        <canvas id="ar-donut-chart" width="160" height="160" style="flex-shrink:0;"></canvas>
+        <div id="ar-donut-legend" style="font-size:12px;line-height:1.8;"></div>
+      </div>
+    </div>
   </div>
 
   <!-- Regulatory Updates -->
@@ -74,6 +85,7 @@
   </div>
 </main>
 
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 <script src="js/nav.js"></script>
 <script src="js/toast.js"></script>
 <script src="js/palette.js"></script>

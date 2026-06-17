@@ -27,6 +27,7 @@ async function loadFinancials() {
 
   renderMonthBar(data.months);
   selectMonth(data.months[data.months.length - 1]); // default to most recent
+  renderRevenueChart(data);
 }
 
 function renderMonthBar(months) {
@@ -154,4 +155,100 @@ function renderStatements(month) {
         ${bsHtml}
       </div>
     </div>`;
+}
+
+// ---------------------------------------------------------------------------
+// Revenue vs Expenses chart
+// ---------------------------------------------------------------------------
+
+let _revenueChart = null;
+
+function renderRevenueChart(data) {
+  if (typeof Chart === 'undefined') return;
+  const canvas = document.getElementById('revenue-chart');
+  if (!canvas) return;
+  if (_revenueChart) { _revenueChart.destroy(); _revenueChart = null; }
+
+  const months = data.months || [];
+  if (months.length === 0) return;
+
+  function rowVal(rows, labelFragment) {
+    const row = (rows || []).find(r => r.label && r.label.toLowerCase().includes(labelFragment.toLowerCase()) && r.is_total);
+    return months.map(m => row ? (row.months?.[m] ?? 0) : 0);
+  }
+
+  const revenues  = rowVal(data.pl, 'Total Revenue');
+  const expenses  = rowVal(data.pl, 'Total Expenses');
+  const net       = months.map((_, i) => (revenues[i] || 0) - (expenses[i] || 0));
+
+  const fmt$ = n => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n);
+
+  _revenueChart = new Chart(canvas, {
+    type: 'bar',
+    data: {
+      labels: months,
+      datasets: [
+        {
+          label: 'Revenue',
+          data: revenues,
+          backgroundColor: 'rgba(26,122,74,.75)',
+          borderColor: '#1A7A4A',
+          borderWidth: 1,
+          borderRadius: 4,
+          order: 2,
+        },
+        {
+          label: 'Expenses',
+          data: expenses,
+          backgroundColor: 'rgba(192,57,43,.65)',
+          borderColor: '#C0392B',
+          borderWidth: 1,
+          borderRadius: 4,
+          order: 3,
+        },
+        {
+          label: 'Net Income',
+          data: net,
+          type: 'line',
+          borderColor: '#2563EB',
+          backgroundColor: 'rgba(37,99,235,.08)',
+          borderWidth: 2,
+          pointRadius: 4,
+          pointBackgroundColor: '#2563EB',
+          tension: 0.3,
+          fill: false,
+          order: 1,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      animation: { duration: 400 },
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: {
+          display: true,
+          position: 'top',
+          labels: { font: { size: 12 }, boxWidth: 12, padding: 16 },
+        },
+        tooltip: {
+          callbacks: { label: ctx => ` ${ctx.dataset.label}: ${fmt$(ctx.parsed.y)}` },
+        },
+      },
+      scales: {
+        x: {
+          ticks: { font: { size: 12 }, color: '#5A6B7C' },
+          grid: { color: 'rgba(0,0,0,.05)' },
+        },
+        y: {
+          beginAtZero: true,
+          ticks: {
+            callback: v => '$' + (Math.abs(v) >= 1000 ? (v/1000).toFixed(0) + 'k' : v),
+            font: { size: 11 }, color: '#8BA7C4',
+          },
+          grid: { color: 'rgba(0,0,0,.06)' },
+        },
+      },
+    },
+  });
 }
