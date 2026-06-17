@@ -38,9 +38,8 @@
     @media (max-width: 900px) { .stmt-grid { grid-template-columns: 1fr; } }
 
     @media (max-width: 600px) {
-      .stmt-table { font-size: 12px; }
-      .stmt-table td, .stmt-table thead th { padding: 5px 8px; }
-      .stmt-table td:first-child { width: 45%; }
+      .stmt-table { font-size: 11px; }
+      .stmt-table td, .stmt-table thead th { padding: 5px 6px; }
     }
 
     /* ---- Statement table ---- */
@@ -64,19 +63,26 @@
     }
     .stmt-table {
       width: 100%;
+      min-width: 320px;
       border-collapse: collapse;
       font-size: 13px;
+      table-layout: fixed;
     }
+    .stmt-table col.col-label  { width: 56%; }
+    .stmt-table col.col-month  { width: 22%; }
+    .stmt-table col.col-ytd    { width: 22%; }
     .stmt-table td {
-      padding: 6px 16px;
+      padding: 6px 12px;
       border-bottom: 1px solid #F0F2F5;
       color: var(--text);
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
     .stmt-table tr:last-child td { border-bottom: none; }
 
     /* Column headers */
     .stmt-table thead th {
-      padding: 6px 16px;
+      padding: 6px 12px;
       font-size: 10px;
       font-weight: 700;
       text-transform: uppercase;
@@ -88,8 +94,6 @@
     }
     .stmt-table thead th:first-child { text-align: left; }
 
-    /* Label column */
-    .stmt-table td:first-child { width: 55%; }
     /* Value columns */
     .col-month, .col-ytd {
       text-align: right;

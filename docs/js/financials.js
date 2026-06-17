@@ -92,7 +92,11 @@ function buildTable(rows, month, ytdMonths, isBS = false) {
 
   const showYTD = ytdMonths.length > 0;
 
-  let html = `<table class="stmt-table"><thead><tr>
+  const colgroup = showYTD
+    ? `<colgroup><col class="col-label"><col class="col-month"><col class="col-ytd"></colgroup>`
+    : `<colgroup><col class="col-label"><col class="col-month"></colgroup>`;
+
+  let html = `<table class="stmt-table">${colgroup}<thead><tr>
     <th></th>
     <th class="col-month">${month}</th>
     ${showYTD ? `<th class="col-ytd">YTD</th>` : ''}
