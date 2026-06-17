@@ -101,7 +101,7 @@ function buildTable(rows, month, showYTD = false) {
 
   const colgroup = showYTD
     ? `<colgroup><col class="col-label"><col class="col-month"><col class="col-ytd"></colgroup>`
-    : `<colgroup><col class="col-label"><col class="col-month"></colgroup>`;
+    : `<colgroup><col class="col-label" style="width:78%"><col class="col-month"></colgroup>`;
 
   let html = `<table class="stmt-table">${colgroup}<thead><tr>
     <th></th>
@@ -144,7 +144,7 @@ function buildTable(rows, month, showYTD = false) {
     const acct = acctMatch ? acctMatch[1] : null;
     const canDrill = acct && !row.is_total && !isNetIncome && v !== 0;
     const drillAttrs = canDrill
-      ? ` data-acct="${acct}" data-monthnum="${monthNum}" data-monthname="${month}" data-label="${row.label.replace(/"/g, '&quot;')}" onclick="handleTxnClick(this)" title="Click to view transactions"`
+      ? ` data-acct="${acct}" data-monthnum="${monthNum}" data-monthname="${month}" data-label="${row.label.replace(/"/g, '&quot;')}" onclick="handleTxnClick(this)" onmouseenter="showGlTooltip(this)" onmouseleave="hideGlTooltip()" title="Click to view transactions"`
       : '';
 
     if (isNetIncome) {
@@ -359,4 +359,99 @@ function renderRevenueChart(data) {
       },
     },
   });
+}
+
+// ---------------------------------------------------------------------------
+// GL hover tooltip
+// ---------------------------------------------------------------------------
+
+let _glTipTimer = null;
+
+function showGlTooltip(el) {
+  clearTimeout(_glTipTimer);
+  _glTipTimer = setTimeout(() => _fetchGlTooltip(el), 250);
+}
+
+function hideGlTooltip() {
+  clearTimeout(_glTipTimer);
+  const tip = document.getElementById('gl-tooltip');
+  if (tip) tip.style.display = 'none';
+}
+
+function _positionGlTooltip(tip, el) {
+  const rect  = el.getBoundingClientRect();
+  const viewW = window.innerWidth;
+  const viewH = window.innerHeight;
+  let left = rect.right + 6;
+  if (left + 380 > viewW) left = rect.left - 386;
+  if (left < 4) left = 4;
+  let top = rect.top - 4;
+  if (top + 240 > viewH) top = viewH - 244;
+  if (top < 4) top = 4;
+  tip.style.left = left + 'px';
+  tip.style.top  = top  + 'px';
+}
+
+async function _fetchGlTooltip(el) {
+  const acct      = el.dataset.acct;
+  const monthNum  = el.dataset.monthnum;
+  const label     = el.dataset.label;
+  const monthName = el.dataset.monthname;
+  const tip = document.getElementById('gl-tooltip');
+  if (!tip) return;
+
+  tip.innerHTML = `<div style="padding:10px 12px;font-size:12px;color:var(--text-2);">Loading…</div>`;
+  _positionGlTooltip(tip, el);
+  tip.style.display = 'block';
+
+  try {
+    const data = await apiFetch(`/data/transactions?account=${acct}&month=${monthNum}`);
+    if (!data) { tip.style.display = 'none'; return; }
+    const txns = data.transactions || [];
+    if (!txns.length) {
+      tip.innerHTML = `<div style="padding:10px 12px;font-size:12px;color:var(--text-2);">No transactions in ${monthName}.</div>`;
+      _positionGlTooltip(tip, el);
+      return;
+    }
+    const n2 = n => n != null
+      ? Math.abs(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+      : '';
+    const totalDebit  = txns.reduce((s, t) => s + (t.debit  || 0), 0);
+    const totalCredit = txns.reduce((s, t) => s + (t.credit || 0), 0);
+    const preview = txns.slice(0, 5).map(t => `
+      <tr style="border-bottom:1px solid #F0F2F5;">
+        <td style="padding:3px 8px;font-size:11px;color:var(--text-2);white-space:nowrap;">${t.date}</td>
+        <td style="padding:3px 8px;font-size:11px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${t.desc}</td>
+        <td style="padding:3px 8px;font-size:11px;text-align:right;white-space:nowrap;">${t.debit  != null ? n2(t.debit)  : ''}</td>
+        <td style="padding:3px 8px;font-size:11px;text-align:right;white-space:nowrap;">${t.credit != null ? n2(t.credit) : ''}</td>
+      </tr>`).join('');
+    const more = txns.length > 5
+      ? `<div style="padding:3px 8px 4px;font-size:10px;color:var(--text-3);">+${txns.length - 5} more transaction${txns.length - 5 !== 1 ? 's' : ''}</div>`
+      : '';
+    tip.innerHTML = `
+      <div style="padding:8px 10px 6px;border-bottom:1px solid var(--border);font-size:12px;font-weight:700;color:var(--navy);">${label} — ${monthName} 2026</div>
+      <table style="width:100%;border-collapse:collapse;">
+        <thead>
+          <tr style="background:#FAFBFC;">
+            <th style="padding:3px 8px;font-size:10px;text-align:left;color:var(--text-2);font-weight:600;text-transform:uppercase;letter-spacing:.05em;">Date</th>
+            <th style="padding:3px 8px;font-size:10px;text-align:left;color:var(--text-2);font-weight:600;text-transform:uppercase;letter-spacing:.05em;">Description</th>
+            <th style="padding:3px 8px;font-size:10px;text-align:right;color:var(--text-2);font-weight:600;text-transform:uppercase;letter-spacing:.05em;">Debit</th>
+            <th style="padding:3px 8px;font-size:10px;text-align:right;color:var(--text-2);font-weight:600;text-transform:uppercase;letter-spacing:.05em;">Credit</th>
+          </tr>
+        </thead>
+        <tbody>${preview}</tbody>
+        <tfoot>
+          <tr style="background:#F7F9FC;border-top:2px solid var(--navy);">
+            <td colspan="2" style="padding:4px 8px;font-size:11px;font-weight:700;color:var(--navy);">Total · ${txns.length} txn${txns.length !== 1 ? 's' : ''}</td>
+            <td style="padding:4px 8px;font-size:11px;font-weight:700;text-align:right;">${totalDebit  > 0 ? n2(totalDebit)  : ''}</td>
+            <td style="padding:4px 8px;font-size:11px;font-weight:700;text-align:right;">${totalCredit > 0 ? n2(totalCredit) : ''}</td>
+          </tr>
+        </tfoot>
+      </table>
+      ${more}
+      <div style="padding:3px 8px 6px;font-size:10px;color:var(--text-3);">Click to open full detail</div>`;
+    _positionGlTooltip(tip, el);
+  } catch (_) {
+    tip.style.display = 'none';
+  }
 }

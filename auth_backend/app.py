@@ -3403,6 +3403,11 @@ def _build_txn_data(wb):
                 month = d.month
             except Exception:
                 continue
+        elif isinstance(date_val, str):
+            d = _to_date(date_val)
+            if d is None:
+                continue
+            month = d.month
         else:
             continue
         try:
@@ -3710,6 +3715,12 @@ def get_transactions():
                 date_str  = d.strftime('%b %d, %Y')
             except Exception:
                 continue
+        elif isinstance(date_val, str):
+            d = _to_date(date_val)
+            if d is None:
+                continue
+            row_month = d.month
+            date_str  = d.strftime('%b %d, %Y')
         else:
             continue
         if row_month != month_num:
