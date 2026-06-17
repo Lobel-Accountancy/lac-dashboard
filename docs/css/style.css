@@ -680,34 +680,35 @@ body.has-sidebar {
 .sidebar.collapsed .palette-trigger { justify-content: center; padding: 7px; }
 .sidebar.collapsed .nav-item { padding: 8px; justify-content: center; }
 .sidebar.collapsed .nav-item::before { display: none; }
-.sidebar.collapsed .sidebar-footer { padding: 8px 6px; }
-.sidebar.collapsed .sidebar-user-btn { padding: 6px; justify-content: center; }
+.sidebar.collapsed .sidebar-user-btn { padding: 14px 0; justify-content: center; }
 
-/* Sidebar footer */
+/* Sidebar footer — entire area is the settings button */
 .sidebar-footer {
-  padding: 10px;
   border-top: 1px solid rgba(255,255,255,.08);
   flex-shrink: 0;
+  position: relative;
+  overflow: visible;
 }
 .sidebar-user-btn {
   width: 100%;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   background: transparent;
   border: none;
-  border-radius: 6px;
-  padding: 8px 10px;
+  border-radius: 0;
+  padding: 14px 14px;
   cursor: pointer;
   color: rgba(255,255,255,.8);
   font-size: 13px;
   transition: background .15s;
-  position: relative;
+  position: static;
   white-space: nowrap;
+  box-sizing: border-box;
 }
-.sidebar-user-btn:hover { background: rgba(255,255,255,.08); }
+.sidebar-user-btn:hover { background: rgba(255,255,255,.1); }
 .sidebar-user-avatar {
-  width: 26px; height: 26px;
+  width: 28px; height: 28px;
   border-radius: 50%;
   background: #2E6DA4;
   color: white;
@@ -726,14 +727,15 @@ body.has-sidebar {
 }
 .sidebar-user-caret { font-size: 10px; opacity: .6; flex-shrink: 0; }
 
-/* Override auth.js settings dropdown to work inside sidebar */
+/* Settings dropdown anchored to footer, escapes sidebar overflow */
 .sidebar .settings-dropdown {
+  position: absolute;
   bottom: 100%;
   top: auto;
-  right: 0;
   left: 0;
+  right: 0;
   width: auto;
-  margin-bottom: 4px;
+  margin-bottom: 0;
 }
 
 /* Mobile sidebar */

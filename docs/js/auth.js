@@ -221,9 +221,10 @@ document.addEventListener('DOMContentLoaded', () => {
   const s = _getSettings();
   if (s.density === 'compact') document.body.classList.add('density-compact');
 
-  // Sidebar layout: attach settings dropdown to sidebar user button
+  // Sidebar layout: attach dropdown to the footer so the whole area is clickable
   const sidebarBtn = document.getElementById('settings-btn');
   if (sidebarBtn) {
+    const footer = sidebarBtn.closest('.sidebar-footer') || sidebarBtn;
     const dropdown = _buildSettingsDropdown(navUser.textContent || 'Account');
 
     new MutationObserver(() => {
@@ -231,10 +232,9 @@ document.addEventListener('DOMContentLoaded', () => {
       if (u) u.textContent = navUser.textContent;
     }).observe(navUser, { childList: true, characterData: true, subtree: true });
 
-    sidebarBtn.style.position = 'relative';
-    sidebarBtn.appendChild(dropdown);
+    footer.appendChild(dropdown);
 
-    sidebarBtn.addEventListener('click', e => { e.stopPropagation(); dropdown.classList.toggle('open'); });
+    footer.addEventListener('click', e => { e.stopPropagation(); dropdown.classList.toggle('open'); });
     document.addEventListener('click', () => dropdown.classList.remove('open'));
     dropdown.addEventListener('click', e => e.stopPropagation());
     return;
