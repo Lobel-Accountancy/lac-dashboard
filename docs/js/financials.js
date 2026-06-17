@@ -99,14 +99,12 @@ function dynamicLabel(label, v) {
 function buildTable(rows, month, showYTD = false) {
   if (!rows || rows.length === 0) return '<div class="fin-empty">No data</div>';
 
-  const colgroup = showYTD
-    ? `<colgroup><col class="col-label"><col class="col-month"><col class="col-ytd"></colgroup>`
-    : `<colgroup><col class="col-label" style="width:78%"><col class="col-month"></colgroup>`;
+  const colgroup = `<colgroup><col class="col-label"><col class="col-month"><col class="col-ytd"></colgroup>`;
 
   let html = `<table class="stmt-table">${colgroup}<thead><tr>
     <th></th>
     <th class="col-month">${month}</th>
-    ${showYTD ? `<th class="col-ytd">YTD</th>` : ''}
+    ${showYTD ? `<th class="col-ytd">YTD</th>` : `<th style="width:22%"></th>`}
   </tr></thead><tbody>`;
 
   const monthNum = MONTH_ORDER.indexOf(month) + 1;
@@ -118,8 +116,7 @@ function buildTable(rows, month, showYTD = false) {
 
     if (row.is_section) {
       isFirstInSection = true;
-      const span = showYTD ? 3 : 2;
-      html += `<tr class="row-section"><td colspan="${span}">${row.label}</td></tr>`;
+      html += `<tr class="row-section"><td colspan="3">${row.label}</td></tr>`;
       return;
     }
 
@@ -134,7 +131,9 @@ function buildTable(rows, month, showYTD = false) {
 
     const fv        = showDollar ? fmtD(v) : fmt(v);
     const ytdNegCls = ytd < 0 ? 'val-neg' : '';
-    const ytdCell   = showYTD ? `<td class="col-ytd ${ytdNegCls}">${fmt(ytd)}</td>` : '';
+    const ytdCell   = showYTD
+      ? `<td class="col-ytd ${ytdNegCls}">${fmt(ytd)}</td>`
+      : `<td style="width:22%;background:inherit;border-bottom:inherit;border-left:none;"></td>`;
 
     isFirstDataRow   = false;
     isFirstInSection = false;
