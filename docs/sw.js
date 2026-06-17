@@ -1,4 +1,4 @@
-const CACHE = 'lac-v3';
+const CACHE = 'lac-v4';
 const STATIC = [
   '/index.html',
   '/css/style.css',
@@ -8,6 +8,8 @@ const STATIC = [
   '/js/toast.js',
   '/js/palette.js',
   '/js/emails.js',
+  '/js/financials.js',
+  '/financials.html',
   '/manifest.json',
   '/favicon.jpg',
   '/icon-192.png',
