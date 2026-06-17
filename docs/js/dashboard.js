@@ -208,19 +208,24 @@ function renderCompliance(data) {
 }
 
 async function markComplianceDone(obligation) {
+  const id = 'comp-' + obligation.replace(/'/g, '').replace(/\s+/g, '_').slice(0, 30);
+  const el = document.getElementById(id);
+
+  // Optimistic: fade out immediately
+  if (el) {
+    el.style.transition = 'opacity 0.3s';
+    el.style.opacity = '0';
+    el.style.pointerEvents = 'none';
+    setTimeout(() => { if (el.parentNode) el.remove(); }, 300);
+  }
+
   const res = await apiFetch('/data/compliance-complete', {
     method: 'POST',
     body: JSON.stringify({ obligation }),
   });
-  if (res && res.success) {
-    // Remove the item from the list
-    const id = 'comp-' + obligation.replace(/'/g, '').replace(/\s+/g, '_').slice(0, 30);
-    const el = document.getElementById(id);
-    if (el) {
-      el.style.opacity = '0.4';
-      el.style.textDecoration = 'line-through';
-      setTimeout(() => el.remove(), 800);
-    }
+
+  if (!res?.success) {
+    showToast(res?.error || 'Could not mark as complete — try refreshing.', 'error');
   }
 }
 

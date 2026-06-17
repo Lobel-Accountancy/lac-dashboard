@@ -5,6 +5,26 @@ let _filtered   = [];
 let _sortCol    = 'health';
 let _sortDir    = 1; // 1 = asc, -1 = desc
 let _filter     = 'all';
+let _detailClientName = null;
+
+// Recompute AR totals on a client object after a local invoice change
+function recalcClientAR(c) {
+  const invs = c.ar.invoices;
+  c.ar.total_outstanding = invs.reduce((s, i) => s + (i.outstanding || 0), 0);
+  c.ar.overdue_amount    = invs.filter(i => i.days_overdue > 0).reduce((s, i) => s + (i.outstanding || 0), 0);
+  c.ar.overdue_count     = invs.filter(i => i.days_overdue > 0).length;
+  c.ar.max_overdue_days  = invs.reduce((m, i) => Math.max(m, i.days_overdue || 0), 0);
+  if (c.ar.overdue_amount === 0) c.health = 'healthy';
+  else if (c.ar.max_overdue_days > 60) c.health = 'needs_attention';
+  else c.health = 'at_risk';
+}
+
+// Re-render the detail panel if it's currently open
+function _refreshOpenDetail() {
+  if (!_detailClientName) return;
+  const idx = _filtered.findIndex(c => c.name === _detailClientName);
+  if (idx !== -1) showDetail(idx);
+}
 
 // ---------------------------------------------------------------------------
 // Bootstrap
@@ -160,6 +180,7 @@ function deadlineCell(nd) {
 
 function showDetail(idx) {
   const c = _filtered[idx];
+  _detailClientName = c.name;
   document.getElementById('detail-name').textContent  = c.name;
   document.getElementById('detail-email').textContent = c.email || '';
   document.getElementById('detail-health').innerHTML  =
@@ -244,6 +265,7 @@ function showDetail(idx) {
 }
 
 function closeDetail() {
+  _detailClientName = null;
   document.getElementById('detail-overlay').classList.remove('open');
   document.getElementById('detail-panel').classList.remove('open');
 }
@@ -285,23 +307,34 @@ async function submitPayment() {
   const errEl  = document.getElementById('pay-error');
   if (!amount || amount <= 0) { errEl.textContent = 'Enter a valid amount.'; return; }
 
-  const btn = document.querySelector('#pay-modal .btn-primary');
-  btn.disabled = true;
-  btn.textContent = 'Saving…';
+  const invoice = _payInvoice;
+  const clientIdx = _allClients.findIndex(c => c.ar.invoices.some(i => i.invoice === invoice));
+  const client = _allClients[clientIdx];
+  const inv = client?.ar.invoices.find(i => i.invoice === invoice);
+  const snap = inv ? { ...inv } : null;
+  const arSnap = client ? JSON.parse(JSON.stringify(client.ar)) : null;
+
+  // Optimistic: update invoice and totals immediately
+  if (inv) {
+    inv.outstanding = Math.max(0, inv.outstanding - amount);
+    if (inv.outstanding === 0) { inv.status = 'Paid'; inv.days_overdue = 0; }
+    recalcClientAR(client);
+  }
+
+  closePayModal();
+  applyFilter();
+  _refreshOpenDetail();
 
   const res = await apiFetch('/ar/payment', {
     method: 'POST',
-    body: JSON.stringify({ invoice: _payInvoice, paid_amount: amount, note }),
+    body: JSON.stringify({ invoice, paid_amount: amount, note }),
   });
 
-  btn.disabled = false;
-  btn.textContent = 'Record Payment';
-
-  if (res?.success) {
-    closePayModal();
-    loadClients(); // refresh list
-  } else {
-    errEl.textContent = res?.error || 'Payment failed.';
+  if (!res?.success) {
+    if (inv && snap) { Object.assign(inv, snap); client.ar = arSnap; }
+    applyFilter();
+    _refreshOpenDetail();
+    showToast(res?.error || 'Payment failed.', 'error');
   }
 }
 
@@ -326,24 +359,30 @@ function closeDelModal() {
 }
 
 async function submitDelete() {
-  const btn = document.getElementById('del-confirm-btn');
-  btn.disabled = true;
-  btn.textContent = 'Deleting…';
+  const invoice = _delInvoice;
+  const clientIdx = _allClients.findIndex(c => c.ar.invoices.some(i => i.invoice === invoice));
+  const client = _allClients[clientIdx];
+  const invIdx = client ? client.ar.invoices.findIndex(i => i.invoice === invoice) : -1;
+  const snap = invIdx !== -1 ? { invoice: client.ar.invoices[invIdx], ar: JSON.parse(JSON.stringify(client.ar)) } : null;
+
+  // Optimistic: remove invoice and close immediately
+  if (snap) {
+    client.ar.invoices.splice(invIdx, 1);
+    recalcClientAR(client);
+  }
+  closeDelModal();
+  closeDetail();
+  applyFilter();
 
   const res = await apiFetch('/ar/delete', {
     method: 'POST',
-    body: JSON.stringify({ invoice: _delInvoice }),
+    body: JSON.stringify({ invoice }),
   });
 
-  btn.disabled = false;
-  btn.textContent = 'Delete';
-
-  if (res?.ok) {
-    closeDelModal();
-    closeDetail();
-    loadClients();
-  } else {
-    document.getElementById('del-error').textContent = res?.error || 'Delete failed.';
+  if (!res?.ok) {
+    if (snap) { client.ar.invoices.splice(invIdx, 0, snap.invoice); client.ar = snap.ar; }
+    applyFilter();
+    showToast(res?.error || 'Delete failed.', 'error');
   }
 }
 
@@ -394,24 +433,19 @@ async function submitAdd() {
   if (!invoice)         { errEl.textContent = 'Invoice # is required.'; return; }
   if (!amount || amount <= 0) { errEl.textContent = 'Enter a valid amount.'; return; }
 
-  const btn = document.getElementById('add-submit-btn');
-  btn.disabled = true;
-  btn.textContent = 'Saving…';
-  errEl.textContent = '';
+  closeAddModal();
+  setStatus('Saving…');
 
   const res = await apiFetch('/wb/ar/add', {
     method: 'POST',
     body: JSON.stringify({ client, invoice, amount, service, inv_date: invDate, due_date: dueDate }),
   });
 
-  btn.disabled = false;
-  btn.textContent = 'Add Receivable';
-
   if (res?.ok) {
-    closeAddModal();
     loadClients();
   } else {
-    errEl.textContent = res?.error || 'Failed to add receivable.';
+    setStatus('');
+    showToast(res?.error || 'Failed to add receivable.', 'error');
   }
 }
 
@@ -458,24 +492,19 @@ async function submitEdit() {
   if (invDate) updates.inv_date = invDate;
   if (dueDate) updates.due_date = dueDate;
 
-  const btn = document.getElementById('edit-submit-btn');
-  btn.disabled = true;
-  btn.textContent = 'Saving…';
-  errEl.textContent = '';
+  closeEditModal();
+  setStatus('Saving…');
 
   const res = await apiFetch('/wb/ar/update', {
     method: 'POST',
     body: JSON.stringify({ invoice: _editInvoice, updates }),
   });
 
-  btn.disabled = false;
-  btn.textContent = 'Save Changes';
-
   if (res?.ok) {
-    closeEditModal();
     loadClients();
   } else {
-    errEl.textContent = res?.error || 'Failed to save changes.';
+    setStatus('');
+    showToast(res?.error || 'Failed to save changes.', 'error');
   }
 }
 
