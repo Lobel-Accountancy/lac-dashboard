@@ -1,9 +1,12 @@
-const CACHE = 'lac-v1';
+const CACHE = 'lac-v2';
 const STATIC = [
   '/index.html',
   '/css/style.css',
+  '/js/nav.js',
   '/js/auth.js',
   '/js/chat.js',
+  '/js/toast.js',
+  '/js/palette.js',
   '/manifest.json',
   '/favicon.jpg',
   '/icon-192.png',

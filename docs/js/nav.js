@@ -67,7 +67,7 @@ const NAV_GROUPS = [
 
     el.innerHTML = `
       <div class="sidebar-header">
-        <img class="sidebar-brand" src="favicon.jpg" alt="LAC">
+        <img class="sidebar-brand" src="favicon.jpg" alt="LAC" width="28" height="28">
         <span class="sidebar-title">Lobel Accountancy</span>
         <button class="sidebar-toggle" id="sidebar-toggle-btn" title="Collapse sidebar">&#8249;</button>
       </div>
