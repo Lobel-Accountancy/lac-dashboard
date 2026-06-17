@@ -177,7 +177,12 @@ function showDetail(idx) {
         `<button class="btn-pay" onclick="openPayment('${escA(i.invoice)}',${i.outstanding})">
            Record Payment
          </button>`;
-      const delBtn = `<button class="btn-delete" onclick="openDelModal('${escA(i.invoice)}')">Delete</button>`;
+      const editData = encodeURIComponent(JSON.stringify({
+        invoice: i.invoice, service: i.service || '', amount: i.amount,
+        inv_date: i.inv_date || '', due_date: i.due_date || '',
+      }));
+      const editBtn = `<button class="btn-edit" onclick="openEditModal(decodeAndParse('${escA(editData)}'))">Edit</button>`;
+      const delBtn  = `<button class="btn-delete" onclick="openDelModal('${escA(i.invoice)}')">Delete</button>`;
       return `
         <tr class="${isPaid ? 'row-paid' : ''}">
           <td class="mono">${i.invoice}</td>
@@ -188,7 +193,7 @@ function showDetail(idx) {
             : i.days_overdue > 0
               ? `<span class="badge badge--${i.days_overdue > 30 ? 'danger' : 'warning'}">${i.days_overdue}d overdue</span>`
               : '<span class="badge badge--ok">Current</span>'}</td>
-          <td>${i.status}${payBtn}${delBtn}</td>
+          <td>${i.status}${payBtn}${editBtn}${delBtn}</td>
         </tr>`;
     }).join('');
     invHtml = `
@@ -243,7 +248,15 @@ function closeDetail() {
   document.getElementById('detail-panel').classList.remove('open');
 }
 
-document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDetail(); });
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    closeDetail();
+    closeAddModal();
+    closeEditModal();
+    closeDelModal();
+    closePayModal();
+  }
+});
 
 // ---------------------------------------------------------------------------
 // Payment modal
@@ -338,8 +351,147 @@ async function submitDelete() {
 // Helpers
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Add Receivable modal
+// ---------------------------------------------------------------------------
+
+function openAddModal() {
+  // Populate client datalist from loaded data
+  const dl = document.getElementById('add-client-list');
+  dl.innerHTML = _allClients.map(c => `<option value="${escA(c.name)}">`).join('');
+
+  // Default dates: today and +30 days
+  const today = fmtDateInput(new Date());
+  const due30 = fmtDateInput(new Date(Date.now() + 30 * 86400000));
+  document.getElementById('add-client').value   = '';
+  document.getElementById('add-invoice').value  = '';
+  document.getElementById('add-amount').value   = '';
+  document.getElementById('add-service').value  = 'Professional Services';
+  document.getElementById('add-inv-date').value = today;
+  document.getElementById('add-due-date').value = due30;
+  document.getElementById('add-error').textContent = '';
+  const btn = document.getElementById('add-submit-btn');
+  btn.disabled = false;
+  btn.textContent = 'Add Receivable';
+  document.getElementById('add-modal').classList.add('open');
+  document.getElementById('add-client').focus();
+}
+
+function closeAddModal() {
+  document.getElementById('add-modal').classList.remove('open');
+}
+
+async function submitAdd() {
+  const client  = document.getElementById('add-client').value.trim();
+  const invoice = document.getElementById('add-invoice').value.trim();
+  const amount  = parseFloat(document.getElementById('add-amount').value);
+  const service = document.getElementById('add-service').value.trim() || 'Professional Services';
+  const invDate = document.getElementById('add-inv-date').value;
+  const dueDate = document.getElementById('add-due-date').value;
+  const errEl   = document.getElementById('add-error');
+
+  if (!client)          { errEl.textContent = 'Client is required.'; return; }
+  if (!invoice)         { errEl.textContent = 'Invoice # is required.'; return; }
+  if (!amount || amount <= 0) { errEl.textContent = 'Enter a valid amount.'; return; }
+
+  const btn = document.getElementById('add-submit-btn');
+  btn.disabled = true;
+  btn.textContent = 'Saving…';
+  errEl.textContent = '';
+
+  const res = await apiFetch('/wb/ar/add', {
+    method: 'POST',
+    body: JSON.stringify({ client, invoice, amount, service, inv_date: invDate, due_date: dueDate }),
+  });
+
+  btn.disabled = false;
+  btn.textContent = 'Add Receivable';
+
+  if (res?.ok) {
+    closeAddModal();
+    loadClients();
+  } else {
+    errEl.textContent = res?.error || 'Failed to add receivable.';
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Edit Invoice modal
+// ---------------------------------------------------------------------------
+
+let _editInvoice = '';
+
+function decodeAndParse(s) {
+  try { return JSON.parse(decodeURIComponent(s)); } catch { return {}; }
+}
+
+function openEditModal(inv) {
+  _editInvoice = inv.invoice;
+  document.getElementById('edit-invoice-label').textContent = inv.invoice;
+  document.getElementById('edit-service').value  = inv.service || '';
+  document.getElementById('edit-amount').value   = inv.amount || '';
+  document.getElementById('edit-inv-date').value = inv.inv_date ? inv.inv_date : '';
+  document.getElementById('edit-due-date').value = inv.due_date ? inv.due_date : '';
+  document.getElementById('edit-error').textContent = '';
+  const btn = document.getElementById('edit-submit-btn');
+  btn.disabled = false;
+  btn.textContent = 'Save Changes';
+  document.getElementById('edit-modal').classList.add('open');
+}
+
+function closeEditModal() {
+  document.getElementById('edit-modal').classList.remove('open');
+}
+
+async function submitEdit() {
+  const service = document.getElementById('edit-service').value.trim();
+  const amount  = parseFloat(document.getElementById('edit-amount').value);
+  const invDate = document.getElementById('edit-inv-date').value;
+  const dueDate = document.getElementById('edit-due-date').value;
+  const errEl   = document.getElementById('edit-error');
+
+  if (!amount || amount <= 0) { errEl.textContent = 'Enter a valid amount.'; return; }
+
+  const updates = {};
+  if (service) updates.service  = service;
+  if (amount)  updates.amount   = amount;
+  if (invDate) updates.inv_date = invDate;
+  if (dueDate) updates.due_date = dueDate;
+
+  const btn = document.getElementById('edit-submit-btn');
+  btn.disabled = true;
+  btn.textContent = 'Saving…';
+  errEl.textContent = '';
+
+  const res = await apiFetch('/wb/ar/update', {
+    method: 'POST',
+    body: JSON.stringify({ invoice: _editInvoice, updates }),
+  });
+
+  btn.disabled = false;
+  btn.textContent = 'Save Changes';
+
+  if (res?.ok) {
+    closeEditModal();
+    loadClients();
+  } else {
+    errEl.textContent = res?.error || 'Failed to save changes.';
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
 function fmt$(n) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n);
 }
 
 function escA(s) { return String(s || '').replace(/'/g, "\\'"); }
+
+function fmtDateInput(d) {
+  const y  = d.getFullYear();
+  const mo = String(d.getMonth() + 1).padStart(2, '0');
+  const dy = String(d.getDate()).padStart(2, '0');
+  return `${y}-${mo}-${dy}`;
+}

@@ -236,6 +236,42 @@
     }
     .btn-delete:hover { background: #A93226; }
 
+    .btn-edit {
+      margin-left: 6px; padding: 2px 9px; font-size: 11px; font-weight: 600;
+      background: #5A6E84; color: white; border: none; border-radius: 4px;
+      cursor: pointer; vertical-align: middle;
+    }
+    .btn-edit:hover { background: #3D5166; }
+
+    .btn-add-ar {
+      padding: 7px 16px; font-size: 13px; font-weight: 600;
+      background: var(--navy); color: white; border: none; border-radius: 6px;
+      cursor: pointer; margin-left: auto;
+    }
+    .btn-add-ar:hover { background: #2E3D52; }
+
+    .ar-modal-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,.4); z-index: 600;
+      align-items: center; justify-content: center;
+    }
+    .ar-modal-overlay.open { display: flex; }
+    .ar-modal {
+      background: white; border-radius: 12px; padding: 28px;
+      width: 420px; max-width: 94vw;
+      box-shadow: 0 8px 32px rgba(0,0,0,.18);
+    }
+    .ar-modal h3 { font-size: 16px; font-weight: 700; color: var(--navy); margin-bottom: 18px; }
+    .ar-field { margin-bottom: 14px; }
+    .ar-field label { display: block; font-size: 12px; font-weight: 600; color: var(--text-2); margin-bottom: 4px; }
+    .ar-field input, .ar-field select {
+      width: 100%; padding: 8px 10px; border: 1px solid var(--border);
+      border-radius: 6px; font-size: 14px; box-sizing: border-box;
+    }
+    .ar-row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .ar-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 18px; }
+    .ar-error { font-size: 12px; color: #C0392B; margin-top: 6px; }
+
     .del-modal-overlay {
       display: none; position: fixed; inset: 0;
       background: rgba(0,0,0,.4); z-index: 600;
@@ -328,6 +364,7 @@
       <button class="filter-btn"                    data-filter="at_risk"          onclick="setFilter('at_risk')">At Risk</button>
       <button class="filter-btn"                    data-filter="healthy"          onclick="setFilter('healthy')">Healthy</button>
     </div>
+    <button class="btn-add-ar" onclick="openAddModal()">+ Add Receivable</button>
   </div>
 
   <!-- Table -->
@@ -402,6 +439,77 @@
     <div class="del-actions">
       <button class="btn-sm" onclick="closeDelModal()">Cancel</button>
       <button class="btn-sm" style="background:#C0392B;color:white;border-color:#C0392B" id="del-confirm-btn" onclick="submitDelete()">Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add Receivable modal -->
+<div class="ar-modal-overlay" id="add-modal">
+  <div class="ar-modal">
+    <h3>Add Receivable</h3>
+    <div class="ar-field">
+      <label>Client</label>
+      <input type="text" id="add-client" list="add-client-list" placeholder="Client name" autocomplete="off">
+      <datalist id="add-client-list"></datalist>
+    </div>
+    <div class="ar-row2">
+      <div class="ar-field">
+        <label>Invoice #</label>
+        <input type="text" id="add-invoice" placeholder="e.g. INV-2025-001">
+      </div>
+      <div class="ar-field">
+        <label>Amount ($)</label>
+        <input type="number" id="add-amount" min="0.01" step="0.01" placeholder="0.00">
+      </div>
+    </div>
+    <div class="ar-field">
+      <label>Service</label>
+      <input type="text" id="add-service" placeholder="Professional Services">
+    </div>
+    <div class="ar-row2">
+      <div class="ar-field">
+        <label>Invoice Date</label>
+        <input type="date" id="add-inv-date">
+      </div>
+      <div class="ar-field">
+        <label>Due Date</label>
+        <input type="date" id="add-due-date">
+      </div>
+    </div>
+    <div class="ar-error" id="add-error"></div>
+    <div class="ar-actions">
+      <button class="btn-sm" onclick="closeAddModal()">Cancel</button>
+      <button class="btn-sm btn-primary" id="add-submit-btn" onclick="submitAdd()">Add Receivable</button>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Invoice modal -->
+<div class="ar-modal-overlay" id="edit-modal">
+  <div class="ar-modal">
+    <h3>Edit Invoice <span id="edit-invoice-label" style="font-family:monospace;font-size:13px;color:var(--text-2)"></span></h3>
+    <div class="ar-field">
+      <label>Service</label>
+      <input type="text" id="edit-service" placeholder="Professional Services">
+    </div>
+    <div class="ar-field">
+      <label>Amount ($)</label>
+      <input type="number" id="edit-amount" min="0.01" step="0.01" placeholder="0.00">
+    </div>
+    <div class="ar-row2">
+      <div class="ar-field">
+        <label>Invoice Date</label>
+        <input type="date" id="edit-inv-date">
+      </div>
+      <div class="ar-field">
+        <label>Due Date</label>
+        <input type="date" id="edit-due-date">
+      </div>
+    </div>
+    <div class="ar-error" id="edit-error"></div>
+    <div class="ar-actions">
+      <button class="btn-sm" onclick="closeEditModal()">Cancel</button>
+      <button class="btn-sm btn-primary" id="edit-submit-btn" onclick="submitEdit()">Save Changes</button>
     </div>
   </div>
 </div>

@@ -549,7 +549,9 @@ def _build_client_map(wb):
             c = ensure(name)
 
             invoice     = row[AR_C_INVOICE]
+            inv_date_raw= row[AR_C_INV_DATE]     if len(row) > AR_C_INV_DATE     else None
             due_raw     = row[AR_C_DUE_DATE]     if len(row) > AR_C_DUE_DATE     else None
+            service     = row[AR_C_SERVICE]      if len(row) > AR_C_SERVICE      else None
             amount      = row[AR_C_AMOUNT]       if len(row) > AR_C_AMOUNT       else None
             outstanding = row[AR_C_OUTSTANDING]  if len(row) > AR_C_OUTSTANDING  else None
             status      = row[AR_C_STATUS]       if len(row) > AR_C_STATUS       else None
@@ -564,15 +566,18 @@ def _build_client_map(wb):
             except (TypeError, ValueError):
                 amount = outstanding = 0.0
 
-            due      = _to_date(due_raw)
+            inv_date  = _to_date(inv_date_raw)
+            due       = _to_date(due_raw)
             days_over = (today - due).days if due else 0
 
             c['ar'].append({
                 'invoice':      str(invoice) if invoice else '',
                 'amount':       round(amount, 2),
                 'outstanding':  round(outstanding, 2),
+                'inv_date':     inv_date.isoformat() if inv_date else None,
                 'due_date':     due.isoformat() if due else None,
                 'days_overdue': days_over,
+                'service':      str(service) if service else '',
                 'status':       str(status) if status else 'Open',
             })
 
