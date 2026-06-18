@@ -3,6 +3,8 @@
 let finData = null;
 let activeMonth = null;
 
+const FISCAL_YEAR = new Date().getFullYear();
+
 document.addEventListener('DOMContentLoaded', () => {
   if (!requireAuth()) return;
   const payload = jwtPayload(getJWT());
@@ -30,7 +32,7 @@ async function loadFinancials() {
 function renderMonthBar(months) {
   const bar = document.getElementById('month-bar');
   bar.innerHTML = months.map(m =>
-    `<button class="month-btn" id="mbtn-${m}" onclick="selectMonth('${m}')">${m} 2026</button>`
+    `<button class="month-btn" id="mbtn-${m}" onclick="selectMonth('${m}')">${m} ${FISCAL_YEAR}</button>`
   ).join('');
 }
 
@@ -181,11 +183,11 @@ function renderStatements(month) {
   document.getElementById('fin-body').innerHTML = `
     <div class="stmt-grid">
       <div class="stmt-card">
-        <div class="stmt-title">Income Statement (P&amp;L) — ${month} 2026</div>
+        <div class="stmt-title">Income Statement (P&amp;L) — ${month} ${FISCAL_YEAR}</div>
         ${plHtml}
       </div>
       <div class="stmt-card">
-        <div class="stmt-title">Balance Sheet — ${month} 2026</div>
+        <div class="stmt-title">Balance Sheet — ${month} ${FISCAL_YEAR}</div>
         ${bsHtml}
       </div>
     </div>`;
@@ -201,7 +203,7 @@ function handleTxnClick(el) {
 
 async function openTxnModal(acct, monthNum, label, monthName) {
   const overlay = document.getElementById('txn-overlay');
-  document.getElementById('txn-title').textContent    = `GL ${acct} — ${monthName} 2026`;
+  document.getElementById('txn-title').textContent    = `GL ${acct} — ${monthName} ${FISCAL_YEAR}`;
   document.getElementById('txn-subtitle').textContent = label;
   document.getElementById('txn-body').innerHTML = '<div style="padding:24px;color:var(--text-2);">Loading…</div>';
   overlay.style.display = 'flex';
@@ -350,6 +352,7 @@ function renderKpis(data) {
 // ---------------------------------------------------------------------------
 
 let _glTipTimer = null;
+const _glTooltipCache = new Map();
 
 function showGlTooltip(el) {
   clearTimeout(_glTipTimer);
@@ -384,9 +387,18 @@ async function _fetchGlTooltip(el) {
   const tip = document.getElementById('gl-tooltip');
   if (!tip) return;
 
-  tip.innerHTML = `<div style="padding:10px 12px;font-size:12px;color:var(--text-2);">Loading…</div>`;
+  const cacheKey = `${acct}-${monthNum}`;
+  const cached = _glTooltipCache.get(cacheKey);
+
   _positionGlTooltip(tip, el);
   tip.style.display = 'block';
+
+  if (cached) {
+    tip.innerHTML = cached;
+    return;
+  }
+
+  tip.innerHTML = `<div style="padding:10px 12px;font-size:12px;color:var(--text-2);">Loading…</div>`;
 
   try {
     const data = await apiFetch(`/data/transactions?account=${acct}&month=${monthNum}`);
@@ -412,8 +424,8 @@ async function _fetchGlTooltip(el) {
     const more = txns.length > 5
       ? `<div style="padding:3px 8px 4px;font-size:10px;color:var(--text-3);">+${txns.length - 5} more transaction${txns.length - 5 !== 1 ? 's' : ''}</div>`
       : '';
-    tip.innerHTML = `
-      <div style="padding:8px 10px 6px;border-bottom:1px solid var(--border);font-size:12px;font-weight:700;color:var(--navy);">${label} — ${monthName} 2026</div>
+    const html = `
+      <div style="padding:8px 10px 6px;border-bottom:1px solid var(--border);font-size:12px;font-weight:700;color:var(--navy);">${label} — ${monthName} ${FISCAL_YEAR}</div>
       <table style="width:100%;border-collapse:collapse;">
         <thead>
           <tr style="background:#FAFBFC;">
@@ -434,6 +446,8 @@ async function _fetchGlTooltip(el) {
       </table>
       ${more}
       <div style="padding:3px 8px 6px;font-size:10px;color:var(--text-3);">Click to open full detail</div>`;
+    _glTooltipCache.set(cacheKey, html);
+    tip.innerHTML = html;
     _positionGlTooltip(tip, el);
   } catch (_) {
     tip.style.display = 'none';

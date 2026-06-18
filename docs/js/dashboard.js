@@ -225,12 +225,13 @@ function renderCompliance(data) {
     else if (d <= 30) { badgeCls = 'badge--warning'; badgeText = `${d}d`; }
     else              { badgeCls = 'badge--muted';   badgeText = `${d}d`; }
     const due = new Date(item.due_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-    const esc = s => String(s||'').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+    const esc  = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    const slug = item.obligation.replace(/[^A-Za-z0-9]+/g, '_').slice(0, 30);
     return `
-      <div class="deadline-item" id="comp-${esc(item.obligation).replace(/\s+/g,'_').slice(0,30)}">
+      <div class="deadline-item" id="comp-${slug}">
         <span class="deadline-badge ${badgeCls}">${badgeText}</span>
         <div class="deadline-info">
-          <div class="deadline-client">${item.obligation}</div>
+          <div class="deadline-client">${esc(item.obligation)}</div>
           <div class="deadline-meta">${item.category} · ${item.frequency}</div>
         </div>
         <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
@@ -245,19 +246,21 @@ function renderCompliance(data) {
 }
 
 async function markComplianceDone(obligation) {
-  const id = 'comp-' + obligation.replace(/'/g, '').replace(/\s+/g, '_').slice(0, 30);
-  const el = document.getElementById(id);
-  if (el) {
-    el.style.transition = 'opacity 0.3s';
-    el.style.opacity = '0';
-    el.style.pointerEvents = 'none';
-    setTimeout(() => { if (el.parentNode) el.remove(); }, 300);
-  }
+  const slug = obligation.replace(/[^A-Za-z0-9]+/g, '_').slice(0, 30);
+  const el   = document.getElementById('comp-' + slug);
+  if (el) { el.style.opacity = '0.4'; el.style.pointerEvents = 'none'; }
   const res = await apiFetch('/data/compliance-complete', {
     method: 'POST',
     body: JSON.stringify({ obligation }),
   });
-  if (!res?.success) {
+  if (res?.success) {
+    if (el) {
+      el.style.transition = 'opacity 0.3s';
+      el.style.opacity = '0';
+      setTimeout(() => { if (el.parentNode) el.remove(); }, 300);
+    }
+  } else {
+    if (el) { el.style.opacity = '1'; el.style.pointerEvents = ''; }
     showToast(res?.error || 'Could not mark as complete — try refreshing.', 'error');
   }
 }

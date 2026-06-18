@@ -2192,7 +2192,7 @@ def budget_save():
                 ws.cell(row=new_row, column=3).value = budget_hrs
                 ws.cell(row=new_row, column=4).value = today_str
                 ws.cell(row=new_row, column=5).value = key
-        _wb_upload(wb, file_id, svc)
+        _wb_upload_async(wb, file_id, svc)
     except Exception as exc:
         app.logger.error('budget_save workbook error: %s', exc)
         wb_err = str(exc)
@@ -3487,32 +3487,31 @@ def _parse_financials_sheet(ws, available_months, txn_data=None, bs_mode=False):
     return rows
 
 
+def _group_txn_by_month(txn_data):
+    """Single-pass grouping: returns (rev_by_month, exp_by_month) dicts keyed by month int."""
+    rev_by_month = defaultdict(float)
+    exp_by_month = defaultdict(float)
+    for (a, m), v in txn_data.items():
+        if 4000 <= a <= 4999:
+            rev_by_month[m] += v['credit'] - v['debit']
+        elif 5000 <= a <= 9999:
+            exp_by_month[m] += v['debit'] - v['credit']
+    return rev_by_month, exp_by_month
+
+
 def _monthly_net_income(txn_data, available_months):
     """Net income per month: revenue (4xxx credits) minus expenses (5xxx-9xxx debits)."""
-    result = {}
-    for mi in available_months:
-        rev = sum(v['credit'] - v['debit']
-                  for (a, m), v in txn_data.items()
-                  if m == mi and 4000 <= a <= 4999)
-        exp = sum(v['debit'] - v['credit']
-                  for (a, m), v in txn_data.items()
-                  if m == mi and 5000 <= a <= 9999)
-        result[MONTHS[mi - 1]] = round(rev - exp, 2)
-    return result
+    rev, exp = _group_txn_by_month(txn_data)
+    return {MONTHS[mi - 1]: round(rev[mi] - exp[mi], 2) for mi in available_months}
 
 
 def _ytd_net_income(txn_data, available_months):
     """Cumulative YTD net income through each available month."""
+    rev, exp = _group_txn_by_month(txn_data)
     cumulative = 0.0
     result = {}
     for mi in range(1, max(available_months) + 1):
-        rev = sum(v['credit'] - v['debit']
-                  for (a, m), v in txn_data.items()
-                  if m == mi and 4000 <= a <= 4999)
-        exp = sum(v['debit'] - v['credit']
-                  for (a, m), v in txn_data.items()
-                  if m == mi and 5000 <= a <= 9999)
-        cumulative += rev - exp
+        cumulative += rev[mi] - exp[mi]
         if mi in available_months:
             result[MONTHS[mi - 1]] = round(cumulative, 2)
     return result

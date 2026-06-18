@@ -180,27 +180,27 @@ async function handleUpload(files) {
 
   const folderId = currentFolderId();
   const token    = getJWT();
-  const results  = [];
 
-  for (const file of files) {
+  async function uploadOne(file) {
     const form = new FormData();
     form.append('file', file);
     form.append('folder_id', folderId);
-
-    try {
-      const res = await fetch(`${AUTH_URL}/data/drive/upload`, {
-        method:  'POST',
-        headers: { 'Authorization': `Bearer ${token}` },
-        body:    form,
-      });
-      if (res.status === 401) { clearJWT(); window.location.href = 'auth.html'; return; }
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-      results.push({ name: file.name, ok: true });
-    } catch (err) {
-      results.push({ name: file.name, ok: false, error: err.message });
-    }
+    const res = await fetch(`${AUTH_URL}/data/drive/upload`, {
+      method:  'POST',
+      headers: { 'Authorization': `Bearer ${token}` },
+      body:    form,
+    });
+    if (res.status === 401) { clearJWT(); window.location.href = 'auth.html'; return { name: file.name, ok: false, auth: true }; }
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+    return { name: file.name, ok: true };
   }
+
+  const settled = await Promise.allSettled([...files].map(f => uploadOne(f)));
+  if (settled.some(r => r.value?.auth)) return;
+  const results = settled.map((r, i) =>
+    r.status === 'fulfilled' ? r.value : { name: files[i].name, ok: false, error: r.reason?.message }
+  );
 
   const failed = results.filter(r => !r.ok);
   if (!failed.length) {

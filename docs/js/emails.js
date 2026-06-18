@@ -379,10 +379,11 @@ async function sendCompose() {
   errEl.textContent   = '';
 
   try {
-    await apiFetch('/data/email/reply', {
+    const result = await apiFetch('/data/email/reply', {
       method: 'POST',
       body: JSON.stringify({ to, cc, subject, body, in_reply_to: inReplyTo, alias: currentAlias }),
     });
+    if (!result) return; // 401 redirect — apiFetch already navigated away
     closeCompose();
     showToast('Email sent.', 'success', 3000);
   } catch (err) {

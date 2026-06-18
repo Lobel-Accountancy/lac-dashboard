@@ -424,16 +424,16 @@ function closeAddModal() {
 }
 
 async function submitAdd() {
-  const client  = document.getElementById('add-client').value.trim();
-  const invoice = document.getElementById('add-invoice').value.trim();
-  const amount  = parseFloat(document.getElementById('add-amount').value);
-  const service = document.getElementById('add-service').value.trim() || 'Professional Services';
-  const invDate = document.getElementById('add-inv-date').value;
-  const dueDate = document.getElementById('add-due-date').value;
-  const errEl   = document.getElementById('add-error');
+  const clientName = document.getElementById('add-client').value.trim();
+  const invoice    = document.getElementById('add-invoice').value.trim();
+  const amount     = parseFloat(document.getElementById('add-amount').value);
+  const service    = document.getElementById('add-service').value.trim() || 'Professional Services';
+  const invDate    = document.getElementById('add-inv-date').value;
+  const dueDate    = document.getElementById('add-due-date').value;
+  const errEl      = document.getElementById('add-error');
 
-  if (!client)          { errEl.textContent = 'Client is required.'; return; }
-  if (!invoice)         { errEl.textContent = 'Invoice # is required.'; return; }
+  if (!clientName)        { errEl.textContent = 'Client is required.'; return; }
+  if (!invoice)           { errEl.textContent = 'Invoice # is required.'; return; }
   if (!amount || amount <= 0) { errEl.textContent = 'Enter a valid amount.'; return; }
 
   closeAddModal();
@@ -441,11 +441,27 @@ async function submitAdd() {
 
   const res = await apiFetch('/wb/ar/add', {
     method: 'POST',
-    body: JSON.stringify({ client, invoice, amount, service, inv_date: invDate, due_date: dueDate }),
+    body: JSON.stringify({ client: clientName, invoice, amount, service, inv_date: invDate, due_date: dueDate }),
   });
 
   if (res?.ok) {
-    loadClients();
+    const existingClient = _allClients.find(c => c.name === clientName);
+    if (existingClient) {
+      const daysOverdue = dueDate
+        ? Math.max(0, Math.floor((Date.now() - new Date(dueDate + 'T00:00:00').getTime()) / 86400000))
+        : 0;
+      existingClient.ar.invoices.push({
+        invoice, amount, outstanding: amount, service,
+        inv_date: invDate, due_date: dueDate, status: 'Unpaid', days_overdue: daysOverdue,
+      });
+      recalcClientAR(existingClient);
+      applyFilter();
+      renderAgingChart(_allClients);
+      _refreshOpenDetail();
+      setStatus(`Updated ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} · ${_allClients.length} clients`);
+    } else {
+      loadClients();
+    }
   } else {
     setStatus('');
     showToast(res?.error || 'Failed to add receivable.', 'error');
@@ -495,7 +511,30 @@ async function submitEdit() {
   if (invDate) updates.inv_date = invDate;
   if (dueDate) updates.due_date = dueDate;
 
+  const clientIdx = _allClients.findIndex(c => c.ar.invoices.some(i => i.invoice === _editInvoice));
+  const client    = _allClients[clientIdx];
+  const inv       = client?.ar.invoices.find(i => i.invoice === _editInvoice);
+  const snap      = inv ? { ...inv } : null;
+  const arSnap    = client ? JSON.parse(JSON.stringify(client.ar)) : null;
+
+  if (inv) {
+    if (service) inv.service = service;
+    if (amount) {
+      const oldPaid = inv.amount - inv.outstanding;
+      inv.amount      = amount;
+      inv.outstanding = Math.max(0, amount - oldPaid);
+    }
+    if (invDate) inv.inv_date = invDate;
+    if (dueDate) {
+      inv.due_date    = dueDate;
+      inv.days_overdue = Math.max(0, Math.floor((Date.now() - new Date(dueDate + 'T00:00:00').getTime()) / 86400000));
+    }
+    recalcClientAR(client);
+  }
+
   closeEditModal();
+  applyFilter();
+  _refreshOpenDetail();
   setStatus('Saving…');
 
   const res = await apiFetch('/wb/ar/update', {
@@ -504,10 +543,13 @@ async function submitEdit() {
   });
 
   if (res?.ok) {
-    loadClients();
+    setStatus(`Updated ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} · ${_allClients.length} clients`);
   } else {
-    setStatus('');
+    if (inv && snap) { Object.assign(inv, snap); if (client) client.ar = arSnap; }
+    applyFilter();
+    _refreshOpenDetail();
     showToast(res?.error || 'Failed to save changes.', 'error');
+    setStatus('');
   }
 }
 
@@ -547,8 +589,7 @@ function renderAgingChart(clients) {
       if (status === 'paid') return;
       const outstanding = parseFloat(inv.outstanding) || 0;
       if (outstanding <= 0) return;
-      const due  = inv.due_date ? new Date(inv.due_date) : null;
-      const days = due ? Math.floor((Date.now() - due.getTime()) / 86400000) : 0;
+      const days = inv.days_overdue ?? 0;
       if (days <= 0)       buckets['Current']     += outstanding;
       else if (days <= 30) buckets['1–30 days']   += outstanding;
       else if (days <= 60) buckets['31–60 days']  += outstanding;

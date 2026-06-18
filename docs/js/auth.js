@@ -69,10 +69,11 @@ function logout() {
 async function apiFetch(path, opts = {}) {
   const token = getJWT();
   const extraHeaders = window.LAC_TEST_MODE ? { 'X-Env': 'test' } : {};
+  const isFormData = opts.body instanceof FormData;
   const res = await fetch(`${AUTH_URL}${path}`, {
     ...opts,
     headers: {
-      'Content-Type': 'application/json',
+      ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
       'Authorization': `Bearer ${token}`,
       ...extraHeaders,
       ...(opts.headers || {}),
