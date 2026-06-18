@@ -285,15 +285,8 @@ function renderKpis(data) {
   function getYtd(rows, test, mo)  { const r = (rows || []).find(r => test(r.label)); return r ? (r.ytd?.[mo]   ?? 0) : 0; }
   function getAcct(rows, prefix)   { return (rows || []).find(r => r.label.startsWith(prefix) && !r.is_section && !r.is_total) || null; }
 
-  const isRev = l => l.toUpperCase() === 'TOTAL REVENUE';
-  const isExp = l => l.toUpperCase().startsWith('TOTAL EXPENSE');
   const isNI  = l => /NET (INCOME|LOSS)/i.test(l);
 
-  const rev    = getVal(data.pl, isRev, cur);
-  const revPrv = prev !== null ? getVal(data.pl, isRev, prev) : null;
-  const revYtd = getYtd(data.pl, isRev, cur);
-  const exp    = getVal(data.pl, isExp, cur);
-  const expPrv = prev !== null ? getVal(data.pl, isExp, prev) : null;
   const ni     = getVal(data.pl, isNI,  cur);
   const niPrv  = prev !== null ? getVal(data.pl, isNI,  prev) : null;
   const niYtd  = getYtd(data.pl, isNI,  cur);
@@ -336,8 +329,6 @@ function renderKpis(data) {
   const niYtdCol = niYtd >= 0 ? 'var(--ok)' : 'var(--danger)';
 
   const cards = [
-    card(`Revenue — ${cur}`,  rev,   `YTD: $${$$(revYtd)}`, badge(rev, revPrv, true),  null, null),
-    card(`Expenses — ${cur}`, exp,   null,                   badge(exp, expPrv, false), null, null),
     card(`Net P&L — ${cur}`,  ni,    `YTD: $${$$(niYtd)}`,  badge(ni,  niPrv,  true),  null, niCol),
     card(`Net P&L YTD`,       niYtd, null,                   '',                        null, niYtdCol),
     cash !== null ? card('Cash (1000)',  cash, null, '', `onclick="openTxnModal('1000','${monthNum}','1000 Operating Account','${cur}')"`, null) : '',
