@@ -2485,6 +2485,8 @@ def docs_pdf(item_id):
     state = _load_doc_state()
     item  = next((p for p in state['pending'] if p['id'] == item_id), None)
     if not item:
+        item = state.get('recently_approved', {}).get(item_id)
+    if not item:
         return jsonify({'error': 'item not found'}), 404
     pdf_path = item.get('draft_pdf')
     if not pdf_path or not os.path.exists(pdf_path):
@@ -2539,6 +2541,12 @@ def docs_approve():
         app.logger.error('docs_approve error: %s', exc)
         return jsonify({'error': str(exc)}), 500
 
+    # Preserve generated PDF so /docs/pdf/ can serve it after the item leaves pending
+    item['draft_pdf'] = pdf_path
+    if 'recently_approved' not in state:
+        state['recently_approved'] = {}
+    state['recently_approved'][item_id] = item
+
     # Record sent date (used by rep_letter for ENGAGEMENT_LETTER_DATE)
     key = f"{item['deal_id']}|{item['doc_type']}"
     if key in state['triggered']:
@@ -2568,6 +2576,7 @@ def docs_approve():
         'client': item['client'],
         'doc_type': item['doc_type'],
         'label': DOC_TYPE_LABELS.get(item['doc_type'], item['doc_type']),
+        'pdf_url': f'/docs/pdf/{item_id}',
     })
 
 

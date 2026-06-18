@@ -132,6 +132,22 @@
       cursor: pointer; padding: 0;
     }
     .btn-refresh-sm:hover { color: var(--navy); }
+
+    /* Full-screen PDF overlay */
+    #pdf-modal {
+      display: none; position: fixed; inset: 0; z-index: 9999;
+      flex-direction: column; background: #1a1a1a;
+    }
+    #pdf-modal.open { display: flex; }
+    .pdf-modal-bar {
+      display: flex; align-items: center; gap: 12px;
+      padding: 0 16px; height: 48px; flex-shrink: 0;
+      background: var(--navy); color: white;
+    }
+    .pdf-modal-title { flex: 1; font-size: 14px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .pdf-modal-newtab { font-size: 13px; color: #93c5fd; text-decoration: none; white-space: nowrap; flex-shrink: 0; }
+    .pdf-modal-close { background: none; border: none; color: white; font-size: 28px; line-height: 1; cursor: pointer; padding: 0 2px; flex-shrink: 0; }
+    #pdf-modal-frame { flex: 1; width: 100%; border: none; }
   </style>
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#1B2A3F">
@@ -165,6 +181,15 @@
 
 </main>
 
+<div id="pdf-modal">
+  <div class="pdf-modal-bar">
+    <span class="pdf-modal-title" id="pdf-modal-title">Invoice Preview</span>
+    <a class="pdf-modal-newtab" id="pdf-modal-newtab" href="#" target="_blank" rel="noopener">Open in new tab ↗</a>
+    <button class="pdf-modal-close" onclick="closePdfModal()">×</button>
+  </div>
+  <iframe id="pdf-modal-frame" src=""></iframe>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script src="js/nav.js"></script>
@@ -172,6 +197,8 @@
 <script src="js/palette.js"></script>
 <script src="js/auth.js"></script>
 <script>
+const AUTH_URL = 'https://auth.lobelaccountancy.com';
+
 document.addEventListener('DOMContentLoaded', () => {
   if (!requireAuth()) return;
   const payload = jwtPayload(getJWT());
@@ -179,6 +206,20 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('nav-user').textContent = name;
   loadDocs();
 });
+
+function openPdfModal(url, title) {
+  if (title) document.getElementById('pdf-modal-title').textContent = title;
+  document.getElementById('pdf-modal-newtab').href = url;
+  document.getElementById('pdf-modal-frame').src = url;
+  document.getElementById('pdf-modal').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function closePdfModal() {
+  document.getElementById('pdf-modal').classList.remove('open');
+  document.getElementById('pdf-modal-frame').src = '';
+  document.body.style.overflow = '';
+}
 
 // ---------------------------------------------------------------------------
 // Data
@@ -276,7 +317,6 @@ async function previewDoc(id, docType) {
   btn.textContent = 'Generating…';
 
   try {
-    const AUTH_URL = 'https://auth.lobelaccountancy.com';
     const jwt = localStorage.getItem('lac_jwt');
     const res = await fetch(`${AUTH_URL}/docs/preview`, {
       method: 'POST',
@@ -286,17 +326,14 @@ async function previewDoc(id, docType) {
     const data = await res.json();
     if (!res.ok) { btn.textContent = data.error || 'Error'; btn.disabled = false; return; }
 
-    const actionsEl = document.getElementById(`actions-${id}`);
     const editLabel = docType === 'proposal' ? 'Edit in Google Slides' : 'Edit in Google Docs';
     const editBtn   = data.edit_url
       ? `<a class="btn-edit" href="${data.edit_url}" target="_blank" rel="noopener">✏ ${editLabel}</a>`
       : '';
     const pdfUrl = `${AUTH_URL}${data.pdf_url}?token=${encodeURIComponent(jwt)}`;
 
-    // Replace preview button with PDF + edit links; keep approve/dismiss
-    btn.outerHTML = `
-      <a class="btn-view" href="${pdfUrl}" target="_blank" rel="noopener">📄 Preview PDF</a>
-      ${editBtn}`;
+    // Replace preview button with PDF viewer + edit links; keep approve/dismiss
+    btn.outerHTML = `<button class="btn-view" data-pdf-url="${pdfUrl}" onclick="openPdfModal(this.dataset.pdfUrl,'Preview PDF')">📄 Preview PDF</button>${editBtn}`;
   } catch (e) {
     btn.textContent = 'Error'; btn.disabled = false;
   }
@@ -307,7 +344,6 @@ async function downloadDoc(id) {
   btn.disabled = true;
   btn.textContent = 'Generating…';
 
-  const AUTH_URL = 'https://auth.lobelaccountancy.com';
   const jwt = localStorage.getItem('lac_jwt');
 
   // Ensure preview (PDF) exists first
@@ -356,6 +392,12 @@ async function approve(id, client, label) {
       loadDocs();
     } else {
       countEl.textContent = remaining;
+    }
+    // Show the sent PDF full-screen
+    if (res.pdf_url) {
+      const jwt = localStorage.getItem('lac_jwt');
+      const pdfUrl = `${AUTH_URL}${res.pdf_url}?token=${encodeURIComponent(jwt)}`;
+      openPdfModal(pdfUrl, `${label} — ${client}`);
     }
   } else {
     actionsEl.innerHTML = `
