@@ -296,15 +296,18 @@ def _drive_service():
 
 def _fetch_workbook():
     svc = _drive_service()
-    results = svc.files().list(
-        q=f"name='{WORKBOOK_NAME}' and "
-          f"mimeType='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'",
-        fields='files(id)',
-    ).execute()
-    files = results.get('files', [])
-    if not files:
-        raise RuntimeError(f"'{WORKBOOK_NAME}' not found in Drive")
-    file_id = files[0]['id']
+    file_id = _wb_file_id_cache.get('id')
+    if not file_id:
+        results = svc.files().list(
+            q=f"name='{WORKBOOK_NAME}' and "
+              f"mimeType='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'",
+            fields='files(id)',
+        ).execute()
+        files = results.get('files', [])
+        if not files:
+            raise RuntimeError(f"'{WORKBOOK_NAME}' not found in Drive")
+        file_id = files[0]['id']
+        _wb_file_id_cache['id'] = file_id
 
     req = svc.files().get_media(fileId=file_id)
     buf = io.BytesIO()

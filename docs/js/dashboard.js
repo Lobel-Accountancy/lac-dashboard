@@ -1,8 +1,9 @@
 const REFRESH_INTERVAL = 5 * 60 * 1000;
 
-let _pipelineChart = null;
-let _arDonutChart  = null;
-let _sparkChart    = null;
+let _pipelineChart   = null;
+let _arDonutChart    = null;
+let _sparkChart      = null;
+let _briefingInterval = null;
 
 document.addEventListener('DOMContentLoaded', () => {
   if (!requireAuth()) return;
@@ -11,7 +12,8 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('nav-user').textContent = name;
   document.getElementById('greeting').textContent = greeting();
   loadBriefing();
-  setInterval(loadBriefing, REFRESH_INTERVAL);
+  if (_briefingInterval) clearInterval(_briefingInterval);
+  _briefingInterval = setInterval(loadBriefing, REFRESH_INTERVAL);
 });
 
 function greeting() {
@@ -38,6 +40,9 @@ async function loadBriefing() {
     renderPipelineChart(data.pipeline);
     renderARDonut(data.ar);
     renderRegulatory(reg);
+    // Share overdue count so nav.js badge skips a redundant API call on other pages
+    sessionStorage.setItem('lac_badge_overdue', data.ar?.overdue_count || 0);
+    sessionStorage.setItem('lac_badge_overdue_ts', Date.now());
     setRefreshStatus(`Updated ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`);
   } catch (err) {
     setRefreshStatus(`Error: ${err.message}`);
@@ -77,6 +82,10 @@ function renderKPIs(data) {
   const trend   = data.revenue_trend || [];
   const month   = new Date().toLocaleString('en-US', { month: 'long' });
   const grid    = document.getElementById('kpi-grid');
+
+  // Destroy existing sparkline before its canvas element is removed from DOM
+  const oldCanvas = document.getElementById('revenue-sparkline');
+  if (oldCanvas?._chart) { oldCanvas._chart.destroy(); oldCanvas._chart = null; }
 
   grid.innerHTML = `
     <div class="kpi-card">

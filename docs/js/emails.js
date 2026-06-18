@@ -1,12 +1,13 @@
 const REFRESH_INTERVAL = 2 * 60 * 1000;
 const ALIASES          = ['jlobel', 'info', 'billing'];
 
-let currentAlias  = 'jlobel';
-let emailData     = [];
-let _showAll      = true;
-let _searchQuery  = '';
-let _loading      = false;
+let currentAlias       = 'jlobel';
+let emailData          = [];
+let _showAll           = true;
+let _searchQuery       = '';
+let _loading           = false;
 let _composeEmailIndex = -1;
+let _emailInterval     = null;
 
 const SIGNATURE = `\n\n--\nJeffrey Lobel, CPA\nLobel Accountancy Corporation\n(949) 345-1925\njlobel@lobelaccountancy.com`;
 
@@ -83,7 +84,8 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('nav-user').textContent = (payload?.email || '').split('@')[0];
 
   loadEmails();
-  setInterval(loadEmails, REFRESH_INTERVAL);
+  if (_emailInterval) clearInterval(_emailInterval);
+  _emailInterval = setInterval(loadEmails, REFRESH_INTERVAL);
 
   // Close compose modal on backdrop click
   document.getElementById('compose-modal').addEventListener('click', e => {

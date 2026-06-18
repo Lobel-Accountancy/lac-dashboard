@@ -157,19 +157,32 @@ const NAV_GROUPS = [
     observer.observe(document.body, { childList: true, subtree: true });
   }
 
-  // Load notification badges
+  // Load notification badges — uses sessionStorage to avoid a redundant
+  // morning-briefing fetch on pages that already pull this data (e.g. index.html).
   async function loadBadges() {
     try {
       const token = localStorage.getItem('lac_jwt');
       if (!token) return;
-      const AUTH_URL = 'https://auth.lobelaccountancy.com';
-      const res = await fetch(`${AUTH_URL}/data/morning-briefing`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      if (!res.ok) return;
-      const data = await res.json();
 
-      const overdueCount = data.ar?.overdue_count || 0;
+      const cached   = sessionStorage.getItem('lac_badge_overdue');
+      const cachedAt = Number(sessionStorage.getItem('lac_badge_overdue_ts') || 0);
+      const BADGE_TTL = 5 * 60 * 1000;
+
+      let overdueCount;
+      if (cached !== null && Date.now() - cachedAt < BADGE_TTL) {
+        overdueCount = Number(cached);
+      } else {
+        const AUTH_URL = 'https://auth.lobelaccountancy.com';
+        const res = await fetch(`${AUTH_URL}/data/morning-briefing`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        overdueCount = data.ar?.overdue_count || 0;
+        sessionStorage.setItem('lac_badge_overdue', overdueCount);
+        sessionStorage.setItem('lac_badge_overdue_ts', Date.now());
+      }
+
       if (overdueCount > 0) {
         const b = document.getElementById('badge-briefing');
         if (b) { b.textContent = overdueCount; b.hidden = false; }
