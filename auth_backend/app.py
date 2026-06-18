@@ -1,5 +1,6 @@
 import io
 import imaplib
+import threading
 import ipaddress
 import json
 import os
@@ -143,7 +144,8 @@ def require_jwt(f):
         token = auth[7:]
         try:
             payload = jwt.decode(token, JWT_SECRET, algorithms=['HS256'])
-            request.user_email = payload['email']
+            request.user_email  = payload['email']
+            request.client_name = '__staff__'
         except jwt.ExpiredSignatureError:
             return jsonify({'error': 'Session expired — please sign in again'}), 401
         except jwt.InvalidTokenError:
@@ -282,6 +284,7 @@ _DRIVE_RW_SCOPES  = ['https://www.googleapis.com/auth/drive']
 
 _wb_cache: dict = {'wb': None, 'fetched_at': 0.0}
 _WB_TTL = 600  # 10-minute cache
+_wb_lock = threading.Lock()
 _wb_file_id_cache: dict = {'id': None}  # permanent cache — file ID never changes
 
 
@@ -315,9 +318,14 @@ def _fetch_workbook():
 
 def _workbook():
     now = time.time()
-    if _wb_cache['wb'] is None or now - _wb_cache['fetched_at'] > _WB_TTL:
-        _wb_cache['wb']        = _fetch_workbook()
-        _wb_cache['fetched_at'] = now
+    if _wb_cache['wb'] is not None and now - _wb_cache['fetched_at'] <= _WB_TTL:
+        return _wb_cache['wb']
+    with _wb_lock:
+        # Re-check inside lock — another thread may have refreshed while we waited
+        now = time.time()
+        if _wb_cache['wb'] is None or now - _wb_cache['fetched_at'] > _WB_TTL:
+            _wb_cache['wb']         = _fetch_workbook()
+            _wb_cache['fetched_at'] = now
     return _wb_cache['wb']
 
 
@@ -361,22 +369,9 @@ def _wb_download_writable():
     wb = load_xlsx(_WB_LOCAL_PATH, data_only=True)
     return wb, fid, svc
 
-def _wb_upload(fid, svc):
-    """Save the local workbook and upload it back to Drive, then bust cache."""
-    from googleapiclient.http import MediaFileUpload as _UL
-    media = _UL(
-        _WB_LOCAL_PATH,
-        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        resumable=False,
-    )
-    svc.files().update(fileId=fid, media_body=media).execute()
-    # Bust read cache so dashboard picks up changes immediately
-    _wb_cache['wb'] = None
-    _wb_cache['fetched_at'] = 0.0
-
 def _wb_save_and_upload(wb, fid, svc):
-    wb.save(_WB_LOCAL_PATH)
-    _wb_upload(fid, svc)
+    """Save workbook and upload — delegates to the main _wb_upload helper defined below."""
+    _wb_upload(wb, fid, svc)
 
 # ---------------------------------------------------------------------------
 # Engagement Pipeline column map (same as invoice_automation.py)
@@ -1318,12 +1313,6 @@ def compliance_dates():
 @require_jwt
 def compliance_complete():
     """Mark a compliance item complete and write the date back to the workbook."""
-    import io as _io
-    from openpyxl import load_workbook as _lw
-    from google.oauth2 import service_account as _sa
-    from googleapiclient.discovery import build as _build
-    from googleapiclient.http import MediaIoBaseDownload as _DL, MediaFileUpload as _UL
-
     body       = request.get_json(force=True) or {}
     obligation = (body.get('obligation') or '').strip()
     completed  = (body.get('completed_date') or date.today().isoformat())
@@ -1331,24 +1320,8 @@ def compliance_complete():
     if not obligation:
         return jsonify({'error': 'obligation required'}), 400
 
-    WB_NAME = os.getenv('GOOGLE_DRIVE_WORKBOOK_NAME', 'LAC Workbook.xlsx')
     try:
-        creds  = _sa.Credentials.from_service_account_file(CREDENTIALS_PATH, scopes=DRIVE_RW_SCOPES)
-        svc    = _build('drive', 'v3', credentials=creds)
-        files  = svc.files().list(
-            q=f"name='{WB_NAME}' and mimeType='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'",
-            fields='files(id)'
-        ).execute().get('files', [])
-        if not files:
-            return jsonify({'error': 'Workbook not found'}), 503
-        file_id = files[0]['id']
-
-        buf = _io.BytesIO()
-        dl  = _DL(buf, svc.files().get_media(fileId=file_id))
-        done = False
-        while not done: _, done = dl.next_chunk()
-        buf.seek(0)
-        wb = _lw(buf)
+        wb, file_id, svc = _wb_download_fresh()
 
         if 'Key Compliance Dates' not in wb.sheetnames:
             return jsonify({'error': 'Key Compliance Dates tab not found'}), 404
@@ -1369,20 +1342,9 @@ def compliance_complete():
         if not found:
             return jsonify({'error': f"Obligation '{obligation}' not found"}), 404
 
-        out = _io.BytesIO()
         wb.calculation.calcMode = 'auto'
         wb.calculation.calcOnSave = True
-        wb.save(out)
-        out.seek(0)
-        local = WB_LOCAL_PATH
-        with open(local, 'wb') as f:
-            f.write(out.read())
-
-        media = _UL(local, mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-        svc.files().update(fileId=file_id, media_body=media).execute()
-
-        _wb_cache['wb'] = None
-        _wb_cache['fetched_at'] = 0
+        _wb_upload_async(wb, file_id, svc)
 
     except Exception as exc:
         app.logger.error('compliance_complete error: %s', exc)
@@ -3130,61 +3092,63 @@ def _fetch_zoho_emails():
         _, data = imap.search(None, 'UNSEEN')
         all_ids = data[0].split()
 
-        # Fetch the 60 most recent unread, newest first
+        # Fetch the 60 most recent unread, newest first — single batch round-trip
         recent = list(reversed(all_ids[-60:]))
 
         emails = []
-        for eid in recent:
-            try:
-                _, msg_data = imap.fetch(eid, '(BODY.PEEK[])')
-                if not msg_data or not msg_data[0]:
+        if recent:
+            uid_str = b','.join(recent)
+            _, raw_list = imap.fetch(uid_str, '(BODY.PEEK[])')
+            for item in (raw_list or []):
+                if not isinstance(item, tuple):
                     continue
-                msg = _email_pkg.message_from_bytes(msg_data[0][1])
-
-                from_raw = _hdr(msg.get('From', ''))
-                to_raw   = _hdr(msg.get('To', ''))
-                subject  = _hdr(msg.get('Subject', '')) or '(no subject)'
-                date_raw = msg.get('Date', '')
-
-                from_name, from_addr = _email_utils.parseaddr(from_raw)
-                from_display = from_name.strip() or from_addr
-
-                # Format date: today → time, this week → weekday, older → Mon D
                 try:
-                    tup = _email_utils.parsedate_tz(date_raw)
-                    ts  = _email_utils.mktime_tz(tup) if tup else None
-                    if ts:
-                        dt    = datetime.fromtimestamp(ts)
-                        today = datetime.now().date()
-                        delta = (today - dt.date()).days
-                        if delta == 0:
-                            date_str = dt.strftime('%-I:%M %p')
-                        elif delta < 7:
-                            date_str = dt.strftime('%a')
+                    msg = _email_pkg.message_from_bytes(item[1])
+
+                    from_raw = _hdr(msg.get('From', ''))
+                    to_raw   = _hdr(msg.get('To', ''))
+                    subject  = _hdr(msg.get('Subject', '')) or '(no subject)'
+                    date_raw = msg.get('Date', '')
+
+                    from_name, from_addr = _email_utils.parseaddr(from_raw)
+                    from_display = from_name.strip() or from_addr
+
+                    # Format date: today → time, this week → weekday, older → Mon D
+                    try:
+                        tup = _email_utils.parsedate_tz(date_raw)
+                        ts  = _email_utils.mktime_tz(tup) if tup else None
+                        if ts:
+                            dt    = datetime.fromtimestamp(ts)
+                            today = datetime.now().date()
+                            delta = (today - dt.date()).days
+                            if delta == 0:
+                                date_str = dt.strftime('%-I:%M %p')
+                            elif delta < 7:
+                                date_str = dt.strftime('%a')
+                            else:
+                                date_str = dt.strftime('%b %-d')
                         else:
-                            date_str = dt.strftime('%b %-d')
-                    else:
+                            date_str = date_raw[:10]
+                    except Exception:
                         date_str = date_raw[:10]
+
+                    message_id   = (msg.get('Message-ID') or '').strip()
+                    reply_to_raw = _hdr(msg.get('Reply-To', '')) or from_raw
+                    _, reply_to_addr = _email_utils.parseaddr(reply_to_raw)
+
+                    emails.append({
+                        'from_name':  from_display,
+                        'from_email': from_addr,
+                        'reply_to':   reply_to_addr or from_addr,
+                        'to':         to_raw,
+                        'subject':    subject,
+                        'date':       date_str,
+                        'snippet':    _body_snippet(msg),
+                        'body':       _body_snippet(msg, max_len=1500),
+                        'message_id': message_id,
+                    })
                 except Exception:
-                    date_str = date_raw[:10]
-
-                message_id   = (msg.get('Message-ID') or '').strip()
-                reply_to_raw = _hdr(msg.get('Reply-To', '')) or from_raw
-                _, reply_to_addr = _email_utils.parseaddr(reply_to_raw)
-
-                emails.append({
-                    'from_name':  from_display,
-                    'from_email': from_addr,
-                    'reply_to':   reply_to_addr or from_addr,
-                    'to':         to_raw,
-                    'subject':    subject,
-                    'date':       date_str,
-                    'snippet':    _body_snippet(msg),
-                    'body':       _body_snippet(msg, max_len=1500),
-                    'message_id': message_id,
-                })
-            except Exception:
-                continue
+                    continue
 
         imap.logout()
         _EMAIL_CACHE.update({'data': emails, 'ts': now, 'error': None})
@@ -3228,12 +3192,6 @@ def get_emails():
 # ---------------------------------------------------------------------------
 
 app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024   # 50 MB upload cap
-
-
-def _drive_rw_service():
-    creds = service_account.Credentials.from_service_account_file(
-        CREDENTIALS_PATH, scopes=DRIVE_RW_SCOPES)
-    return build('drive', 'v3', credentials=creds)
 
 
 @app.route('/data/drive', methods=['GET'])
