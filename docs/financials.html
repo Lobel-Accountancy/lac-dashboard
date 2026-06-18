@@ -148,24 +148,6 @@
       color: var(--text-2); font-size: 14px;
     }
 
-    /* ---- KPI tiles ---- */
-    .kpi-card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      box-shadow: var(--shadow);
-      padding: 16px 20px;
-      display: flex;
-      flex-direction: column;
-      gap: 5px;
-    }
-    .kpi-clickable { cursor: pointer; transition: border-color .15s, box-shadow .15s; }
-    .kpi-clickable:hover { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(37,99,235,.1); }
-    .kpi-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: var(--text-2); }
-    .kpi-value { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.15; }
-    .kpi-sub   { font-size: 11px; color: var(--text-2); }
-    @media (max-width: 900px) { #kpi-bar { grid-template-columns: repeat(2,1fr); } }
-    @media (max-width: 440px) { #kpi-bar { grid-template-columns: 1fr; } }
 
     /* ---- Drillable cells ---- */
     .val-drillable { cursor: pointer; }
@@ -191,9 +173,6 @@
     <span style="font-size:12px;color:var(--text-3);">GAAP Basis · FY2026</span>
   </div>
   <div class="error-banner" id="error-banner" hidden></div>
-
-  <!-- KPI summary bar -->
-  <div id="kpi-bar" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px;"></div>
 
   <div class="month-bar" id="month-bar"></div>
 

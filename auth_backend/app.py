@@ -1679,6 +1679,43 @@ def _parse_bi_pipeline(wb):
     }
 
 
+def _parse_is_net_income(wb):
+    """Return current month net income/loss from Income Statement: {value, label}."""
+    import re as _re
+    if 'Income Statement' not in wb.sheetnames:
+        return None
+    ws         = wb['Income Statement']
+    month_abbr = date.today().strftime('%b')
+
+    header_row = None
+    for row in ws.iter_rows(min_row=1, max_row=15, values_only=True):
+        if row and str(row[0] or '').strip() == 'Account':
+            header_row = row
+            break
+    if header_row is None:
+        return None
+
+    month_col = None
+    for ci, val in enumerate(header_row):
+        if val and str(val).strip()[:3].lower() == month_abbr.lower():
+            month_col = ci
+            break
+    if month_col is None:
+        return None
+
+    for row in ws.iter_rows(min_row=1, values_only=True):
+        label = str(row[0] or '').strip() if row else ''
+        if _re.search(r'NET\s+(INCOME|LOSS)', label, _re.I):
+            val = row[month_col] if len(row) > month_col else None
+            try:
+                value = float(val) if val is not None else 0.0
+            except (TypeError, ValueError):
+                value = 0.0
+            return {'value': value, 'label': label}
+
+    return None
+
+
 @app.route('/data/bi', methods=['GET'])
 @require_jwt
 def bi_dashboard():
@@ -1689,12 +1726,13 @@ def bi_dashboard():
         return jsonify({'error': 'Could not load workbook from Drive'}), 503
 
     return jsonify({
-        'date':         date.today().isoformat(),
-        'revenue':      _parse_bi_revenue(wb),
-        'revenue_mtd':  _parse_is_revenue(wb),
-        'ar_buckets':   _parse_bi_ar_buckets(wb),
-        'pipeline':     _parse_bi_pipeline(wb),
-        'cached_age':   round(time.time() - _wb_cache['fetched_at']),
+        'date':           date.today().isoformat(),
+        'revenue':        _parse_bi_revenue(wb),
+        'revenue_mtd':    _parse_is_revenue(wb),
+        'net_income_mtd': _parse_is_net_income(wb),
+        'ar_buckets':     _parse_bi_ar_buckets(wb),
+        'pipeline':       _parse_bi_pipeline(wb),
+        'cached_age':     round(time.time() - _wb_cache['fetched_at']),
     })
 
 

@@ -41,7 +41,7 @@
     /* BI KPI row */
     .bi-kpi-grid {
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
       gap: 14px;
       margin-bottom: 20px;
     }
@@ -110,6 +110,11 @@
         <div class="kpi-label">YTD Billed</div>
         <div class="kpi-value" id="rev-ytd">—</div>
         <div class="kpi-sub">AR Aging · Jan — today</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label" id="ni-label">Net Income — Current Month</div>
+        <div class="kpi-value" id="ni-mtd">—</div>
+        <div class="kpi-sub">Income Statement</div>
       </div>
     </div>
 

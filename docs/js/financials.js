@@ -26,7 +26,6 @@ async function loadFinancials() {
 
   renderMonthBar(data.months);
   selectMonth(data.months[data.months.length - 1]);
-  renderKpis(data);
 }
 
 function renderMonthBar(months) {
@@ -265,77 +264,6 @@ async function openTxnModal(acct, monthNum, label, monthName) {
 
 function closeTxnModal() {
   document.getElementById('txn-overlay').style.display = 'none';
-}
-
-// ---------------------------------------------------------------------------
-// KPI summary tiles
-// ---------------------------------------------------------------------------
-
-function renderKpis(data) {
-  const bar = document.getElementById('kpi-bar');
-  if (!bar) return;
-  const months = data.months || [];
-  if (!months.length) { bar.innerHTML = ''; return; }
-
-  const cur      = months[months.length - 1];
-  const prev     = months.length > 1 ? months[months.length - 2] : null;
-  const monthNum = MONTH_ORDER.indexOf(cur) + 1;
-
-  function getVal(rows, test, mo)  { const r = (rows || []).find(r => test(r.label)); return r ? (r.months?.[mo] ?? 0) : 0; }
-  function getYtd(rows, test, mo)  { const r = (rows || []).find(r => test(r.label)); return r ? (r.ytd?.[mo]   ?? 0) : 0; }
-  function getAcct(rows, prefix)   { return (rows || []).find(r => r.label.startsWith(prefix) && !r.is_section && !r.is_total) || null; }
-
-  const isNI  = l => /NET (INCOME|LOSS)/i.test(l);
-
-  const ni     = getVal(data.pl, isNI,  cur);
-  const niPrv  = prev !== null ? getVal(data.pl, isNI,  prev) : null;
-  const niYtd  = getYtd(data.pl, isNI,  cur);
-
-  const cashRow = getAcct(data.bs, '1000');
-  const arRow   = getAcct(data.bs, '1200');
-  const cash    = cashRow ? (cashRow.months?.[cur] ?? 0) : null;
-  const ar      = arRow   ? (arRow.months?.[cur]   ?? 0) : null;
-
-  const $$ = n => {
-    const abs = Math.abs(n);
-    const f   = abs.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    return n < 0 ? `(${f})` : f;
-  };
-
-  const badge = (cur, prv, upGood) => {
-    if (prv === null || prv === undefined || cur === prv) return '';
-    const d   = cur - prv;
-    const pct = prv !== 0 ? Math.abs(d / prv * 100).toFixed(1) : null;
-    const good = upGood ? d > 0 : d < 0;
-    const col  = good ? 'var(--ok)' : 'var(--danger)';
-    const bg   = good ? 'var(--ok-bg)' : 'var(--danger-bg)';
-    const lbl  = pct ? `${d > 0 ? '▲' : '▼'} ${pct}%` : (d > 0 ? '▲' : '▼');
-    return `<span style="font-size:11px;color:${col};background:${bg};padding:2px 7px;border-radius:10px;">${lbl} vs ${prev}</span>`;
-  };
-
-  const card = (label, value, sub, bdg, clickAttrs, valCol) => {
-    const col = valCol || 'var(--navy)';
-    const btn = clickAttrs ? ` ${clickAttrs} title="Click for GL detail"` : '';
-    const cls = clickAttrs ? ' kpi-clickable' : '';
-    return `<div class="kpi-card${cls}"${btn}>
-      <div class="kpi-label">${label}</div>
-      <div class="kpi-value" style="color:${col};">${$$(value)}</div>
-      ${sub ? `<div class="kpi-sub">${sub}</div>` : ''}
-      ${bdg}
-    </div>`;
-  };
-
-  const niCol    = ni    >= 0 ? 'var(--ok)' : 'var(--danger)';
-  const niYtdCol = niYtd >= 0 ? 'var(--ok)' : 'var(--danger)';
-
-  const cards = [
-    card(`Net P&L — ${cur}`,  ni,    `YTD: $${$$(niYtd)}`,  badge(ni,  niPrv,  true),  null, niCol),
-    card(`Net P&L YTD`,       niYtd, null,                   '',                        null, niYtdCol),
-    cash !== null ? card('Cash (1000)',  cash, null, '', `onclick="openTxnModal('1000','${monthNum}','1000 Operating Account','${cur}')"`, null) : '',
-    ar   !== null ? card('A/R (1200)',   ar,   null, '', `onclick="openTxnModal('1200','${monthNum}','1200 Accounts Receivable','${cur}')"`, null) : '',
-  ];
-
-  bar.innerHTML = cards.join('');
 }
 
 // ---------------------------------------------------------------------------

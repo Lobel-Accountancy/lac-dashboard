@@ -57,7 +57,7 @@ async function loadBI() {
   try {
     const data = await apiFetch('/data/bi');
     if (!data) return;
-    renderRevenue(data.revenue, data.revenue_mtd);
+    renderRevenue(data.revenue, data.revenue_mtd, data.net_income_mtd);
     renderAR(data.ar_buckets);
     renderPipeline(data.pipeline);
     setStatus(`Updated ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`);
@@ -87,12 +87,19 @@ function fmtK(n) {
 // Revenue tab
 // ---------------------------------------------------------------------------
 
-function renderRevenue(rev, revMtd) {
+function renderRevenue(rev, revMtd, niMtd) {
   // KPI row
   const totalBilled = rev.by_month.reduce((s, m) => s + m.billed, 0);
   document.getElementById('rev-mtd').textContent     = revMtd != null ? fmt$(revMtd) : '—';
   document.getElementById('rev-ytd').textContent     = fmt$(rev.ytd_billed);
   document.getElementById('rev-total12').textContent = fmt$(totalBilled);
+
+  if (niMtd) {
+    const isLoss = niMtd.value < 0;
+    document.getElementById('ni-label').textContent = (isLoss ? 'Net Loss' : 'Net Income') + ' — Current Month';
+    document.getElementById('ni-mtd').textContent   = fmt$(Math.abs(niMtd.value));
+    document.getElementById('ni-mtd').style.color   = isLoss ? 'var(--danger)' : 'var(--ok)';
+  }
 
   // Monthly bar chart
   destroyChart('chartRevMonthly');
