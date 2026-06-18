@@ -1921,7 +1921,11 @@ def ar_delete():
             break
 
         if found_row is None:
-            return jsonify({'error': f'Invoice {invoice_id} not found'}), 404
+            # Invoice is absent from Drive — was cleared externally or already deleted.
+            # Bust the stale in-memory cache so the next read reflects the clean workbook.
+            _wb_cache['wb'] = None
+            _wb_cache['fetched_at'] = 0
+            return jsonify({'ok': True, 'invoice': invoice_id})
 
         for col in range(1, AR_C_REMINDER + 2):
             ws.cell(row=found_row, column=col).value = None

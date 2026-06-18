@@ -382,6 +382,7 @@ async function submitDelete() {
       body: JSON.stringify({ invoice }),
     });
     if (!res?.ok) throw new Error(res?.error || 'Delete failed.');
+    loadClients();
   } catch (err) {
     if (snap) { client.ar.invoices.splice(invIdx, 0, snap.invoice); client.ar = snap.ar; }
     applyFilter();
