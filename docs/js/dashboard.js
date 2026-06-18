@@ -450,7 +450,7 @@ function renderRegulatory(data) {
       <div style="display:flex;align-items:baseline;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);">
         <span style="display:inline-block;min-width:82px;padding:2px 7px;border-radius:10px;font-size:10px;font-weight:700;text-align:center;background:${color}18;color:${color};flex-shrink:0;">${item.source}</span>
         <span style="flex:1;font-size:13px;line-height:1.4;"><a href="${item.url}" target="_blank" rel="noopener" style="color:var(--text);text-decoration:none;">${item.title}</a>${urgent}</span>
-        <span style="font-size:11px;color:var(--text2);white-space:nowrap;flex-shrink:0;">${item.found}</span>
+        <span style="font-size:11px;color:var(--text-2);white-space:nowrap;flex-shrink:0;">${item.found}</span>
       </div>`;
   }).join('');
   body.innerHTML = `<div style="padding:0 4px;">${rows}</div>`;
