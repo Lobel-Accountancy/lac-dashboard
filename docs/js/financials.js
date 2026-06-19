@@ -13,19 +13,24 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 async function loadFinancials() {
-  const data = await apiFetch('/data/financials');
-  if (!data) return;
+  try {
+    const data = await apiFetch('/data/financials');
+    if (!data) return;
 
-  finData = data;
+    finData = data;
 
-  if (!data.months || data.months.length === 0) {
+    if (!data.months || data.months.length === 0) {
+      document.getElementById('fin-body').innerHTML =
+        `<div class="fin-empty">No financials published yet.</div>`;
+      return;
+    }
+
+    renderMonthBar(data.months);
+    selectMonth(data.months[data.months.length - 1]);
+  } catch (err) {
     document.getElementById('fin-body').innerHTML =
-      `<div class="fin-empty">No financials published yet.</div>`;
-    return;
+      `<div class="fin-empty">Unable to load financials: ${err.message}</div>`;
   }
-
-  renderMonthBar(data.months);
-  selectMonth(data.months[data.months.length - 1]);
 }
 
 function renderMonthBar(months) {
