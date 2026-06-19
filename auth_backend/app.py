@@ -3757,7 +3757,7 @@ import uuid as _uuid
 import subprocess as _subprocess
 
 _PBC_DATA_PATH  = '/home/jlobel/lac_automation/pbc_data.json'
-_PBC_DRIVE_ROOT = '1. Clients'
+_PBC_DRIVE_ROOT = 'Clients'
 
 # ---------------------------------------------------------------------------
 # Client document store
