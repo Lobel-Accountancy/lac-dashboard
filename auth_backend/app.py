@@ -436,7 +436,7 @@ def _parse_ar(wb):
             continue
         if not client or outstanding <= 0:
             continue
-        if status in ('Paid', 'Written Off'):
+        if status in ('Paid', 'Written Off', 'Void'):
             continue
 
         due = _to_date(due_raw)
@@ -637,7 +637,7 @@ def client_health():
         pipeline = data['pipeline']
 
         open_ar  = [i for i in ar if i['outstanding'] > 0
-                    and i['status'] not in ('Paid', 'Written Off')]
+                    and i['status'] not in ('Paid', 'Written Off', 'Void')]
         total_out   = round(sum(i['outstanding'] for i in open_ar), 2)
         overdue_amt = round(sum(i['outstanding'] for i in open_ar if i['days_overdue'] > 0), 2)
         max_over    = max((i['days_overdue'] for i in open_ar if i['days_overdue'] > 0), default=0)
@@ -1611,7 +1611,7 @@ def _parse_bi_ar_buckets(wb):
             outstanding = float(outstanding)
         except (TypeError, ValueError):
             continue
-        if outstanding <= 0 or status in ('Paid', 'Written Off'):
+        if outstanding <= 0 or status in ('Paid', 'Written Off', 'Void'):
             continue
 
         due   = _to_date(due_raw)
@@ -1965,11 +1965,17 @@ def ar_delete():
             _wb_cache['fetched_at'] = 0
             return jsonify({'ok': True, 'invoice': invoice_id})
 
-        for col in range(1, AR_C_REMINDER + 2):
-            ws.cell(row=found_row, column=col).value = None
+        # Mark as Void rather than wiping the row entirely. Keeping the client/
+        # invoice/service cells intact lets invoice_automation.py see that an
+        # invoice was already issued for this engagement and prevents it from
+        # re-creating the invoice the next time it runs.
+        ws.cell(row=found_row, column=AR_C_AMOUNT      + 1).value = 0
+        ws.cell(row=found_row, column=AR_C_PAID        + 1).value = 0
+        ws.cell(row=found_row, column=AR_C_OUTSTANDING + 1).value = 0
+        ws.cell(row=found_row, column=AR_C_STATUS      + 1).value = 'Void'
 
         _wb_upload_async(wb, file_id, svc)
-        _log_activity(client_name, 'admin', 'Invoice Deleted', f'{invoice_id} removed from AR Aging')
+        _log_activity(client_name, 'admin', 'Invoice Voided', f'{invoice_id} voided in AR Aging')
 
         return jsonify({'ok': True, 'invoice': invoice_id})
 
