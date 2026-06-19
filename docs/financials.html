@@ -93,6 +93,8 @@
       background: #FAFBFC;
     }
     .stmt-table thead th:first-child { text-align: left; }
+    .stmt-table thead th.col-month,
+    .stmt-table thead th.col-ytd   { text-align: center; }
 
     /* Value columns */
     .col-month, .col-ytd {
@@ -150,11 +152,16 @@
 
 
     /* ---- Drillable cells ---- */
-    .val-drillable { cursor: pointer; }
-    .val-drillable:hover {
-      background: rgba(37,99,235,.07);
+    .val-drillable {
+      cursor: pointer;
       text-decoration: underline;
       text-decoration-style: dotted;
+      text-decoration-color: rgba(37,99,235,.25);
+      text-underline-offset: 3px;
+    }
+    .val-drillable:hover {
+      background: rgba(37,99,235,.07);
+      text-decoration-color: rgba(37,99,235,.7);
     }
   </style>
   <link rel="manifest" href="manifest.json">
