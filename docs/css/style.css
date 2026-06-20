@@ -243,21 +243,21 @@ body {
 }
 
 .card-resize-btn {
-  background: none;
-  border: none;
-  color: var(--text-3);
+  background: rgba(255,255,255,.07);
+  border: 1px solid var(--border);
+  color: var(--text-2, #8ba7c4);
   cursor: pointer;
   font-size: 13px;
-  padding: 2px 5px;
+  padding: 2px 7px;
   border-radius: 4px;
   margin-left: auto;
   flex-shrink: 0;
-  line-height: 1;
+  line-height: 1.4;
   transition: color .12s, background .12s;
 }
-.card-resize-btn:hover { color: var(--text); background: rgba(255,255,255,.08); }
+.card-resize-btn:hover { color: var(--text); background: rgba(255,255,255,.15); border-color: var(--accent-teal, #2ab8a0); }
 [data-theme="dark"] .card-header { background: var(--surface); color: var(--text); }
-[data-theme="dark"] .card-resize-btn:hover { background: rgba(255,255,255,.06); }
+[data-theme="dark"] .card-resize-btn:hover { background: rgba(255,255,255,.1); }
 
 .empty-state {
   color: var(--text-3);

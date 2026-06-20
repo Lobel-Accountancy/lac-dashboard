@@ -62,9 +62,9 @@
   }
 
   function updateBtnLabel(btn, size) {
-    if (size === 'expanded') { btn.textContent = '⊟'; btn.title = 'Condense'; }
-    else if (size === 'compact') { btn.textContent = '⊞'; btn.title = 'Expand'; }
-    else { btn.setAttribute('data-default', '1'); btn.textContent = '⤢'; btn.title = 'Resize'; }
+    if (size === 'expanded') { btn.textContent = '⊟'; btn.title = 'Condense card'; }
+    else if (size === 'compact') { btn.textContent = '⊞'; btn.title = 'Expand card'; }
+    else { btn.setAttribute('data-default', '1'); btn.textContent = '⊞'; btn.title = 'Expand card'; }
   }
 
   function addResizeBtn(card) {
