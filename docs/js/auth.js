@@ -133,13 +133,13 @@ function _saveSetting(key, val) {
 
 // Apply theme before paint to avoid flash
 (function () {
-  const t = _getSettings().theme || 'light';
+  const t = _getSettings().theme || 'dark';
   document.documentElement.setAttribute('data-theme', t);
 })();
 
 function _applySettings() {
   const s = _getSettings();
-  document.documentElement.setAttribute('data-theme', s.theme || 'light');
+  document.documentElement.setAttribute('data-theme', s.theme || 'dark');
   document.body.classList.toggle('text-lg', s.textSize === 'large');
 }
 

@@ -24,20 +24,20 @@
 
   <!-- KPI row -->
   <div class="kpi-grid" id="kpi-grid">
-    <div class="kpi-card"><div class="kpi-label">Total AR Outstanding</div><div class="kpi-value">—</div></div>
-    <div class="kpi-card"><div class="kpi-label">Overdue</div><div class="kpi-value">—</div></div>
-    <div class="kpi-card"><div class="kpi-label">Active Matters</div><div class="kpi-value">—</div></div>
+    <div class="kpi-card"><span class="kpi-skeleton-label"></span><span class="kpi-skeleton-value"></span><span class="kpi-skeleton-sub"></span></div>
+    <div class="kpi-card"><span class="kpi-skeleton-label"></span><span class="kpi-skeleton-value"></span><span class="kpi-skeleton-sub"></span></div>
+    <div class="kpi-card"><span class="kpi-skeleton-label"></span><span class="kpi-skeleton-value"></span><span class="kpi-skeleton-sub"></span></div>
   </div>
 
   <!-- Content: AR + Deadlines side by side -->
   <div class="content-grid">
     <div class="card">
       <div class="card-header">Overdue Invoices</div>
-      <div class="card-body" id="ar-body"><span class="empty-state">Loading…</span></div>
+      <div class="card-body" id="ar-body"><div class="skeleton-line skeleton-line--full"></div><div class="skeleton-line skeleton-line--med"></div><div class="skeleton-line skeleton-line--full"></div><div class="skeleton-line skeleton-line--short"></div></div>
     </div>
     <div class="card">
       <div class="card-header">Upcoming Deadlines <span style="font-weight:400;color:#8BA7C4;font-size:12px;">next 30 days</span></div>
-      <div class="card-body" id="deadlines-body"><span class="empty-state">Loading…</span></div>
+      <div class="card-body" id="deadlines-body"><div class="skeleton-line skeleton-line--full"></div><div class="skeleton-line skeleton-line--med"></div><div class="skeleton-line skeleton-line--full"></div><div class="skeleton-line skeleton-line--short"></div></div>
     </div>
   </div>
 
@@ -45,11 +45,11 @@
   <div class="content-grid">
     <div class="card">
       <div class="card-header">Key Compliance Dates <span style="font-weight:400;color:#8BA7C4;font-size:12px;">overdue &amp; next 90 days</span></div>
-      <div class="card-body" id="compliance-body"><span class="empty-state">Loading…</span></div>
+      <div class="card-body" id="compliance-body"><div class="skeleton-line skeleton-line--full"></div><div class="skeleton-line skeleton-line--med"></div><div class="skeleton-line skeleton-line--full"></div><div class="skeleton-line skeleton-line--short"></div></div>
     </div>
     <div class="card">
       <div class="card-header">Upcoming Calendar Events <span style="font-weight:400;color:#8BA7C4;font-size:12px;">next 14 days</span></div>
-      <div class="card-body" id="calendar-body"><span class="empty-state">Loading…</span></div>
+      <div class="card-body" id="calendar-body"><div class="skeleton-line skeleton-line--full"></div><div class="skeleton-line skeleton-line--med"></div><div class="skeleton-line skeleton-line--full"></div><div class="skeleton-line skeleton-line--short"></div></div>
     </div>
   </div>
 
@@ -76,7 +76,7 @@
       <span>Regulatory Updates</span>
       <span id="reg-digest-label" style="font-size:11px;font-weight:400;opacity:.7;"></span>
     </div>
-    <div class="card-body" id="reg-body"><span class="empty-state">Loading…</span></div>
+    <div class="card-body" id="reg-body"><div class="skeleton-line skeleton-line--full"></div><div class="skeleton-line skeleton-line--med"></div><div class="skeleton-line skeleton-line--full"></div><div class="skeleton-line skeleton-line--short"></div></div>
   </div>
 
   <div class="refresh-bar">

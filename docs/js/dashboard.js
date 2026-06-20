@@ -88,23 +88,23 @@ function renderKPIs(data) {
   if (oldCanvas?._chart) { oldCanvas._chart.destroy(); oldCanvas._chart = null; }
 
   grid.innerHTML = `
-    <div class="kpi-card">
+    <div class="kpi-card kpi-card--ok">
       <div class="kpi-label">Total AR Outstanding</div>
       <div class="kpi-value">${fmt$(ar.total_outstanding)}</div>
       <div class="kpi-sub">${ar.items.length} open invoice${ar.items.length !== 1 ? 's' : ''}</div>
     </div>
-    <div class="kpi-card ${ar.overdue_amount > 0 ? 'kpi-card--danger' : ''}">
+    <div class="kpi-card ${ar.overdue_amount > 0 ? 'kpi-card--danger' : 'kpi-card--ok'}">
       <div class="kpi-label">Overdue</div>
       <div class="kpi-value">${fmt$(ar.overdue_amount)}</div>
       <div class="kpi-sub">${ar.overdue_count} invoice${ar.overdue_count !== 1 ? 's' : ''} past due</div>
     </div>
-    <div class="kpi-card" id="revenue-kpi-card">
+    <div class="kpi-card kpi-card--purple" id="revenue-kpi-card">
       <div class="kpi-label">Revenue — ${month}</div>
       <div class="kpi-value">${revMtd != null ? fmt$(revMtd) : '—'}</div>
       <div class="kpi-sub" style="margin-bottom:6px;">Income Statement · Total Revenue</div>
       <canvas id="revenue-sparkline" height="36" style="width:100%;display:block;"></canvas>
     </div>
-    <div class="kpi-card">
+    <div class="kpi-card kpi-card--teal">
       <div class="kpi-label">Active Matters</div>
       <div class="kpi-value">${pipeline.total_active}</div>
       <div class="kpi-sub">${Object.keys(pipeline.by_stage).length} stage${Object.keys(pipeline.by_stage).length !== 1 ? 's' : ''}</div>
