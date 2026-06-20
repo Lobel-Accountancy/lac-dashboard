@@ -19,6 +19,7 @@ const NAV_GROUPS = [
   { label: 'Work', items: [
     { label: 'Pipeline',      href: 'engagement.html',  icon: '◧', badgeId: 'badge-pipeline' },
     { label: 'Documents',     href: 'docs.html',        icon: '◪', badgeId: 'badge-docs' },
+    { label: 'Drive',         href: 'drive.html',       icon: '◈' },
     { label: 'Time Tracking', href: 'time.html',        icon: '◷' },
   ]},
   { label: 'Clients', items: [

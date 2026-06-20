@@ -6654,6 +6654,85 @@ def journal_delete():
 
 
 # ---------------------------------------------------------------------------
+# Google Drive Browser
+# ---------------------------------------------------------------------------
+
+_drive_browse_cache: dict = {}
+_DRIVE_BROWSE_TTL = 60  # seconds
+
+
+@app.route('/data/drive', methods=['GET'])
+@require_jwt
+def drive_browse():
+    """List Drive files/folders. folder_id=root returns top-level items."""
+    folder_id  = (request.args.get('folder_id') or 'root').strip()
+    page_token = (request.args.get('page_token') or '').strip()
+    search_q   = (request.args.get('q') or '').strip()
+
+    cache_key = f'{folder_id}|{page_token}|{search_q}'
+    cached = _drive_browse_cache.get(cache_key)
+    if cached and time.time() - cached['ts'] < _DRIVE_BROWSE_TTL:
+        return jsonify(cached['data'])
+
+    try:
+        svc = _drive_service()
+
+        if search_q:
+            safe_q = search_q.replace("'", "\\'")
+            q = f"name contains '{safe_q}' and trashed=false"
+        elif folder_id == 'root':
+            q = 'trashed=false'
+        else:
+            q = f"'{folder_id}' in parents and trashed=false"
+
+        params = dict(
+            q=q,
+            fields='nextPageToken,files(id,name,mimeType,modifiedTime,size,webViewLink,parents)',
+            orderBy='folder,name',
+            pageSize=100,
+            includeItemsFromAllDrives=True,
+            supportsAllDrives=True,
+            corpora='allDrives',
+        )
+        if page_token:
+            params['pageToken'] = page_token
+
+        result = svc.files().list(**params).execute()
+        files  = result.get('files', [])
+
+        # For root view, keep only items whose parents are not in the result set
+        if folder_id == 'root' and not search_q and not page_token:
+            ids   = {f['id'] for f in files}
+            files = [f for f in files if not any(p in ids for p in f.get('parents', []))]
+
+        # Resolve folder name for breadcrumb
+        folder_name = 'My Drive'
+        if folder_id != 'root':
+            try:
+                info = svc.files().get(
+                    fileId=folder_id,
+                    fields='id,name,parents',
+                    supportsAllDrives=True,
+                ).execute()
+                folder_name = info.get('name', folder_id)
+            except Exception:
+                folder_name = folder_id
+
+        data = {
+            'files':           files,
+            'folder_id':       folder_id,
+            'folder_name':     folder_name,
+            'next_page_token': result.get('nextPageToken'),
+            'total':           len(files),
+        }
+        _drive_browse_cache[cache_key] = {'data': data, 'ts': time.time()}
+        return jsonify(data)
+    except Exception as exc:
+        app.logger.error('drive_browse error: %s', exc)
+        return jsonify({'error': str(exc)}), 500
+
+
+# ---------------------------------------------------------------------------
 # Accounting News Feed
 # ---------------------------------------------------------------------------
 
