@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <link rel="icon" type="image/jpeg" href="favicon.jpg">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LAC Client Status</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    /* ── Filter chips ─────────────────────────────────────────────────────── */
+    .stage-filters {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      padding: 14px 18px 0;
+    }
+    .stage-chip {
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 4px 13px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      background: none;
+      color: var(--text-2);
+      transition: background .1s, color .1s, border-color .1s;
+    }
+    .stage-chip.active { color: #fff; border-color: transparent; }
+    .stage-chip[data-stage="Engaged"].active        { background: #2ab8a0; }
+    .stage-chip[data-stage="Continuance"].active    { background: #4b9fe5; }
+    .stage-chip[data-stage="Prospect Sent"].active  { background: #7b5ea7; }
+    .stage-chip[data-stage="Prospect"].active       { background: #a0a0b0; }
+    .stage-chip[data-stage="all"].active            { background: #555; border-color: var(--border); }
+
+    /* ── Main table ────────────────────────────────────────────────────────── */
+    .status-table-wrap { overflow-x: auto; padding-bottom: 16px; }
+
+    .status-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    .status-table th {
+      position: sticky;
+      top: 0;
+      background: var(--surface);
+      padding: 8px 10px;
+      text-align: left;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      color: var(--text-2);
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+      z-index: 2;
+    }
+    .status-table th.col-step {
+      text-align: center;
+      min-width: 72px;
+      max-width: 96px;
+      white-space: normal;
+      line-height: 1.25;
+      padding: 8px 6px;
+    }
+    .status-table td {
+      padding: 10px 10px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: middle;
+    }
+    .status-table tr:last-child td { border-bottom: none; }
+    .status-table tr:hover td { background: rgba(255,255,255,.03); }
+
+    .client-name {
+      font-weight: 600;
+      color: var(--text);
+      white-space: nowrap;
+    }
+    .client-type {
+      font-size: 11px;
+      color: var(--text-2);
+      margin-top: 2px;
+    }
+    .stage-pill {
+      display: inline-block;
+      padding: 2px 9px;
+      border-radius: 10px;
+      font-size: 11px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .progress-pct {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text-2);
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+
+    /* ── Step cells ────────────────────────────────────────────────────────── */
+    .step-cell {
+      text-align: center;
+      padding: 6px 4px;
+    }
+    /* Y = green bar segment */
+    .step-y {
+      display: inline-block;
+      width: 52px;
+      height: 20px;
+      border-radius: 4px;
+      background: #2ab8a0;
+    }
+    /* O = in-progress amber */
+    .step-o {
+      display: inline-block;
+      width: 52px;
+      height: 20px;
+      border-radius: 4px;
+      background: rgba(234,179,8,.55);
+    }
+    /* N = nothing */
+    .step-n { display: none; }
+
+    /* ── Summary bar at bottom of each row ─────────────────────────────────── */
+    .progress-bar-wrap {
+      width: 80px;
+      height: 6px;
+      background: rgba(255,255,255,.08);
+      border-radius: 3px;
+      overflow: hidden;
+      margin-top: 4px;
+    }
+    .progress-bar-fill {
+      height: 100%;
+      border-radius: 3px;
+      background: #2ab8a0;
+      transition: width .3s;
+    }
+
+    /* ── Empty state ────────────────────────────────────────────────────────── */
+    .empty-state {
+      padding: 40px;
+      text-align: center;
+      color: var(--text-2);
+      font-size: 13px;
+    }
+
+    /* ── Stats bar ──────────────────────────────────────────────────────────── */
+    .stats-row {
+      display: flex;
+      gap: 24px;
+      padding: 12px 18px;
+      border-bottom: 1px solid var(--border);
+      flex-wrap: wrap;
+    }
+    .stat-item { text-align: center; }
+    .stat-val  { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--text); }
+    .stat-lbl  { font-size: 10px; text-transform: uppercase; letter-spacing: .05em; color: var(--text-2); margin-top: 1px; }
+  </style>
+</head>
+<body>
+<aside id="lac-sidebar"></aside>
+<div class="page-body">
+<main class="main">
+  <div class="greeting">Client Status</div>
+  <div class="date-line" id="date-line"></div>
+
+  <div class="error-banner" id="error-banner" hidden></div>
+
+  <div class="card card--full">
+    <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+      <span>Engagement Checklist</span>
+      <button class="btn-sm" onclick="loadStatus()" id="refresh-btn"
+              style="background:none;border:1px solid var(--border);color:var(--text-2);padding:4px 12px;border-radius:6px;font-size:11px;cursor:pointer;">
+        ↻ Refresh
+      </button>
+    </div>
+
+    <!-- Stats bar -->
+    <div class="stats-row" id="stats-row" hidden>
+      <div class="stat-item"><div class="stat-val" id="stat-total">—</div><div class="stat-lbl">Clients</div></div>
+      <div class="stat-item"><div class="stat-val" id="stat-engaged">—</div><div class="stat-lbl">Engaged</div></div>
+      <div class="stat-item"><div class="stat-val" id="stat-continuance">—</div><div class="stat-lbl">Continuance</div></div>
+      <div class="stat-item"><div class="stat-val" id="stat-prospect">—</div><div class="stat-lbl">Prospects</div></div>
+      <div class="stat-item"><div class="stat-val" id="stat-avg-pct">—</div><div class="stat-lbl">Avg Complete</div></div>
+    </div>
+
+    <!-- Stage filters -->
+    <div class="stage-filters" id="stage-filters">
+      <button class="stage-chip active" data-stage="all" onclick="setFilter('all',this)">All</button>
+      <button class="stage-chip" data-stage="Engaged"       onclick="setFilter('Engaged',this)">Engaged</button>
+      <button class="stage-chip" data-stage="Continuance"   onclick="setFilter('Continuance',this)">Continuance</button>
+      <button class="stage-chip" data-stage="Prospect Sent" onclick="setFilter('Prospect Sent',this)">Prospect Sent</button>
+      <button class="stage-chip" data-stage="Prospect"      onclick="setFilter('Prospect',this)">Prospect</button>
+    </div>
+
+    <!-- Table -->
+    <div class="status-table-wrap" id="table-wrap">
+      <div class="card-body">
+        <div class="skeleton-line skeleton-line--full"></div>
+        <div class="skeleton-line skeleton-line--med"></div>
+        <div class="skeleton-line skeleton-line--full"></div>
+        <div class="skeleton-line skeleton-line--short"></div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<script src="js/nav.js"></script>
+<script src="js/toast.js"></script>
+<script src="js/palette.js"></script>
+<script src="js/auth.js"></script>
+<script>
+  document.getElementById('date-line').textContent = new Date().toLocaleDateString('en-US', {
+    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+  });
+
+  const STAGE_COLORS = {
+    'Engaged':       { bg: 'rgba(42,184,160,.18)',  color: '#2ab8a0' },
+    'Continuance':   { bg: 'rgba(75,159,229,.18)',  color: '#4b9fe5' },
+    'Prospect Sent': { bg: 'rgba(123,94,167,.18)',  color: '#7b5ea7' },
+    'Prospect':      { bg: 'rgba(160,160,176,.18)', color: '#a0a0b0' },
+  };
+
+  let _allClients = [];
+  let _columns    = [];
+  let _filter     = 'all';
+
+  document.addEventListener('DOMContentLoaded', async () => {
+    if (!requireAuth()) return;
+    await loadStatus();
+  });
+
+  async function loadStatus() {
+    document.getElementById('refresh-btn').textContent = '↻ Loading…';
+    try {
+      const data = await apiFetch('/data/client-status');
+      _allClients = data.clients || [];
+      _columns    = data.columns || [];
+      renderStats(_allClients);
+      renderTable();
+      document.getElementById('stats-row').hidden = false;
+    } catch (err) {
+      document.getElementById('error-banner').textContent = `Failed to load: ${err.message}`;
+      document.getElementById('error-banner').hidden = false;
+    } finally {
+      document.getElementById('refresh-btn').textContent = '↻ Refresh';
+    }
+  }
+
+  function setFilter(stage, btn) {
+    _filter = stage;
+    document.querySelectorAll('.stage-chip').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    renderTable();
+  }
+
+  function renderStats(clients) {
+    const tot  = clients.length;
+    const eng  = clients.filter(c => c.stage === 'Engaged').length;
+    const cont = clients.filter(c => c.stage === 'Continuance').length;
+    const pros = clients.filter(c => c.stage === 'Prospect' || c.stage === 'Prospect Sent').length;
+    const avgPct = tot
+      ? Math.round(clients.reduce((s, c) => s + (c.completed / c.total * 100), 0) / tot)
+      : 0;
+    document.getElementById('stat-total').textContent      = tot;
+    document.getElementById('stat-engaged').textContent    = eng;
+    document.getElementById('stat-continuance').textContent= cont;
+    document.getElementById('stat-prospect').textContent   = pros;
+    document.getElementById('stat-avg-pct').textContent    = `${avgPct}%`;
+  }
+
+  function renderTable() {
+    const clients = _filter === 'all'
+      ? _allClients
+      : _allClients.filter(c => c.stage === _filter);
+
+    const wrap = document.getElementById('table-wrap');
+
+    if (!clients.length) {
+      wrap.innerHTML = `<div class="empty-state">No clients in this stage.</div>`;
+      return;
+    }
+
+    const stepHeaders = _columns.map(col =>
+      `<th class="col-step">${esc(col.label)}</th>`
+    ).join('');
+
+    const rows = clients.map(c => {
+      const sc     = STAGE_COLORS[c.stage] || {bg:'rgba(160,160,176,.1)',color:'#a0a0b0'};
+      const pct    = Math.round(c.completed / c.total * 100);
+      const barW   = pct;
+
+      const steps = _columns.map(col => {
+        const val = c.checklist[col.key] || 'N';
+        if (val === 'Y') return `<td class="step-cell"><span class="step-y"></span></td>`;
+        if (val === 'O') return `<td class="step-cell"><span class="step-o" title="In progress"></span></td>`;
+        return `<td class="step-cell"><span class="step-n"></span></td>`;
+      }).join('');
+
+      const fee = c.fee != null
+        ? new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0}).format(c.fee)
+        : '';
+
+      return `<tr>
+        <td style="min-width:160px;">
+          <div class="client-name">${esc(c.client)}</div>
+          <div class="client-type">${esc(c.eng_type)}${c.fye ? ` · FYE ${esc(c.fye)}` : ''}${fee ? ` · ${fee}` : ''}</div>
+        </td>
+        <td style="white-space:nowrap;">
+          <span class="stage-pill" style="background:${sc.bg};color:${sc.color};">${esc(c.stage)}</span>
+        </td>
+        <td style="min-width:100px;">
+          <div class="progress-pct">${c.completed}/${c.total} · ${pct}%</div>
+          <div class="progress-bar-wrap">
+            <div class="progress-bar-fill" style="width:${barW}%;"></div>
+          </div>
+        </td>
+        ${steps}
+      </tr>`;
+    }).join('');
+
+    wrap.innerHTML = `
+      <table class="status-table">
+        <thead>
+          <tr>
+            <th style="min-width:160px;">Client</th>
+            <th>Stage</th>
+            <th style="min-width:100px;">Progress</th>
+            ${stepHeaders}
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>`;
+  }
+
+  function esc(s) {
+    return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+</script>
+<script src="js/chat.js"></script>
+</div>
+</body>
+</html>

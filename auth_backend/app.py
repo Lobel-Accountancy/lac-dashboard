@@ -6812,6 +6812,87 @@ def accounting_news():
 
 
 # ---------------------------------------------------------------------------
+# Client Status — checklist progress from Engagement Pipeline cols O–V
+# ---------------------------------------------------------------------------
+
+_CHECKLIST_COLS = [
+    (14, 'independence_form',          'Independence Form'),
+    (15, 'engagement_letter',          'Engagement Letter'),
+    (16, 'budget',                     'Budget'),
+    (17, 'initial_sas',                'Initial SAS'),
+    (18, 'invoices_sent',              'Invoices Sent'),
+    (19, 'rep_letter',                 'Rep Letter'),
+    (20, 'financial_statements_issued','Financial Statements Issued'),
+    (21, 'final_sas',                  'Final SAS'),
+]
+
+_CLIENT_STATUS_STAGES = {'Prospect', 'Prospect Sent', 'Engaged', 'Continuance'}
+
+
+@app.route('/data/client-status', methods=['GET'])
+@require_jwt
+def client_status():
+    try:
+        wb = _workbook()
+    except Exception as exc:
+        app.logger.error('client_status workbook error: %s', exc)
+        return jsonify({'error': 'Could not load workbook'}), 503
+
+    if 'Engagement Pipeline' not in wb.sheetnames:
+        return jsonify({'clients': [], 'columns': [c[2] for c in _CHECKLIST_COLS]})
+
+    ws = wb['Engagement Pipeline']
+    clients = []
+
+    for row in ws.iter_rows(min_row=3, values_only=True):
+        if not row or not row[0]:
+            continue
+        client  = str(row[0]).strip()
+        stage   = str(row[2]).strip() if len(row) > 2 and row[2] else ''
+        eng_type = str(row[3]).strip() if len(row) > 3 and row[3] else ''
+        fye     = str(row[10]).strip() if len(row) > 10 and row[10] else ''
+        fee_raw = row[6] if len(row) > 6 else None
+
+        if stage not in _CLIENT_STATUS_STAGES:
+            continue
+
+        try:
+            fee = float(fee_raw) if fee_raw is not None else None
+        except (TypeError, ValueError):
+            fee = None
+
+        checklist = {}
+        for col_idx, key, _label in _CHECKLIST_COLS:
+            raw = row[col_idx] if len(row) > col_idx else None
+            val = str(raw).strip().upper() if raw is not None else ''
+            checklist[key] = val if val in ('Y', 'N', 'O') else 'N'
+
+        # Completion = count of Y
+        completed = sum(1 for v in checklist.values() if v == 'Y')
+        total     = len(_CHECKLIST_COLS)
+
+        clients.append({
+            'client':    client,
+            'stage':     stage,
+            'eng_type':  eng_type,
+            'fye':       fye,
+            'fee':       fee,
+            'checklist': checklist,
+            'completed': completed,
+            'total':     total,
+        })
+
+    # Sort: stage order, then alpha
+    _stage_order = {'Engaged': 0, 'Continuance': 1, 'Prospect Sent': 2, 'Prospect': 3}
+    clients.sort(key=lambda c: (_stage_order.get(c['stage'], 9), c['client'].lower()))
+
+    return jsonify({
+        'clients': clients,
+        'columns': [{'key': c[1], 'label': c[2]} for c in _CHECKLIST_COLS],
+    })
+
+
+# ---------------------------------------------------------------------------
 # Global Search
 # ---------------------------------------------------------------------------
 
