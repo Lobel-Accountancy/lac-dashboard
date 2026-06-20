@@ -235,14 +235,21 @@ body {
   font-size: 13px;
 }
 
+.data-table thead {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
 .data-table th {
   text-align: left;
-  padding: 6px 8px;
+  padding: 7px 8px;
   font-size: 11px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--text-2);
+  background: var(--surface);
   border-bottom: 1px solid var(--border);
 }
 
@@ -252,8 +259,16 @@ body {
   color: var(--text);
 }
 
+/* Zebra striping */
+.data-table tbody tr:nth-child(even) td {
+  background: rgba(255,255,255,.025);
+}
+
 .data-table tr:last-child td { border-bottom: none; }
-.data-table tr:hover td { background: var(--muted-bg); }
+.data-table tbody tr:hover td {
+  background: rgba(255,255,255,.06) !important;
+  transition: background .1s;
+}
 
 .num  { text-align: right; font-variant-numeric: tabular-nums; }
 .mono { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 12px; }
@@ -348,22 +363,43 @@ body {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 12px;
+  gap: 10px;
   margin-top: 20px;
   font-size: 12px;
   color: var(--text-3);
 }
 
+.refresh-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--ok);
+  flex-shrink: 0;
+  transition: background .3s;
+}
+.refresh-dot.pulsing {
+  animation: dotPulse 1s ease-in-out infinite;
+}
+.refresh-dot.error { background: var(--danger); animation: none; }
+
+@keyframes dotPulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: .4; transform: scale(.7); }
+}
+
 .btn-refresh {
   background: transparent;
-  border: 1px solid var(--border);
-  color: var(--text-2);
-  padding: 4px 12px;
+  border: none;
+  color: var(--text-3);
+  padding: 2px 4px;
   border-radius: 4px;
   cursor: pointer;
-  font-size: 12px;
+  font-size: 13px;
+  line-height: 1;
+  opacity: .6;
+  transition: opacity .15s;
 }
-.btn-refresh:hover { background: var(--muted-bg); }
+.btn-refresh:hover { opacity: 1; }
 
 /* ---- Auth page ---- */
 .auth-wrap {
@@ -1051,7 +1087,10 @@ body.has-sidebar {
 [data-theme="dark"] .data-table th,
 [data-theme="dark"] .client-table th,
 [data-theme="dark"] .stmt-table thead th,
-[data-theme="dark"] .stmt-table .row-section td { background: #1A2A3E; color: var(--text-2); border-color: var(--border); }
+[data-theme="dark"] .stmt-table .row-section td { background: var(--surface); color: var(--text-2); border-color: var(--border); }
+
+[data-theme="dark"] .data-table tbody tr:nth-child(even) td { background: rgba(255,255,255,.03); }
+[data-theme="dark"] .data-table tbody tr:hover td { background: rgba(255,255,255,.07) !important; }
 
 [data-theme="dark"] .data-table td,
 [data-theme="dark"] .client-table td,

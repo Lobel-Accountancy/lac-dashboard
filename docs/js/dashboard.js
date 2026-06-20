@@ -23,7 +23,7 @@ function greeting() {
 }
 
 async function loadBriefing() {
-  setRefreshStatus('Refreshing…');
+  setRefreshStatus('Refreshing…', 'loading');
   try {
     const [data, reg, compliance, cal] = await Promise.all([
       apiFetch('/data/morning-briefing'),
@@ -43,16 +43,21 @@ async function loadBriefing() {
     // Share overdue count so nav.js badge skips a redundant API call on other pages
     sessionStorage.setItem('lac_badge_overdue', data.ar?.overdue_count || 0);
     sessionStorage.setItem('lac_badge_overdue_ts', Date.now());
-    setRefreshStatus(`Updated ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`);
+    setRefreshStatus(`Updated ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`, 'ok');
   } catch (err) {
-    setRefreshStatus(`Error: ${err.message}`);
+    setRefreshStatus(`Error: ${err.message}`, 'error');
     document.getElementById('error-banner').textContent = err.message;
     document.getElementById('error-banner').hidden = false;
   }
 }
 
-function setRefreshStatus(text) {
+function setRefreshStatus(text, state) {
   document.getElementById('refresh-status').textContent = text;
+  const dot = document.getElementById('refresh-dot');
+  if (!dot) return;
+  dot.classList.remove('pulsing', 'error');
+  if (state === 'loading') dot.classList.add('pulsing');
+  else if (state === 'error') dot.classList.add('error');
 }
 
 function fmt$(n) {
