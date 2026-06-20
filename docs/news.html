@@ -7,112 +7,192 @@
   <title>LAC Accounting News</title>
   <link rel="stylesheet" href="css/style.css">
   <style>
-    .news-grid {
+    /* Full-page: override max-width for this tab only */
+    .main { max-width: none; padding: 24px 28px 48px; }
+
+    /* ── Top bar ─────────────────────────────────────────────────────── */
+    .news-topbar {
       display: flex;
-      flex-direction: column;
-      gap: 0;
-    }
-
-    .news-item {
-      display: flex;
-      gap: 14px;
-      padding: 16px 20px;
-      border-bottom: 1px solid var(--border);
-      text-decoration: none;
-      color: var(--text);
-      transition: background .1s;
-    }
-    .news-item:last-child { border-bottom: none; }
-    .news-item:hover { background: rgba(255,255,255,.04); }
-
-    .news-source-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      margin-top: 5px;
-      flex-shrink: 0;
-    }
-
-    .news-body { flex: 1; min-width: 0; }
-    .news-source-label {
-      font-size: 10px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: .06em;
-      margin-bottom: 3px;
-    }
-    .news-title {
-      font-size: 14px;
-      font-weight: 600;
-      line-height: 1.4;
-      color: var(--text);
-      margin-bottom: 4px;
-    }
-    .news-summary {
-      font-size: 12px;
-      color: var(--text-2);
-      line-height: 1.5;
-      overflow: hidden;
-      display: -webkit-box;
-      -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical;
-    }
-    .news-date {
-      font-size: 11px;
-      color: var(--text-3);
-      flex-shrink: 0;
-      text-align: right;
-      min-width: 90px;
-      padding-top: 3px;
-    }
-
-    .filter-row {
-      display: flex;
-      gap: 8px;
+      align-items: center;
+      gap: 10px;
       flex-wrap: wrap;
-      padding: 12px 20px;
-      border-bottom: 1px solid var(--border);
+      margin-bottom: 18px;
     }
     .filter-chip {
-      padding: 4px 12px;
-      border-radius: 12px;
+      padding: 5px 14px;
+      border-radius: 20px;
       font-size: 11px;
-      font-weight: 600;
+      font-weight: 700;
       cursor: pointer;
       border: 1px solid var(--border);
       background: none;
       color: var(--text-2);
       transition: background .12s, color .12s, border-color .12s;
+      white-space: nowrap;
     }
-    .filter-chip.active {
-      border-color: transparent;
-      color: #fff;
-    }
-
-    .news-empty {
-      padding: 32px 20px;
-      text-align: center;
-      color: var(--text-2);
-      font-size: 13px;
-    }
-    .news-error {
-      padding: 20px;
-      color: var(--danger, #e05555);
-      font-size: 13px;
-    }
-
+    .filter-chip.active { color: #fff; border-color: transparent; }
     .refresh-btn {
+      margin-left: auto;
       background: none;
       border: 1px solid var(--border);
       color: var(--text-2);
-      padding: 5px 12px;
-      border-radius: 6px;
+      padding: 5px 13px;
+      border-radius: 8px;
       font-size: 12px;
       cursor: pointer;
       transition: border-color .15s, color .15s;
+      white-space: nowrap;
     }
     .refresh-btn:hover { border-color: var(--accent-teal); color: var(--text); }
     .refresh-btn:disabled { opacity: .5; cursor: not-allowed; }
+
+    /* ── Hero card (top story) ────────────────────────────────────────── */
+    .news-hero {
+      display: grid;
+      grid-template-columns: 42% 1fr;
+      min-height: 300px;
+      border-radius: 12px;
+      overflow: hidden;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow);
+      margin-bottom: 20px;
+      text-decoration: none;
+      color: var(--text);
+      transition: box-shadow .18s, transform .18s;
+    }
+    .news-hero:hover { box-shadow: 0 10px 40px rgba(0,0,0,.35); transform: translateY(-2px); }
+    .news-hero-img {
+      overflow: hidden;
+      position: relative;
+    }
+    .news-hero-img img {
+      width: 100%; height: 100%; object-fit: cover; display: block;
+    }
+    .news-hero-img.fallback {
+      display: flex; align-items: center; justify-content: center;
+      font-size: 56px; font-weight: 900; color: rgba(255,255,255,.25);
+      letter-spacing: -2px;
+    }
+    .news-hero-body {
+      padding: 32px 36px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 0;
+    }
+    .source-badge {
+      display: inline-block;
+      font-size: 10px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .07em; padding: 3px 10px; border-radius: 20px;
+      color: #fff; width: fit-content; margin-bottom: 12px;
+    }
+    .news-hero-title {
+      font-size: 24px; font-weight: 700; line-height: 1.3;
+      color: var(--text); margin-bottom: 14px;
+    }
+    .news-hero-summary {
+      font-size: 14px; color: var(--text-2); line-height: 1.65;
+      display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical;
+      overflow: hidden; margin-bottom: 16px;
+    }
+    .news-meta {
+      font-size: 11px; color: var(--text-3);
+    }
+    .news-read-more {
+      margin-top: 18px;
+      font-size: 12px; font-weight: 600;
+      color: var(--accent-teal, #2ab8a0);
+    }
+
+    /* No-hero fallback (no images at all on top story) */
+    .news-hero.no-image {
+      grid-template-columns: 1fr;
+    }
+    .news-hero.no-image .news-hero-img { display: none; }
+    .news-hero.no-image .news-hero-body { padding: 36px 40px; }
+    .news-hero.no-image .news-hero-title { font-size: 28px; }
+
+    /* ── Tile grid ────────────────────────────────────────────────────── */
+    .news-tiles {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+    }
+    @media (max-width: 1200px) { .news-tiles { grid-template-columns: repeat(3, 1fr); } }
+    @media (max-width: 800px)  {
+      .news-tiles { grid-template-columns: repeat(2, 1fr); }
+      .news-hero  { grid-template-columns: 1fr; min-height: auto; }
+      .news-hero-img { height: 180px; }
+    }
+
+    .news-tile {
+      display: flex; flex-direction: column;
+      border-radius: 10px; overflow: hidden;
+      background: var(--surface); border: 1px solid var(--border);
+      box-shadow: var(--shadow);
+      text-decoration: none; color: var(--text);
+      transition: transform .15s, box-shadow .15s;
+    }
+    .news-tile:hover { transform: translateY(-4px); box-shadow: 0 10px 28px rgba(0,0,0,.28); }
+
+    .tile-img {
+      height: 150px; overflow: hidden; flex-shrink: 0; position: relative;
+    }
+    .tile-img img {
+      width: 100%; height: 100%; object-fit: cover; display: block;
+      transition: transform .3s;
+    }
+    .news-tile:hover .tile-img img { transform: scale(1.04); }
+    .tile-img.fallback {
+      display: flex; align-items: center; justify-content: center;
+      font-size: 32px; font-weight: 900; color: rgba(255,255,255,.22);
+    }
+
+    .tile-body {
+      padding: 14px 16px;
+      flex: 1; display: flex; flex-direction: column;
+    }
+    .tile-title {
+      font-size: 13px; font-weight: 600; line-height: 1.45;
+      margin-bottom: 7px;
+      display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .tile-summary {
+      font-size: 11.5px; color: var(--text-2); line-height: 1.55; flex: 1;
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .tile-footer {
+      margin-top: 10px;
+      display: flex; justify-content: space-between; align-items: center;
+      font-size: 10.5px; color: var(--text-3);
+    }
+
+    /* ── Skeleton & empty states ─────────────────────────────────────── */
+    .news-skeleton-hero {
+      height: 300px; border-radius: 12px; background: var(--surface);
+      border: 1px solid var(--border); margin-bottom: 20px;
+      animation: pulse 1.4s ease-in-out infinite;
+    }
+    .news-skeleton-grid {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px;
+    }
+    .news-skeleton-tile {
+      height: 220px; border-radius: 10px; background: var(--surface);
+      border: 1px solid var(--border); animation: pulse 1.4s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%,100% { opacity: 1; } 50% { opacity: .45; }
+    }
+    .news-empty {
+      padding: 60px 20px; text-align: center;
+      color: var(--text-2); font-size: 14px;
+    }
+    .news-error {
+      padding: 24px; color: var(--danger, #e05555); font-size: 13px;
+    }
   </style>
 </head>
 <body>
@@ -124,28 +204,20 @@
 
   <div class="error-banner" id="error-banner" hidden></div>
 
-  <div class="card card--full">
-    <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
-      <span>Latest from Accounting Sources</span>
-      <button class="refresh-btn" id="refresh-btn" onclick="loadNews()">↻ Refresh</button>
-    </div>
-
-    <div class="filter-row" id="filter-row">
-      <button class="filter-chip active" data-source="all" onclick="setFilter('all', this)">All Sources</button>
-    </div>
-
-    <div id="news-wrap">
-      <div class="card-body">
-        <div class="skeleton-line skeleton-line--full"></div>
-        <div class="skeleton-line skeleton-line--med"></div>
-        <div class="skeleton-line skeleton-line--full"></div>
-        <div class="skeleton-line skeleton-line--short"></div>
-        <div class="skeleton-line skeleton-line--full"></div>
-        <div class="skeleton-line skeleton-line--med"></div>
-      </div>
-    </div>
+  <div class="news-topbar" id="news-topbar">
+    <button class="filter-chip active" data-source="all" onclick="setFilter('all',this)">All Sources</button>
+    <button class="refresh-btn" id="refresh-btn" onclick="loadNews()">↻ Refresh</button>
   </div>
 
+  <div id="news-wrap">
+    <div class="news-skeleton-hero"></div>
+    <div class="news-skeleton-grid">
+      <div class="news-skeleton-tile"></div>
+      <div class="news-skeleton-tile"></div>
+      <div class="news-skeleton-tile"></div>
+      <div class="news-skeleton-tile"></div>
+    </div>
+  </div>
 </main>
 
 <script src="js/nav.js"></script>
@@ -158,13 +230,19 @@
   });
 
   const SOURCE_COLORS = {
-    'Journal of Accountancy': '#1A7A4A',
-    'Accounting Today':       '#1D4ED8',
-    'CPA Practice Advisor':   '#7C3AED',
     'Going Concern':          '#B45309',
+    'CPA Practice Advisor':   '#7C3AED',
+    'Tax Foundation':         '#0369A1',
+    'The CPA Journal':        '#0E7490',
+    'Thomson Reuters Tax':    '#D97706',
+    'CPA Trendlines':         '#0F766E',
+    'Intuit TaxPro Center':   '#2563EB',
+    'CFO Dive':               '#4F46E5',
+    'Compliance Week':        '#DC2626',
   };
+  const DEFAULT_COLOR = '#4A5568';
 
-  let _allItems   = [];
+  let _allItems    = [];
   let _activeFilter = 'all';
 
   document.addEventListener('DOMContentLoaded', async () => {
@@ -178,7 +256,7 @@
     btn.textContent = '↻ Loading…';
     try {
       const data = await apiFetch('/data/news');
-      _allItems = data.items || [];
+      _allItems = (data.items || []);
       buildFilters(_allItems);
       renderNews(_allItems, _activeFilter);
     } catch (err) {
@@ -192,63 +270,108 @@
 
   function buildFilters(items) {
     const sources = [...new Set(items.map(i => i.source))];
-    const row = document.getElementById('filter-row');
-    // Keep "All" chip, rebuild rest
-    row.innerHTML = `<button class="filter-chip${_activeFilter === 'all' ? ' active' : ''}" data-source="all" onclick="setFilter('all',this)" style="${_activeFilter === 'all' ? 'background:#444466;' : ''}">All Sources</button>`;
-    sources.forEach(src => {
-      const color = SOURCE_COLORS[src] || '#5A6B7C';
-      const active = _activeFilter === src;
-      row.innerHTML += `<button class="filter-chip${active ? ' active' : ''}" data-source="${esc(src)}" onclick="setFilter('${esc(src)}',this)" style="${active ? `background:${color};border-color:${color};` : ''}">${esc(src)}</button>`;
-    });
+    const topbar  = document.getElementById('news-topbar');
+    const refreshBtn = document.getElementById('refresh-btn');
+
+    // Rebuild filter chips, keep refresh button at end
+    topbar.innerHTML = '';
+    const allChip = chip('all', 'All Sources');
+    topbar.appendChild(allChip);
+    sources.forEach(src => topbar.appendChild(chip(src, src)));
+    topbar.appendChild(refreshBtn);
   }
 
-  function setFilter(source, btn) {
+  function chip(src, label) {
+    const btn = document.createElement('button');
+    btn.className = 'filter-chip' + (src === _activeFilter ? ' active' : '');
+    btn.dataset.source = src;
+    btn.textContent = label;
+    const color = SOURCE_COLORS[src] || DEFAULT_COLOR;
+    if (src === _activeFilter) {
+      btn.style.background = color;
+      btn.style.borderColor = color;
+    }
+    btn.onclick = () => setFilter(src, btn);
+    return btn;
+  }
+
+  function setFilter(source, clicked) {
     _activeFilter = source;
     document.querySelectorAll('.filter-chip').forEach(c => {
-      const src   = c.dataset.source;
-      const color = SOURCE_COLORS[src] || '#444466';
-      const isActive = src === source;
-      c.classList.toggle('active', isActive);
-      c.style.background   = isActive ? color : '';
-      c.style.borderColor  = isActive ? color : '';
+      const s = c.dataset.source;
+      const color = SOURCE_COLORS[s] || DEFAULT_COLOR;
+      const on = s === source;
+      c.classList.toggle('active', on);
+      c.style.background  = on ? color : '';
+      c.style.borderColor = on ? color : '';
     });
     renderNews(_allItems, source);
   }
 
   function renderNews(items, filter) {
-    const filtered = filter === 'all' ? items : items.filter(i => i.source === filter);
-    const wrap = document.getElementById('news-wrap');
-    if (!filtered.length) {
-      wrap.innerHTML = '<div class="news-empty">No news articles loaded.</div>';
+    const list  = filter === 'all' ? items : items.filter(i => i.source === filter);
+    const wrap  = document.getElementById('news-wrap');
+
+    if (!list.length) {
+      wrap.innerHTML = '<div class="news-empty">No articles loaded.</div>';
       return;
     }
-    wrap.innerHTML = '<div class="news-grid">' + filtered.map(item => {
-      const color = SOURCE_COLORS[item.source] || '#5A6B7C';
-      const dateLabel = formatNewsDate(item.date);
-      return `
-        <a class="news-item" href="${esc(item.url)}" target="_blank" rel="noopener noreferrer">
-          <div class="news-source-dot" style="background:${color};"></div>
-          <div class="news-body">
-            <div class="news-source-label" style="color:${color};">${esc(item.source)}</div>
-            <div class="news-title">${esc(item.title)}</div>
-            ${item.summary ? `<div class="news-summary">${esc(item.summary)}</div>` : ''}
-          </div>
-          ${dateLabel ? `<div class="news-date">${dateLabel}</div>` : ''}
-        </a>`;
-    }).join('') + '</div>';
+
+    const [hero, ...rest] = list;
+    wrap.innerHTML = heroHtml(hero) + (rest.length ? `<div class="news-tiles">${rest.map(tileHtml).join('')}</div>` : '');
   }
 
-  function formatNewsDate(raw) {
-    if (!raw) return '';
-    try {
-      const d = new Date(raw);
-      if (isNaN(d.getTime())) return '';
-      return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-    } catch { return ''; }
+  function heroHtml(item) {
+    const color = SOURCE_COLORS[item.source] || DEFAULT_COLOR;
+    const imgEl = item.image
+      ? `<img src="${esc(item.image)}" alt="" loading="lazy" onerror="this.closest('.news-hero-img').classList.add('fallback');this.remove();">`
+      : '';
+    const noImg = !item.image ? ' no-image' : '';
+    const initials = acronym(item.source);
+
+    return `
+      <a class="news-hero${noImg}" href="${esc(item.url)}" target="_blank" rel="noopener noreferrer">
+        <div class="news-hero-img fallback" style="background:linear-gradient(135deg,${color}cc,${color}55);">
+          ${imgEl || `<span>${initials}</span>`}
+        </div>
+        <div class="news-hero-body">
+          <span class="source-badge" style="background:${color};">${esc(item.source)}</span>
+          <div class="news-hero-title">${esc(item.title)}</div>
+          ${item.summary ? `<div class="news-hero-summary">${esc(item.summary)}</div>` : ''}
+          <div class="news-meta">${esc(item.date)}</div>
+          <div class="news-read-more">Read article →</div>
+        </div>
+      </a>`;
+  }
+
+  function tileHtml(item) {
+    const color = SOURCE_COLORS[item.source] || DEFAULT_COLOR;
+    const initials = acronym(item.source);
+    const imgSection = item.image
+      ? `<div class="tile-img"><img src="${esc(item.image)}" alt="" loading="lazy" onerror="this.closest('.tile-img').classList.add('fallback');this.closest('.tile-img').innerHTML='<span>${initials}</span>';"></div>`
+      : `<div class="tile-img fallback" style="background:linear-gradient(135deg,${color}cc,${color}44);"><span>${initials}</span></div>`;
+
+    return `
+      <a class="news-tile" href="${esc(item.url)}" target="_blank" rel="noopener noreferrer">
+        ${imgSection}
+        <div class="tile-body">
+          <span class="source-badge" style="background:${color};">${esc(item.source)}</span>
+          <div class="tile-title">${esc(item.title)}</div>
+          ${item.summary ? `<div class="tile-summary">${esc(item.summary)}</div>` : ''}
+          <div class="tile-footer">
+            <span>${esc(item.date)}</span>
+          </div>
+        </div>
+      </a>`;
+  }
+
+  function acronym(str) {
+    return (str || '').split(/\s+/).map(w => w[0]).join('').substring(0, 3).toUpperCase();
   }
 
   function esc(s) {
-    return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    return String(s ?? '')
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
 </script>
 <script src="js/chat.js"></script>

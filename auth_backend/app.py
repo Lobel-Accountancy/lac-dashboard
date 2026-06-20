@@ -1367,6 +1367,13 @@ def _cal_rw_service():
     creds = service_account.Credentials.from_service_account_file(
         CREDENTIALS_PATH,
         scopes=['https://www.googleapis.com/auth/calendar'])
+    # Domain-wide delegation: impersonate the calendar owner so the service account
+    # can create/update/delete events on their personal calendar.
+    # Requires GOOGLE_CALENDAR_SUBJECT set in .env AND the service account authorised
+    # in Google Workspace Admin → Security → API Controls → Domain-wide Delegation.
+    subject = os.getenv('GOOGLE_CALENDAR_SUBJECT', '').strip()
+    if subject:
+        creds = creds.with_subject(subject)
     return build('calendar', 'v3', credentials=creds)
 
 
@@ -1388,11 +1395,17 @@ def calendar_events():
             orderBy='startTime',
         ).execute()
 
+        GCAL_COLOR_MAP = {
+            '1': '#7986CB', '2': '#33B679', '3': '#8E24AA', '4': '#E67C73',
+            '5': '#F6BF26', '6': '#F4511E', '7': '#039BE5', '8': '#616161',
+            '9': '#3F51B5', '10': '#0B8043', '11': '#D50000',
+        }
         events = []
         for ev in result.get('items', []):
             start   = ev['start'].get('dateTime', ev['start'].get('date', ''))
             end_t   = ev['end'].get('dateTime',   ev['end'].get('date',   ''))
             all_day = 'dateTime' not in ev['start']
+            color_id = ev.get('colorId', '')
             events.append({
                 'id':          ev['id'],
                 'title':       ev.get('summary', '(No title)'),
@@ -1401,6 +1414,8 @@ def calendar_events():
                 'all_day':     all_day,
                 'location':    ev.get('location', ''),
                 'description': ev.get('description', ''),
+                'colorId':     color_id,
+                'color':       GCAL_COLOR_MAP.get(color_id, ''),
             })
         return jsonify({'events': events})
     except Exception as exc:
@@ -1439,9 +1454,12 @@ def calendar_update():
         start_obj = {'dateTime': start_raw}
         end_obj   = {'dateTime': end_raw}
 
+    color_id = str(body.get('colorId', '')).strip()
+
     event_body = {'summary': title, 'start': start_obj, 'end': end_obj}
     if desc:     event_body['description'] = desc
     if location: event_body['location']    = location
+    if color_id: event_body['colorId']     = color_id
 
     cal_id = os.getenv('GOOGLE_CALENDAR_ID', 'jlobel@lobelaccountancy.com')
     try:
@@ -3190,11 +3208,11 @@ def _hdr(raw):
 
 
 def _body_snippet(msg, max_len=400):
-    """Extract plain-text snippet from an email.Message; strip excess whitespace."""
+    """Extract plain-text from an email.Message. Falls back to HTML with tags stripped."""
     candidates = [msg] if not msg.is_multipart() else list(msg.walk())
+    html_fallback = None
     for part in candidates:
-        if part.get_content_type() != 'text/plain':
-            continue
+        ct = part.get_content_type()
         if 'attachment' in str(part.get('Content-Disposition', '')):
             continue
         payload = part.get_payload(decode=True)
@@ -3202,9 +3220,25 @@ def _body_snippet(msg, max_len=400):
             continue
         charset = part.get_content_charset() or 'utf-8'
         text = payload.decode(charset, errors='replace')
-        text = re.sub(r'\s+', ' ', text).strip()
-        return text[:max_len]
+        if ct == 'text/plain':
+            # Preserve paragraph breaks; collapse other runs of whitespace
+            text = re.sub(r'[ \t]+', ' ', text)
+            text = re.sub(r'\n{3,}', '\n\n', text).strip()
+            return text if max_len is None else text[:max_len]
+        if ct == 'text/html' and html_fallback is None:
+            html_fallback = text
+    # No plain-text found — strip HTML tags
+    if html_fallback:
+        clean = re.sub(r'<[^>]+>', ' ', html_fallback)
+        clean = re.sub(r'[ \t]+', ' ', clean)
+        clean = re.sub(r'\n{3,}', '\n\n', clean).strip()
+        return clean if max_len is None else clean[:max_len]
     return ''
+
+
+def _body_full(msg):
+    """Return the complete plain-text body with no length cap."""
+    return _body_snippet(msg, max_len=None)
 
 
 def _fetch_zoho_emails():
@@ -3221,10 +3255,13 @@ def _fetch_zoho_emails():
         imap.login(ZOHO_EMAIL, ZOHO_PASSWORD)
         imap.select('INBOX', readonly=True)
 
-        _, data = imap.search(None, 'UNSEEN')
-        all_ids = data[0].split()
+        # Build set of UNSEEN sequence numbers for read/unread flagging
+        _, unseen_data = imap.search(None, 'UNSEEN')
+        unseen_set = set(unseen_data[0].split())  # bytes seq nums
 
-        # Fetch the 60 most recent unread, newest first — single batch round-trip
+        # Fetch 60 most recent of ALL so "Show all" works
+        _, all_data = imap.search(None, 'ALL')
+        all_ids = all_data[0].split()
         recent = list(reversed(all_ids[-60:]))
 
         emails = []
@@ -3235,6 +3272,10 @@ def _fetch_zoho_emails():
                 if not isinstance(item, tuple):
                     continue
                 try:
+                    # item[0] is like b'42 (BODY[] {1234}' — extract seq number
+                    seq_num = item[0].split(b' ')[0]
+                    is_unread = seq_num in unseen_set
+
                     msg = _email_pkg.message_from_bytes(item[1])
 
                     from_raw = _hdr(msg.get('From', ''))
@@ -3276,7 +3317,8 @@ def _fetch_zoho_emails():
                         'subject':    subject,
                         'date':       date_str,
                         'snippet':    _body_snippet(msg),
-                        'body':       _body_snippet(msg, max_len=1500),
+                        'body':       _body_full(msg),
+                        'unread':     is_unread,
                         'message_id': message_id,
                     })
                 except Exception:
@@ -5273,18 +5315,17 @@ def calendar_create():
         start_obj = {'dateTime': start_raw}
         end_obj   = {'dateTime': end_raw}
 
+    color_id = str(body.get('colorId', '')).strip()
+
     event_body = {'summary': title, 'start': start_obj, 'end': end_obj}
     if desc:     event_body['description'] = desc
     if location: event_body['location']    = location
+    if color_id: event_body['colorId']     = color_id
 
     cal_id = os.getenv('GOOGLE_CALENDAR_ID', 'jlobel@lobelaccountancy.com')
     try:
-        # Need write scope — build with full calendar scope credentials
-        creds = service_account.Credentials.from_service_account_file(
-            CREDENTIALS_PATH,
-            scopes=['https://www.googleapis.com/auth/calendar'])
-        svc   = build('calendar', 'v3', credentials=creds)
-        ev    = svc.events().insert(calendarId=cal_id, body=event_body).execute()
+        svc = _cal_rw_service()
+        ev  = svc.events().insert(calendarId=cal_id, body=event_body).execute()
         return jsonify({'success': True, 'event_id': ev.get('id'), 'title': title,
                         'link': ev.get('htmlLink', '')})
     except Exception as exc:
@@ -7060,44 +7101,96 @@ def run_billing_research():
 @app.route('/data/news', methods=['GET'])
 @require_jwt
 def accounting_news():
-    """Fetch and parse accounting news RSS feeds."""
+    """Fetch and parse accounting news RSS feeds — sorted newest-first with images."""
     import xml.etree.ElementTree as ET
     import html as _html
     import urllib.request as _ur
 
     FEEDS = [
-        {'source': 'Journal of Accountancy', 'url': 'https://www.journalofaccountancy.com/rss/all.rss'},
-        {'source': 'Accounting Today',        'url': 'https://www.accountingtoday.com/feed'},
+        # Core accounting & tax
+        {'source': 'Going Concern',           'url': 'https://goingconcern.com/feed/'},
         {'source': 'CPA Practice Advisor',    'url': 'https://www.cpapracticeadvisor.com/rss'},
-        {'source': 'Going Concern',            'url': 'https://goingconcern.com/feed/'},
+        {'source': 'Tax Foundation',          'url': 'https://taxfoundation.org/feed/'},
+        {'source': 'The CPA Journal',         'url': 'https://www.cpajournal.com/feed/'},
+        {'source': 'Thomson Reuters Tax',     'url': 'https://tax.thomsonreuters.com/blog/feed/'},
+        # Practice management & technology
+        {'source': 'CPA Trendlines',          'url': 'https://cpatrendlines.com/feed/'},
+        {'source': 'Intuit TaxPro Center',    'url': 'https://proconnect.intuit.com/taxprocenter/feed/'},
+        # CFO / fractional finance leadership
+        {'source': 'CFO Dive',                'url': 'https://www.cfodive.com/feeds/news/'},
+        # Fraud, compliance & regulatory
+        {'source': 'Compliance Week',         'url': 'https://www.complianceweek.com/feed'},
     ]
+
+    MEDIA_NS = 'http://search.yahoo.com/mrss/'
+
+    def _extract_image(item):
+        """Pull the best image URL from an RSS item element."""
+        # <enclosure type="image/...">
+        enc = item.find('enclosure')
+        if enc is not None and 'image' in enc.get('type', ''):
+            u = enc.get('url', '')
+            if u:
+                return u
+        # <media:thumbnail url="..."/>
+        for tag in (f'{{{MEDIA_NS}}}thumbnail', f'{{{MEDIA_NS}}}content'):
+            el = item.find(tag)
+            if el is not None:
+                u = el.get('url', '')
+                if u:
+                    return u
+        # <img> inside description HTML
+        desc = item.findtext('description', '') or ''
+        m = re.search(r'<img[^>]+src=["\']([^"\']{10,})["\']', desc, re.I)
+        if m:
+            return m.group(1)
+        return ''
+
+    def _pub_ts(pub_str):
+        try:
+            return _email_utils.parsedate_to_datetime(pub_str).timestamp()
+        except Exception:
+            return 0.0
+
+    def _fmt_date(pub_str):
+        try:
+            dt = _email_utils.parsedate_to_datetime(pub_str)
+            return dt.strftime('%b %-d, %Y')
+        except Exception:
+            return pub_str[:16] if pub_str else ''
 
     items = []
     for feed in FEEDS:
         try:
-            req = _ur.Request(feed['url'], headers={'User-Agent': 'LAC-Dashboard/1.0 (+https://dashboard.lobelaccountancy.com)'})
-            with _ur.urlopen(req, timeout=6) as resp:
+            req = _ur.Request(feed['url'], headers={
+                'User-Agent': 'LAC-Dashboard/1.0 (+https://dashboard.lobelaccountancy.com)'
+            })
+            with _ur.urlopen(req, timeout=8) as resp:
                 content = resp.read()
             root = ET.fromstring(content)
 
-            for item in root.findall('.//item')[:6]:
+            for item in root.findall('.//item')[:8]:
                 title = item.findtext('title', '') or ''
                 link  = item.findtext('link',  '') or ''
                 pub   = item.findtext('pubDate', '') or ''
                 desc  = item.findtext('description', '') or ''
-                desc_clean = re.sub(r'<[^>]+>', '', _html.unescape(desc))[:220].strip()
+                desc_clean = re.sub(r'<[^>]+>', '', _html.unescape(desc))[:280].strip()
                 if title and link:
                     items.append({
                         'source':  feed['source'],
                         'title':   _html.unescape(title.strip()),
                         'url':     link.strip(),
-                        'date':    pub.strip(),
+                        'date':    _fmt_date(pub),
+                        'pub_ts':  _pub_ts(pub),
                         'summary': desc_clean,
+                        'image':   _extract_image(item),
                     })
         except Exception as e:
             app.logger.warning('News feed %s failed: %s', feed['source'], e)
 
-    return jsonify({'items': items[:40]})
+    # Newest first
+    items.sort(key=lambda x: x['pub_ts'], reverse=True)
+    return jsonify({'items': items[:48]})
 
 
 # ---------------------------------------------------------------------------
