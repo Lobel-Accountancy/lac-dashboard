@@ -6514,16 +6514,153 @@ def cpe_log():
         return jsonify({'error': str(exc)}), 500
 
 
+def _read_cpe_log_for_compliance(wb):
+    """Return CPE log rows and computed aggregates for compliance matching."""
+    from dateutil import parser as _dp
+    courses = []
+    if 'CPE Log' not in wb.sheetnames:
+        return courses
+
+    ws = wb['CPE Log']
+    for row in ws.iter_rows(min_row=_CPE_DATA_ROW, values_only=True):
+        if not row or not row[0]:
+            continue
+        name        = str(row[0]).strip()
+        credits_raw = row[1]
+        completed   = str(row[2]).strip() if row[2] else ''
+        field       = str(row[4]).strip() if len(row) > 4 and row[4] else ''
+        cba_period  = str(row[6]).strip() if len(row) > 6 and row[6] else ''
+        cba_cat     = str(row[7]).strip() if len(row) > 7 and row[7] else ''
+        acfe_elig   = str(row[8]).strip().upper() if len(row) > 8 and row[8] else ''
+        fraud_topic = str(row[9]).strip().upper() if len(row) > 9 and row[9] else ''
+        try:
+            credits = float(credits_raw) if credits_raw is not None else 0.0
+        except (TypeError, ValueError):
+            credits = 0.0
+        try:
+            completed_dt = _dp.parse(completed) if completed else None
+        except Exception:
+            completed_dt = None
+        courses.append({
+            'credits': credits, 'completed': completed,
+            'completed_dt': completed_dt,
+            'field': field.lower(), 'cba_period': cba_period,
+            'cba_cat': cba_cat.lower(), 'acfe': acfe_elig == 'YES',
+            'fraud': fraud_topic == 'YES',
+        })
+    return courses
+
+
+def _compute_earned(req_name, section_period, courses):
+    """Compute earned credits for a requirement row from CPE log courses."""
+    from datetime import datetime
+    req_lower = req_name.lower()
+    period_lower = (section_period or '').lower()
+
+    # Parse date window for annual sub-period requirements
+    # e.g. "Annual Total CPE (Nov 2025–Oct 2026)"
+    annual_start = annual_end = None
+    import re as _re
+    date_range = _re.search(r'\(([^)]+)\)', req_name)
+    if date_range:
+        try:
+            from dateutil import parser as _dp
+            parts = _re.split(r'[–—-]', date_range.group(1))
+            if len(parts) == 2:
+                annual_start = _dp.parse(parts[0].strip() + ' 2025' if len(parts[0].strip()) < 8 else parts[0].strip())
+                annual_end   = _dp.parse(parts[1].strip() + ' 2026' if len(parts[1].strip()) < 8 else parts[1].strip())
+        except Exception:
+            pass
+
+    # Determine which courses are in scope for this section
+    def in_period(c):
+        # Match CBA period string (partial match; normalise dashes)
+        norm_cp  = c['cba_period'].replace('–','–').replace('-','–').replace('—','–')
+        norm_sec = period_lower.replace('-','–').replace('—','–').replace(' to ','–').replace(' – ','–')
+        if c['cba_period'] and norm_sec:
+            # Check if course period overlaps with section period substring
+            # Use loose substring match on year digits
+            years_in_period = _re.findall(r'\d{4}', norm_sec)
+            years_in_course = _re.findall(r'\d{4}', norm_cp)
+            if years_in_period and years_in_course:
+                if not any(y in years_in_period for y in years_in_course):
+                    return False
+        # If CFE/ACFE section, require ACFE eligible
+        if 'cfe' in period_lower or 'acfe' in period_lower or 'calendar year' in period_lower:
+            if not c['acfe'] and 'fraud' not in req_lower:
+                # Still count non-ACFE if req is for calendar-year total
+                pass
+        # Date window filter for annual sub-period
+        if annual_start and annual_end and c['completed_dt']:
+            if not (annual_start <= c['completed_dt'] <= annual_end):
+                return False
+        return True
+
+    # Filter by date for calendar-year CFE requirement
+    def in_calendar_year(c, year):
+        if c['completed_dt']:
+            return c['completed_dt'].year == year
+        try:
+            from dateutil import parser as _dp
+            return _dp.parse(c['completed']).year == year
+        except Exception:
+            return False
+
+    # Is this a CFE / calendar-year section?
+    is_cfe_section = 'cfe' in period_lower or 'acfe' in period_lower or 'calendar year' in period_lower
+    cal_year = None
+    if is_cfe_section:
+        yr_match = _re.search(r'(\d{4})', period_lower)
+        if yr_match:
+            cal_year = int(yr_match.group(1))
+
+    total = 0.0
+    for c in courses:
+        if is_cfe_section:
+            if cal_year and not in_calendar_year(c, cal_year):
+                continue
+            if 'fraud' in req_lower:
+                if c['fraud']:
+                    total += c['credits']
+            else:
+                # ACFE annual total — count all ACFE-eligible
+                if c['acfe']:
+                    total += c['credits']
+        else:
+            if not in_period(c):
+                continue
+            cat = c['cba_cat']
+            if 'ethics' in req_lower:
+                if 'ethics' in cat or 'ethics' in c['field']:
+                    total += c['credits']
+            elif 'regulatory' in req_lower:
+                if 'regulatory' in cat or 'regulatory' in c['field']:
+                    total += c['credits']
+            elif 'fraud' in req_lower:
+                if c['fraud']:
+                    total += c['credits']
+            elif 'technical' in req_lower:
+                if 'technical' in cat:
+                    total += c['credits']
+            else:
+                # Total CPE rows — count all in period
+                total += c['credits']
+    return round(total, 2)
+
+
 @app.route('/data/cpe-compliance', methods=['GET'])
 @require_jwt
 def cpe_compliance():
-    """Parse Compliance Dashboard tab from Drive workbook into sections."""
+    """Parse Compliance Dashboard structure + compute earned from CPE Log."""
     try:
         wb = _workbook()
         if 'Compliance Dashboard' not in wb.sheetnames:
             return jsonify({'sections': [], 'error': 'Compliance Dashboard sheet not found'})
-        ws = wb['Compliance Dashboard']
 
+        # Load CPE log for earned computation
+        cpe_courses = _read_cpe_log_for_compliance(wb)
+
+        ws = wb['Compliance Dashboard']
         sections = []
         current_section = None
 
@@ -6537,10 +6674,10 @@ def cpe_compliance():
 
             b = row[1] if len(row) > 1 else None
 
-            # Section header (col A has text, col B is empty, not a known subheader)
             if (b is None and
                     a_str not in ('Requirement',) and
-                    not a_str.startswith(('Current Period', 'Calendar Year', 'INSTRUCTIONS', 'Period', 'Req'))):
+                    not a_str.startswith(('Current Period', 'Calendar Year',
+                                          'INSTRUCTIONS', 'Req'))):
                 current_section = {'title': a_str, 'period': None, 'rows': []}
                 sections.append(current_section)
                 continue
@@ -6555,22 +6692,25 @@ def cpe_compliance():
 
             if current_section is not None and b is not None:
                 try:
-                    required  = float(b)                if b         is not None else 0
-                    earned    = float(row[2])            if len(row) > 2 and row[2] is not None else 0
-                    remaining = float(row[3])            if len(row) > 3 and row[3] is not None else 0
-                    pct_raw   = float(row[4])            if len(row) > 4 and row[4] is not None else 0
-                    status    = str(row[5]).strip()      if len(row) > 5 and row[5] is not None else ''
-                    pct = round(pct_raw * 100, 1) if pct_raw <= 1.0 else round(pct_raw, 1)
-                    current_section['rows'].append({
-                        'requirement': a_str,
-                        'required':    required,
-                        'earned':      earned,
-                        'remaining':   remaining,
-                        'pct':         pct,
-                        'status':      status,
-                    })
-                except (ValueError, TypeError):
+                    required = float(b)
+                except (TypeError, ValueError):
                     continue
+
+                # Compute earned directly from CPE log (bypasses stale formula cache)
+                earned = _compute_earned(a_str, current_section.get('period', ''), cpe_courses)
+                remaining = max(0.0, required - earned)
+                pct       = round(earned / required * 100, 1) if required else 0.0
+                status    = 'Complete' if earned >= required else (
+                            'In Progress' if earned > 0 else 'Not Started')
+
+                current_section['rows'].append({
+                    'requirement': a_str,
+                    'required':    required,
+                    'earned':      earned,
+                    'remaining':   remaining,
+                    'pct':         pct,
+                    'status':      status,
+                })
 
         sections = [s for s in sections if s['rows']]
         return jsonify({'sections': sections})

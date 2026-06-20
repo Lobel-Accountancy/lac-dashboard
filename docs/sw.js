@@ -1,4 +1,4 @@
-const CACHE = 'lac-v8';
+const CACHE = 'lac-v9';
 const STATIC = [
   '/index.html',
   '/css/style.css',
