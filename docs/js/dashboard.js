@@ -25,11 +25,12 @@ function greeting() {
 async function loadBriefing() {
   setRefreshStatus('Refreshing…', 'loading');
   try {
-    const [data, reg, compliance, cal] = await Promise.all([
+    const [data, reg, compliance, cal, journal] = await Promise.all([
       apiFetch('/data/morning-briefing'),
       apiFetch('/data/regulatory').catch(() => null),
       apiFetch('/data/compliance-dates').catch(() => null),
       apiFetch('/data/calendar').catch(() => null),
+      apiFetch('/data/journal?limit=5').catch(() => null),
     ]);
     if (!data) return;
     renderKPIs(data);
@@ -40,6 +41,7 @@ async function loadBriefing() {
     renderPipelineChart(data.pipeline);
     renderARDonut(data.ar);
     renderRegulatory(reg);
+    renderRecentJEs(journal);
     // Share overdue count so nav.js badge skips a redundant API call on other pages
     sessionStorage.setItem('lac_badge_overdue', data.ar?.overdue_count || 0);
     sessionStorage.setItem('lac_badge_overdue_ts', Date.now());
@@ -438,6 +440,31 @@ function renderARDonut(ar) {
 // ---------------------------------------------------------------------------
 // Regulatory updates
 // ---------------------------------------------------------------------------
+
+function renderRecentJEs(data) {
+  const body = document.getElementById('recent-je-body');
+  if (!body) return;
+  if (!data || !data.entries || !data.entries.length) {
+    body.innerHTML = '<span class="empty-state">No journal entries yet. <a href="journal.html" style="color:var(--accent-teal,#2ab8a0);">Add one →</a></span>';
+    return;
+  }
+  const rows = data.entries.map(e => {
+    const total = e.lines.reduce((s, l) => s + (l.debit || 0), 0);
+    const dateLabel = e.date ? new Date(e.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
+    return `
+      <a href="journal.html" style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);text-decoration:none;color:var(--text);">
+        <span style="font-size:11px;font-weight:700;font-family:monospace;padding:2px 7px;border-radius:7px;background:rgba(42,184,160,.12);color:var(--accent-teal,#2ab8a0);flex-shrink:0;">${e.je_num}</span>
+        <span style="flex:1;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escDash(e.description)}</span>
+        <span style="font-size:11px;color:var(--text-2);flex-shrink:0;">${dateLabel}</span>
+        <span style="font-size:13px;font-weight:600;font-variant-numeric:tabular-nums;flex-shrink:0;min-width:72px;text-align:right;">${fmt$(total)}</span>
+      </a>`;
+  }).join('');
+  body.innerHTML = `<div style="padding:0 4px;">${rows}<div style="padding-top:8px;text-align:right;"><a href="journal.html" style="font-size:12px;color:var(--accent-teal,#2ab8a0);text-decoration:none;">View all →</a></div></div>`;
+}
+
+function escDash(s) {
+  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
 
 function renderRegulatory(data) {
   const body  = document.getElementById('reg-body');

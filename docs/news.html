@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <link rel="icon" type="image/jpeg" href="favicon.jpg">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LAC Accounting News</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .news-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+
+    .news-item {
+      display: flex;
+      gap: 14px;
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+      text-decoration: none;
+      color: var(--text);
+      transition: background .1s;
+    }
+    .news-item:last-child { border-bottom: none; }
+    .news-item:hover { background: rgba(255,255,255,.04); }
+
+    .news-source-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      margin-top: 5px;
+      flex-shrink: 0;
+    }
+
+    .news-body { flex: 1; min-width: 0; }
+    .news-source-label {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      margin-bottom: 3px;
+    }
+    .news-title {
+      font-size: 14px;
+      font-weight: 600;
+      line-height: 1.4;
+      color: var(--text);
+      margin-bottom: 4px;
+    }
+    .news-summary {
+      font-size: 12px;
+      color: var(--text-2);
+      line-height: 1.5;
+      overflow: hidden;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+    }
+    .news-date {
+      font-size: 11px;
+      color: var(--text-3);
+      flex-shrink: 0;
+      text-align: right;
+      min-width: 90px;
+      padding-top: 3px;
+    }
+
+    .filter-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      padding: 12px 20px;
+      border-bottom: 1px solid var(--border);
+    }
+    .filter-chip {
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      border: 1px solid var(--border);
+      background: none;
+      color: var(--text-2);
+      transition: background .12s, color .12s, border-color .12s;
+    }
+    .filter-chip.active {
+      border-color: transparent;
+      color: #fff;
+    }
+
+    .news-empty {
+      padding: 32px 20px;
+      text-align: center;
+      color: var(--text-2);
+      font-size: 13px;
+    }
+    .news-error {
+      padding: 20px;
+      color: var(--danger, #e05555);
+      font-size: 13px;
+    }
+
+    .refresh-btn {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--text-2);
+      padding: 5px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: border-color .15s, color .15s;
+    }
+    .refresh-btn:hover { border-color: var(--accent-teal); color: var(--text); }
+    .refresh-btn:disabled { opacity: .5; cursor: not-allowed; }
+  </style>
+</head>
+<body>
+<aside id="lac-sidebar"></aside>
+<div class="page-body">
+<main class="main">
+  <div class="greeting">Accounting News</div>
+  <div class="date-line" id="date-line"></div>
+
+  <div class="error-banner" id="error-banner" hidden></div>
+
+  <div class="card card--full">
+    <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
+      <span>Latest from Accounting Sources</span>
+      <button class="refresh-btn" id="refresh-btn" onclick="loadNews()">↻ Refresh</button>
+    </div>
+
+    <div class="filter-row" id="filter-row">
+      <button class="filter-chip active" data-source="all" onclick="setFilter('all', this)">All Sources</button>
+    </div>
+
+    <div id="news-wrap">
+      <div class="card-body">
+        <div class="skeleton-line skeleton-line--full"></div>
+        <div class="skeleton-line skeleton-line--med"></div>
+        <div class="skeleton-line skeleton-line--full"></div>
+        <div class="skeleton-line skeleton-line--short"></div>
+        <div class="skeleton-line skeleton-line--full"></div>
+        <div class="skeleton-line skeleton-line--med"></div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<script src="js/nav.js"></script>
+<script src="js/toast.js"></script>
+<script src="js/palette.js"></script>
+<script src="js/auth.js"></script>
+<script>
+  document.getElementById('date-line').textContent = new Date().toLocaleDateString('en-US', {
+    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+  });
+
+  const SOURCE_COLORS = {
+    'Journal of Accountancy': '#1A7A4A',
+    'Accounting Today':       '#1D4ED8',
+    'CPA Practice Advisor':   '#7C3AED',
+    'Going Concern':          '#B45309',
+  };
+
+  let _allItems   = [];
+  let _activeFilter = 'all';
+
+  document.addEventListener('DOMContentLoaded', async () => {
+    if (!requireAuth()) return;
+    loadNews();
+  });
+
+  async function loadNews() {
+    const btn = document.getElementById('refresh-btn');
+    btn.disabled = true;
+    btn.textContent = '↻ Loading…';
+    try {
+      const data = await apiFetch('/data/news');
+      _allItems = data.items || [];
+      buildFilters(_allItems);
+      renderNews(_allItems, _activeFilter);
+    } catch (err) {
+      document.getElementById('news-wrap').innerHTML =
+        `<div class="news-error">Could not load news: ${esc(err.message)}</div>`;
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '↻ Refresh';
+    }
+  }
+
+  function buildFilters(items) {
+    const sources = [...new Set(items.map(i => i.source))];
+    const row = document.getElementById('filter-row');
+    // Keep "All" chip, rebuild rest
+    row.innerHTML = `<button class="filter-chip${_activeFilter === 'all' ? ' active' : ''}" data-source="all" onclick="setFilter('all',this)" style="${_activeFilter === 'all' ? 'background:#444466;' : ''}">All Sources</button>`;
+    sources.forEach(src => {
+      const color = SOURCE_COLORS[src] || '#5A6B7C';
+      const active = _activeFilter === src;
+      row.innerHTML += `<button class="filter-chip${active ? ' active' : ''}" data-source="${esc(src)}" onclick="setFilter('${esc(src)}',this)" style="${active ? `background:${color};border-color:${color};` : ''}">${esc(src)}</button>`;
+    });
+  }
+
+  function setFilter(source, btn) {
+    _activeFilter = source;
+    document.querySelectorAll('.filter-chip').forEach(c => {
+      const src   = c.dataset.source;
+      const color = SOURCE_COLORS[src] || '#444466';
+      const isActive = src === source;
+      c.classList.toggle('active', isActive);
+      c.style.background   = isActive ? color : '';
+      c.style.borderColor  = isActive ? color : '';
+    });
+    renderNews(_allItems, source);
+  }
+
+  function renderNews(items, filter) {
+    const filtered = filter === 'all' ? items : items.filter(i => i.source === filter);
+    const wrap = document.getElementById('news-wrap');
+    if (!filtered.length) {
+      wrap.innerHTML = '<div class="news-empty">No news articles loaded.</div>';
+      return;
+    }
+    wrap.innerHTML = '<div class="news-grid">' + filtered.map(item => {
+      const color = SOURCE_COLORS[item.source] || '#5A6B7C';
+      const dateLabel = formatNewsDate(item.date);
+      return `
+        <a class="news-item" href="${esc(item.url)}" target="_blank" rel="noopener noreferrer">
+          <div class="news-source-dot" style="background:${color};"></div>
+          <div class="news-body">
+            <div class="news-source-label" style="color:${color};">${esc(item.source)}</div>
+            <div class="news-title">${esc(item.title)}</div>
+            ${item.summary ? `<div class="news-summary">${esc(item.summary)}</div>` : ''}
+          </div>
+          ${dateLabel ? `<div class="news-date">${dateLabel}</div>` : ''}
+        </a>`;
+    }).join('') + '</div>';
+  }
+
+  function formatNewsDate(raw) {
+    if (!raw) return '';
+    try {
+      const d = new Date(raw);
+      if (isNaN(d.getTime())) return '';
+      return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    } catch { return ''; }
+  }
+
+  function esc(s) {
+    return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+</script>
+<script src="js/chat.js"></script>
+</div>
+</body>
+</html>

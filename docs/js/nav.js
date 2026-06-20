@@ -6,9 +6,11 @@ const NAV_GROUPS = [
     { label: 'Emails',        href: 'emails.html',      icon: '✉' },
     { label: 'Activity',      href: 'activity.html',    icon: '⟳' },
     { label: 'Calendar',      href: 'calendar.html',    icon: '▦' },
+    { label: 'News',          href: 'news.html',        icon: '◈' },
   ]},
   { label: 'Finance', items: [
     { label: 'AR Aging',      href: 'clients.html',     icon: '◎' },
+    { label: 'Journal',       href: 'journal.html',     icon: '◫' },
     { label: 'Analytics',     href: 'bi.html',          icon: '▤' },
     { label: 'Forecast',      href: 'forecast.html',    icon: '◬' },
     { label: 'Budget',        href: 'budget.html',      icon: '◫' },

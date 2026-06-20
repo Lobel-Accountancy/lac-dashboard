@@ -6184,6 +6184,523 @@ def cron_status():
 
 
 # ---------------------------------------------------------------------------
+# CPE Log — Becker CSV import
+# ---------------------------------------------------------------------------
+
+_CPE_HEADERS = ['Course Name', 'Credits', 'Completed On', 'Delivery Method',
+                'Field of Study', 'Provider', 'CBA Period', 'CBA Category']
+_CPE_DATA_ROW = 4   # first data row in CPE Log (1-based)
+
+
+
+@app.route('/cpe/preview', methods=['POST'])
+@require_jwt
+def cpe_preview():
+    """Parse uploaded Becker CSV and return rows not already in the log."""
+    try:
+        import csv as _csv, io as _io
+        f = request.files.get('file')
+        if not f:
+            return jsonify({'error': 'No file uploaded'}), 400
+
+        content = f.read().decode('utf-8-sig', errors='replace')
+        reader  = _csv.DictReader(_io.StringIO(content))
+        raw_headers = reader.fieldnames or []
+
+        # Normalise header → index mapping (case-insensitive, strip whitespace)
+        def _norm(s): return s.strip().lower() if s else ''
+        nh = {_norm(h): h for h in raw_headers}
+
+        # Map Becker column names → CPE Log columns
+        col_map = {
+            'Course Name':      next((nh[k] for k in nh if 'course' in k and 'name' in k or k == 'title'), None),
+            'Credits':          next((nh[k] for k in nh if 'credit' in k), None),
+            'Completed On':     next((nh[k] for k in nh if 'complet' in k and ('date' in k or 'on' in k)), None),
+            'Delivery Method':  next((nh[k] for k in nh if 'delivery' in k or 'method' in k), None),
+            'Field of Study':   next((nh[k] for k in nh if 'field' in k), None),
+            'Provider':         next((nh[k] for k in nh if 'provider' in k), None),
+            'CBA Period':       next((nh[k] for k in nh if 'period' in k or 'cba period' in k), None),
+            'CBA Category':     next((nh[k] for k in nh if 'category' in k or 'cba cat' in k), None),
+        }
+
+        def _get(row, col): return str(row.get(col_map.get(col) or '', '') or '').strip()
+
+        # Load existing CPE Log entries to detect duplicates
+        wb_read = _get_workbook()
+        existing = set()
+        if 'CPE Log' in wb_read.sheetnames:
+            ws_log = wb_read['CPE Log']
+            for row in ws_log.iter_rows(min_row=_CPE_DATA_ROW, values_only=True):
+                name = str(row[0] or '').strip().lower()
+                completed = str(row[2] or '').strip()
+                if name:
+                    existing.add((name, completed))
+
+        rows = []
+        for r in reader:
+            name       = _get(r, 'Course Name')
+            completed  = _get(r, 'Completed On')
+            if not name:
+                continue
+            if (name.lower(), completed) in existing:
+                continue
+            credits    = _get(r, 'Credits')
+            delivery   = _get(r, 'Delivery Method')
+            field      = _get(r, 'Field of Study')
+            provider   = _get(r, 'Provider')
+            cba_period = _get(r, 'CBA Period')
+            cba_cat    = _get(r, 'CBA Category')
+            rows.append({
+                'course_name':     name,
+                'credits':         credits,
+                'completed_on':    completed,
+                'delivery_method': delivery,
+                'field_of_study':  field,
+                'provider':        provider,
+                'cba_period':      cba_period,
+                'cba_category':    cba_cat,
+            })
+
+        return jsonify({'rows': rows, 'existing_count': len(existing)})
+    except Exception as exc:
+        app.logger.error('cpe_preview error: %s', exc)
+        return jsonify({'error': str(exc)}), 500
+
+
+@app.route('/cpe/import', methods=['POST'])
+@require_jwt
+def cpe_import():
+    """Write confirmed rows to CPE Log tab and push to Drive."""
+    try:
+        data = request.get_json(silent=True) or {}
+        rows = data.get('rows', [])
+        if not rows:
+            return jsonify({'error': 'No rows to import'}), 400
+
+        wb, fid, svc = _wb_download_writable()
+        if 'CPE Log' not in wb.sheetnames:
+            return jsonify({'error': 'CPE Log sheet not found'}), 404
+
+        ws = wb['CPE Log']
+
+        # Find first empty row at or after _CPE_DATA_ROW
+        next_row = _CPE_DATA_ROW
+        while ws.cell(row=next_row, column=1).value:
+            next_row += 1
+
+        added = 0
+        for r in rows:
+            rn = next_row
+            ws.cell(row=rn, column=1).value  = r.get('course_name', '')
+            ws.cell(row=rn, column=2).value  = _safe_float(r.get('credits'))
+            ws.cell(row=rn, column=3).value  = r.get('completed_on', '')
+            ws.cell(row=rn, column=4).value  = r.get('delivery_method', '')
+            ws.cell(row=rn, column=5).value  = r.get('field_of_study', '')
+            ws.cell(row=rn, column=6).value  = r.get('provider', '')
+            ws.cell(row=rn, column=7).value  = r.get('cba_period', '')
+            ws.cell(row=rn, column=8).value  = r.get('cba_category', '')
+            # ACFE Eligible: Yes whenever a course name is present
+            ws.cell(row=rn, column=9).value  = f'=IF(A{rn}<>"","Yes","")'
+            # Fraud Topic: Yes if "fraud" appears in course name or field of study
+            ws.cell(row=rn, column=10).value = (
+                f'=IF(OR(ISNUMBER(SEARCH("fraud",A{rn})),'
+                f'ISNUMBER(SEARCH("fraud",E{rn}))),"Yes","No")'
+            )
+            next_row += 1
+            added += 1
+
+        _wb_upload(wb, fid, svc)
+        _wb_cache['wb'] = None
+        _wb_cache['fetched_at'] = 0
+        return jsonify({'added': added})
+    except Exception as exc:
+        app.logger.error('cpe_import error: %s', exc)
+        return jsonify({'error': str(exc)}), 500
+
+
+def _safe_float(v):
+    try: return float(v)
+    except (TypeError, ValueError): return v
+
+
+# ---------------------------------------------------------------------------
+# CPE Compliance Dashboard
+# ---------------------------------------------------------------------------
+
+@app.route('/data/cpe-compliance', methods=['GET'])
+@require_jwt
+def cpe_compliance():
+    try:
+        from openpyxl import load_workbook as _load_wb
+        wb = _load_wb(os.getenv('LAC_WORKBOOK', '/home/jlobel/lac_automation/LAC_Workbook.xlsx'), data_only=True)
+        if 'Compliance Dashboard' not in wb.sheetnames:
+            return jsonify({'error': 'Compliance Dashboard sheet not found'}), 404
+        ws = wb['Compliance Dashboard']
+
+        sections = []
+        current_section = None
+
+        for row in ws.iter_rows(min_row=1, max_row=100, values_only=True):
+            a = row[0]
+            if a is None:
+                continue
+            a_str = str(a).strip()
+            if not a_str:
+                continue
+
+            # Section header rows (no numeric columns)
+            b = row[1]
+            if b is None and a_str not in ('Requirement',) and not a_str.startswith('Current Period') and not a_str.startswith('Calendar Year') and not a_str.startswith('INSTRUCTIONS'):
+                current_section = {'title': a_str, 'period': None, 'rows': []}
+                sections.append(current_section)
+                continue
+
+            # Period/subheader row
+            if a_str.startswith('Current Period') or a_str.startswith('Calendar Year'):
+                if current_section:
+                    current_section['period'] = a_str
+                continue
+
+            # Skip header row and instructions
+            if a_str in ('Requirement',) or a_str.startswith('INSTRUCTIONS'):
+                continue
+
+            # Data row
+            if current_section is not None and b is not None:
+                try:
+                    required  = float(b) if b is not None else 0
+                    earned    = float(row[2]) if row[2] is not None else 0
+                    remaining = float(row[3]) if row[3] is not None else 0
+                    pct       = float(row[4]) if row[4] is not None else 0
+                    status    = str(row[5]).strip() if row[5] is not None else ''
+                    current_section['rows'].append({
+                        'requirement': a_str,
+                        'required':    required,
+                        'earned':      earned,
+                        'remaining':   remaining,
+                        'pct':         round(pct * 100, 1) if pct <= 1 else round(pct, 1),
+                        'status':      status,
+                    })
+                except (ValueError, TypeError):
+                    continue
+
+        return jsonify({'sections': sections})
+    except Exception as exc:
+        app.logger.error('cpe_compliance error: %s', exc)
+        return jsonify({'error': str(exc)}), 500
+
+
+# ---------------------------------------------------------------------------
+# Journal Entries
+# ---------------------------------------------------------------------------
+
+@app.route('/data/accounts', methods=['GET'])
+@require_jwt
+def get_accounts():
+    """Return chart of accounts from Trial Balance tab."""
+    try:
+        wb = _workbook()
+        if 'Trial Balance' not in wb.sheetnames:
+            return jsonify({'error': 'Trial Balance sheet not found'}), 404
+        ws = wb['Trial Balance']
+        accounts = []
+        for row in ws.iter_rows(min_row=3, values_only=True):
+            if row[0] is None:
+                break
+            try:
+                num = int(float(row[0]))
+            except (TypeError, ValueError):
+                continue
+            name     = str(row[1] or '').strip()
+            acct_type = str(row[2] or '').strip()
+            if num and name:
+                accounts.append({'num': num, 'name': name, 'type': acct_type})
+        return jsonify({'accounts': accounts})
+    except Exception as exc:
+        app.logger.error('get_accounts error: %s', exc)
+        return jsonify({'error': str(exc)}), 500
+
+
+def _parse_je_rows(ws):
+    """Read Transactions tab and group rows by JE number. Returns ordered list of JEs."""
+    je_map   = {}
+    je_order = []
+    for row in ws.iter_rows(min_row=3, values_only=True):
+        if not row or row[0] is None:
+            continue
+        je_num = str(row[1] or '').strip()
+        if not je_num:
+            continue
+        date_val = row[0]
+        if isinstance(date_val, (datetime, date)):
+            date_str = (date_val if isinstance(date_val, datetime) else datetime(date_val.year, date_val.month, date_val.day)).strftime('%Y-%m-%d')
+        elif isinstance(date_val, str):
+            d = _to_date(date_val)
+            date_str = d.strftime('%Y-%m-%d') if d else date_val
+        elif isinstance(date_val, (int, float)):
+            try:
+                d = _EXCEL_EPOCH + timedelta(days=int(date_val))
+                date_str = d.strftime('%Y-%m-%d')
+            except Exception:
+                date_str = ''
+        else:
+            date_str = ''
+        line = {
+            'acct_num':  int(float(row[3])) if row[3] is not None else None,
+            'acct_name': str(row[4] or '').strip(),
+            'debit':     float(row[5]) if row[5] is not None else None,
+            'credit':    float(row[6]) if row[6] is not None else None,
+            'notes':     str(row[7] or '').strip(),
+        }
+        if je_num not in je_map:
+            je_map[je_num] = {
+                'je_num':      je_num,
+                'date':        date_str,
+                'description': str(row[2] or '').strip(),
+                'lines':       [],
+            }
+            je_order.append(je_num)
+        je_map[je_num]['lines'].append(line)
+    return [je_map[j] for j in je_order]
+
+
+@app.route('/data/journal', methods=['GET'])
+@require_jwt
+def get_journal():
+    """Return journal entries grouped by JE number, newest first."""
+    try:
+        limit = request.args.get('limit')
+        wb = _workbook()
+        if 'Transactions' not in wb.sheetnames:
+            return jsonify({'entries': []})
+        ws = wb['Transactions']
+        entries = list(reversed(_parse_je_rows(ws)))
+        if limit:
+            try:
+                entries = entries[:int(limit)]
+            except ValueError:
+                pass
+        return jsonify({'entries': entries})
+    except Exception as exc:
+        app.logger.error('get_journal error: %s', exc)
+        return jsonify({'error': str(exc)}), 500
+
+
+@app.route('/journal/add', methods=['POST'])
+@require_jwt
+def journal_add():
+    """Add a new double-entry journal entry to the Transactions tab."""
+    try:
+        data    = request.get_json(silent=True) or {}
+        je_date = (data.get('date') or '').strip()
+        je_desc = (data.get('description') or '').strip()
+        lines   = data.get('lines', [])
+
+        if not je_date or not je_desc:
+            return jsonify({'error': 'date and description are required'}), 400
+        if len(lines) < 2:
+            return jsonify({'error': 'At least 2 lines required for double-entry'}), 400
+
+        total_debit  = sum(float(l.get('debit')  or 0) for l in lines)
+        total_credit = sum(float(l.get('credit') or 0) for l in lines)
+        if abs(total_debit - total_credit) > 0.005:
+            return jsonify({'error': f'Entry not balanced: debits {total_debit:.2f} ≠ credits {total_credit:.2f}'}), 400
+
+        wb, fid, svc = _wb_download_writable()
+        if 'Transactions' not in wb.sheetnames:
+            return jsonify({'error': 'Transactions sheet not found'}), 404
+        ws = wb['Transactions']
+
+        # Determine next JE number
+        max_je = 0
+        for row in ws.iter_rows(min_row=3, values_only=True):
+            if not row or row[1] is None:
+                continue
+            m = re.match(r'JE-(\d+)', str(row[1]).strip(), re.I)
+            if m:
+                max_je = max(max_je, int(m.group(1)))
+        next_je = f'JE-{max_je + 1:03d}'
+
+        # Find first empty row
+        next_row = 3
+        while ws.cell(row=next_row, column=1).value is not None:
+            next_row += 1
+
+        try:
+            d = datetime.strptime(je_date, '%Y-%m-%d')
+        except ValueError:
+            d = _to_date(je_date)
+            if d is None:
+                return jsonify({'error': 'Invalid date format'}), 400
+            d = datetime(d.year, d.month, d.day)
+
+        for line in lines:
+            ws.cell(row=next_row, column=1).value = d
+            ws.cell(row=next_row, column=2).value = next_je
+            ws.cell(row=next_row, column=3).value = je_desc
+            ws.cell(row=next_row, column=4).value = int(line['acct_num'])
+            ws.cell(row=next_row, column=5).value = str(line.get('acct_name', ''))
+            ws.cell(row=next_row, column=6).value = float(line['debit'])  if line.get('debit')  else None
+            ws.cell(row=next_row, column=7).value = float(line['credit']) if line.get('credit') else None
+            ws.cell(row=next_row, column=8).value = str(line.get('notes', ''))
+            ws.cell(row=next_row, column=9).value = d.month
+            next_row += 1
+
+        _wb_upload(wb, fid, svc)
+        _wb_cache['wb'] = None
+        _wb_cache['fetched_at'] = 0
+
+        return jsonify({'je_num': next_je, 'lines_added': len(lines)})
+    except Exception as exc:
+        app.logger.error('journal_add error: %s', exc)
+        return jsonify({'error': str(exc)}), 500
+
+
+@app.route('/journal/update', methods=['PUT'])
+@require_jwt
+def journal_update():
+    """Replace all lines for an existing JE number."""
+    try:
+        data    = request.get_json(silent=True) or {}
+        je_num  = (data.get('je_num') or '').strip()
+        je_date = (data.get('date') or '').strip()
+        je_desc = (data.get('description') or '').strip()
+        lines   = data.get('lines', [])
+
+        if not je_num:
+            return jsonify({'error': 'je_num required'}), 400
+        if len(lines) < 2:
+            return jsonify({'error': 'At least 2 lines required'}), 400
+
+        total_debit  = sum(float(l.get('debit')  or 0) for l in lines)
+        total_credit = sum(float(l.get('credit') or 0) for l in lines)
+        if abs(total_debit - total_credit) > 0.005:
+            return jsonify({'error': f'Entry not balanced: {total_debit:.2f} ≠ {total_credit:.2f}'}), 400
+
+        wb, fid, svc = _wb_download_writable()
+        if 'Transactions' not in wb.sheetnames:
+            return jsonify({'error': 'Transactions sheet not found'}), 404
+        ws = wb['Transactions']
+
+        rows_to_delete = [row[0].row for row in ws.iter_rows(min_row=3) if str(row[1].value or '').strip() == je_num]
+        if not rows_to_delete:
+            return jsonify({'error': f'{je_num} not found'}), 404
+
+        insert_at = min(rows_to_delete)
+        for rn in sorted(rows_to_delete, reverse=True):
+            ws.delete_rows(rn)
+
+        try:
+            d = datetime.strptime(je_date, '%Y-%m-%d')
+        except (ValueError, TypeError):
+            d = _to_date(je_date)
+            if d is None:
+                return jsonify({'error': 'Invalid date'}), 400
+            d = datetime(d.year, d.month, d.day)
+
+        ws.insert_rows(insert_at, amount=len(lines))
+        for i, line in enumerate(lines):
+            rn = insert_at + i
+            ws.cell(row=rn, column=1).value = d
+            ws.cell(row=rn, column=2).value = je_num
+            ws.cell(row=rn, column=3).value = je_desc
+            ws.cell(row=rn, column=4).value = int(line['acct_num'])
+            ws.cell(row=rn, column=5).value = str(line.get('acct_name', ''))
+            ws.cell(row=rn, column=6).value = float(line['debit'])  if line.get('debit')  else None
+            ws.cell(row=rn, column=7).value = float(line['credit']) if line.get('credit') else None
+            ws.cell(row=rn, column=8).value = str(line.get('notes', ''))
+            ws.cell(row=rn, column=9).value = d.month
+
+        _wb_upload(wb, fid, svc)
+        _wb_cache['wb'] = None
+        _wb_cache['fetched_at'] = 0
+
+        return jsonify({'updated': je_num, 'lines': len(lines)})
+    except Exception as exc:
+        app.logger.error('journal_update error: %s', exc)
+        return jsonify({'error': str(exc)}), 500
+
+
+@app.route('/journal/delete', methods=['DELETE'])
+@require_jwt
+def journal_delete():
+    """Delete all rows for a given JE number."""
+    try:
+        data   = request.get_json(silent=True) or {}
+        je_num = (data.get('je_num') or '').strip()
+        if not je_num:
+            return jsonify({'error': 'je_num required'}), 400
+
+        wb, fid, svc = _wb_download_writable()
+        if 'Transactions' not in wb.sheetnames:
+            return jsonify({'error': 'Transactions sheet not found'}), 404
+        ws = wb['Transactions']
+
+        rows_to_delete = [row[0].row for row in ws.iter_rows(min_row=3) if str(row[1].value or '').strip() == je_num]
+        if not rows_to_delete:
+            return jsonify({'error': f'{je_num} not found'}), 404
+
+        for rn in sorted(rows_to_delete, reverse=True):
+            ws.delete_rows(rn)
+
+        _wb_upload(wb, fid, svc)
+        _wb_cache['wb'] = None
+        _wb_cache['fetched_at'] = 0
+
+        return jsonify({'deleted': je_num, 'rows': len(rows_to_delete)})
+    except Exception as exc:
+        app.logger.error('journal_delete error: %s', exc)
+        return jsonify({'error': str(exc)}), 500
+
+
+# ---------------------------------------------------------------------------
+# Accounting News Feed
+# ---------------------------------------------------------------------------
+
+@app.route('/data/news', methods=['GET'])
+@require_jwt
+def accounting_news():
+    """Fetch and parse accounting news RSS feeds."""
+    import xml.etree.ElementTree as ET
+    import html as _html
+    import urllib.request as _ur
+
+    FEEDS = [
+        {'source': 'Journal of Accountancy', 'url': 'https://www.journalofaccountancy.com/rss/all.rss'},
+        {'source': 'Accounting Today',        'url': 'https://www.accountingtoday.com/feed'},
+        {'source': 'CPA Practice Advisor',    'url': 'https://www.cpapracticeadvisor.com/rss'},
+        {'source': 'Going Concern',            'url': 'https://goingconcern.com/feed/'},
+    ]
+
+    items = []
+    for feed in FEEDS:
+        try:
+            req = _ur.Request(feed['url'], headers={'User-Agent': 'LAC-Dashboard/1.0 (+https://dashboard.lobelaccountancy.com)'})
+            with _ur.urlopen(req, timeout=6) as resp:
+                content = resp.read()
+            root = ET.fromstring(content)
+
+            for item in root.findall('.//item')[:6]:
+                title = item.findtext('title', '') or ''
+                link  = item.findtext('link',  '') or ''
+                pub   = item.findtext('pubDate', '') or ''
+                desc  = item.findtext('description', '') or ''
+                desc_clean = re.sub(r'<[^>]+>', '', _html.unescape(desc))[:220].strip()
+                if title and link:
+                    items.append({
+                        'source':  feed['source'],
+                        'title':   _html.unescape(title.strip()),
+                        'url':     link.strip(),
+                        'date':    pub.strip(),
+                        'summary': desc_clean,
+                    })
+        except Exception as e:
+            app.logger.warning('News feed %s failed: %s', feed['source'], e)
+
+    return jsonify({'items': items[:40]})
+
+
+# ---------------------------------------------------------------------------
 # Global Search
 # ---------------------------------------------------------------------------
 

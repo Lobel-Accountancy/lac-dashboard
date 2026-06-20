@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <link rel="icon" type="image/jpeg" href="favicon.jpg">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LAC Journal Entries</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .form-row {
+      display: flex;
+      gap: 14px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      flex: 1;
+      min-width: 140px;
+    }
+    .form-group label {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      color: var(--text-2);
+    }
+    .form-group input, .form-group select {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-size: 13px;
+      padding: 8px 10px;
+      width: 100%;
+      box-sizing: border-box;
+      outline: none;
+      transition: border-color .15s;
+    }
+    .form-group input:focus, .form-group select:focus {
+      border-color: var(--accent-teal, #2ab8a0);
+    }
+
+    /* Lines table */
+    .je-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .je-table th {
+      text-align: left;
+      padding: 6px 8px;
+      font-size: 10px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .05em; color: var(--text-2);
+      border-bottom: 1px solid var(--border);
+    }
+    .je-table td { padding: 5px 4px; vertical-align: middle; }
+    .je-table td input, .je-table td select {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      color: var(--text);
+      font-size: 12px;
+      padding: 6px 8px;
+      width: 100%;
+      box-sizing: border-box;
+    }
+    .je-table td input:focus, .je-table td select:focus {
+      outline: none;
+      border-color: var(--accent-teal, #2ab8a0);
+    }
+    .col-acct   { min-width: 200px; }
+    .col-amount { width: 110px; }
+    .col-notes  { min-width: 140px; }
+    .col-del    { width: 32px; }
+
+    .btn-del {
+      background: none;
+      border: none;
+      color: var(--danger, #e05555);
+      cursor: pointer;
+      font-size: 15px;
+      padding: 4px 6px;
+      border-radius: 4px;
+      opacity: .6;
+      line-height: 1;
+    }
+    .btn-del:hover { opacity: 1; background: rgba(224,85,85,.12); }
+
+    /* Balance row */
+    .balance-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 14px;
+      padding-top: 14px;
+      border-top: 1px solid var(--border);
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .balance-ok     { color: var(--ok, #4caf7d); font-size: 13px; font-weight: 600; }
+    .balance-off    { color: var(--danger, #e05555); font-size: 13px; font-weight: 600; }
+    .balance-zero   { color: var(--text-2); font-size: 13px; }
+
+    .btn-add-line {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--text-2);
+      padding: 7px 14px;
+      border-radius: 6px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: border-color .15s, color .15s;
+    }
+    .btn-add-line:hover { border-color: var(--accent-teal); color: var(--text); }
+
+    .btn-save {
+      background: var(--accent-teal, #2ab8a0);
+      color: #fff;
+      border: none;
+      padding: 9px 22px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity .15s;
+    }
+    .btn-save:hover   { opacity: .85; }
+    .btn-save:disabled { opacity: .4; cursor: not-allowed; }
+
+    .btn-cancel-edit {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--text-2);
+      padding: 9px 16px;
+      border-radius: 6px;
+      font-size: 13px;
+      cursor: pointer;
+    }
+    .btn-cancel-edit:hover { color: var(--text); }
+
+    /* Recent entries */
+    .je-entry {
+      border-bottom: 1px solid var(--border);
+    }
+    .je-entry:last-child { border-bottom: none; }
+    .je-header-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 11px 20px;
+      cursor: pointer;
+      transition: background .1s;
+    }
+    .je-header-row:hover { background: rgba(255,255,255,.04); }
+    .je-num-badge {
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 8px;
+      background: rgba(42,184,160,.14);
+      color: var(--accent-teal, #2ab8a0);
+      flex-shrink: 0;
+      font-family: monospace;
+    }
+    .je-desc-col { flex: 1; font-size: 13px; color: var(--text); }
+    .je-date-col { font-size: 12px; color: var(--text-2); flex-shrink: 0; }
+    .je-amount-col { font-size: 13px; font-weight: 600; color: var(--text); flex-shrink: 0; min-width: 80px; text-align: right; font-variant-numeric: tabular-nums; }
+    .je-chevron { color: var(--text-3); font-size: 11px; flex-shrink: 0; transition: transform .2s; }
+    .je-chevron.open { transform: rotate(90deg); }
+
+    .je-lines-panel {
+      display: none;
+      padding: 0 20px 14px;
+    }
+    .je-lines-panel.open { display: block; }
+
+    .je-lines-inner {
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      overflow: hidden;
+      font-size: 12px;
+    }
+    .je-line-row {
+      display: grid;
+      grid-template-columns: 40px 1fr 100px 100px 1fr;
+      gap: 0;
+      padding: 7px 12px;
+      border-bottom: 1px solid var(--border);
+      align-items: center;
+    }
+    .je-line-row:last-child { border-bottom: none; }
+    .je-line-row:nth-child(even) { background: rgba(255,255,255,.025); }
+    .je-line-hdr {
+      font-size: 10px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .05em; color: var(--text-2);
+      background: var(--surface);
+      padding: 5px 12px;
+      display: grid;
+      grid-template-columns: 40px 1fr 100px 100px 1fr;
+      border-bottom: 1px solid var(--border);
+    }
+    .je-debit  { color: var(--accent-green, #4caf7d); font-variant-numeric: tabular-nums; }
+    .je-credit { color: var(--danger, #e05555); font-variant-numeric: tabular-nums; }
+    .je-acct   { color: var(--text); }
+    .je-notes  { color: var(--text-2); font-size: 11px; }
+
+    .je-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 10px;
+      justify-content: flex-end;
+    }
+    .btn-je-edit {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--text-2);
+      padding: 5px 14px;
+      border-radius: 5px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: border-color .15s, color .15s;
+    }
+    .btn-je-edit:hover { border-color: var(--accent-teal); color: var(--text); }
+    .btn-je-del {
+      background: none;
+      border: 1px solid transparent;
+      color: var(--danger, #e05555);
+      padding: 5px 14px;
+      border-radius: 5px;
+      font-size: 12px;
+      cursor: pointer;
+      opacity: .7;
+    }
+    .btn-je-del:hover { opacity: 1; border-color: var(--danger); }
+
+    .edit-mode-banner {
+      background: rgba(42,184,160,.1);
+      border: 1px solid var(--accent-teal, #2ab8a0);
+      border-radius: 6px;
+      padding: 8px 14px;
+      font-size: 12px;
+      color: var(--accent-teal, #2ab8a0);
+      margin-bottom: 14px;
+      display: none;
+    }
+    .edit-mode-banner.visible { display: flex; align-items: center; gap: 8px; }
+  </style>
+</head>
+<body>
+<aside id="lac-sidebar"></aside>
+<div class="page-body">
+<main class="main">
+  <div class="greeting">Journal Entries</div>
+  <div class="date-line" id="date-line"></div>
+
+  <div class="error-banner" id="error-banner" hidden></div>
+
+  <!-- New / Edit Entry Form -->
+  <div class="card" style="margin-bottom:20px;">
+    <div class="card-header" id="form-header">New Journal Entry</div>
+    <div class="card-body">
+
+      <div class="edit-mode-banner" id="edit-banner">
+        ✎ Editing <strong id="edit-je-label"></strong> — changes will replace all existing lines.
+      </div>
+
+      <div class="form-row">
+        <div class="form-group" style="max-width:160px;">
+          <label>Date</label>
+          <input type="date" id="je-date">
+        </div>
+        <div class="form-group">
+          <label>Description</label>
+          <input type="text" id="je-desc" placeholder="e.g., Office supplies purchased" maxlength="120">
+        </div>
+      </div>
+
+      <div style="overflow-x:auto;">
+        <table class="je-table">
+          <thead>
+            <tr>
+              <th class="col-acct">Account</th>
+              <th class="col-amount" style="text-align:right;">Debit ($)</th>
+              <th class="col-amount" style="text-align:right;">Credit ($)</th>
+              <th class="col-notes">Notes</th>
+              <th class="col-del"></th>
+            </tr>
+          </thead>
+          <tbody id="lines-body"></tbody>
+        </table>
+      </div>
+
+      <div class="balance-row">
+        <span id="balance-status" class="balance-zero">Enter amounts above</span>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn-cancel-edit" id="cancel-edit-btn" onclick="cancelEdit()" hidden>Cancel</button>
+          <button class="btn-add-line" onclick="addLine()">+ Add Line</button>
+          <button class="btn-save" id="save-btn" onclick="saveEntry()">Save Entry</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Recent Entries -->
+  <div class="card card--full">
+    <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
+      <span>Recent Journal Entries</span>
+      <span id="entries-count" style="font-size:12px;font-weight:400;color:var(--text-3);"></span>
+    </div>
+    <div id="entries-wrap">
+      <div class="card-body">
+        <div class="skeleton-line skeleton-line--full"></div>
+        <div class="skeleton-line skeleton-line--med"></div>
+        <div class="skeleton-line skeleton-line--full"></div>
+        <div class="skeleton-line skeleton-line--short"></div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<script src="js/nav.js"></script>
+<script src="js/toast.js"></script>
+<script src="js/palette.js"></script>
+<script src="js/auth.js"></script>
+<script>
+  document.getElementById('date-line').textContent = new Date().toLocaleDateString('en-US', {
+    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+  });
+  // Default date input to today
+  document.getElementById('je-date').value = new Date().toISOString().slice(0,10);
+
+  let _accounts  = [];
+  let _editMode  = null;   // null or JE number string being edited
+
+  document.addEventListener('DOMContentLoaded', async () => {
+    if (!requireAuth()) return;
+    await loadAccounts();
+    addLine();
+    addLine();
+    loadEntries();
+  });
+
+  // ── Accounts ──────────────────────────────────────────────────────────────
+
+  async function loadAccounts() {
+    try {
+      const data = await apiFetch('/data/accounts');
+      _accounts = data.accounts || [];
+    } catch (err) {
+      _accounts = [];
+    }
+  }
+
+  function accountOptions(selectedNum) {
+    const groups = {};
+    _accounts.forEach(a => {
+      if (!groups[a.type]) groups[a.type] = [];
+      groups[a.type].push(a);
+    });
+    let html = '<option value="">— Select account —</option>';
+    Object.entries(groups).forEach(([type, accts]) => {
+      html += `<optgroup label="${esc(type)}">`;
+      accts.forEach(a => {
+        const sel = (selectedNum && a.num == selectedNum) ? ' selected' : '';
+        html += `<option value="${a.num}" data-name="${esc(a.name)}"${sel}>${a.num} – ${esc(a.name)}</option>`;
+      });
+      html += '</optgroup>';
+    });
+    return html;
+  }
+
+  // ── Lines ─────────────────────────────────────────────────────────────────
+
+  function addLine(acctNum, debit, credit, notes) {
+    const tbody = document.getElementById('lines-body');
+    const idx   = tbody.rows.length;
+    const tr    = document.createElement('tr');
+    tr.dataset.idx = idx;
+    tr.innerHTML = `
+      <td class="col-acct">
+        <select onchange="updateBalance()" style="min-width:190px;">
+          ${accountOptions(acctNum)}
+        </select>
+      </td>
+      <td class="col-amount">
+        <input type="number" min="0" step="0.01" placeholder="0.00"
+               value="${debit != null ? debit : ''}"
+               oninput="updateBalance()" style="text-align:right;">
+      </td>
+      <td class="col-amount">
+        <input type="number" min="0" step="0.01" placeholder="0.00"
+               value="${credit != null ? credit : ''}"
+               oninput="updateBalance()" style="text-align:right;">
+      </td>
+      <td class="col-notes">
+        <input type="text" placeholder="Optional note" value="${esc(notes || '')}">
+      </td>
+      <td class="col-del">
+        <button class="btn-del" onclick="removeLine(this)" title="Remove line">✕</button>
+      </td>`;
+    tbody.appendChild(tr);
+    updateBalance();
+  }
+
+  function removeLine(btn) {
+    const tr = btn.closest('tr');
+    tr.remove();
+    updateBalance();
+  }
+
+  function getLines() {
+    const rows = document.querySelectorAll('#lines-body tr');
+    return Array.from(rows).map(tr => {
+      const sel    = tr.querySelector('select');
+      const acctOpt = sel?.options[sel.selectedIndex];
+      const acctName = acctOpt?.dataset?.name || '';
+      const inputs = tr.querySelectorAll('input');
+      return {
+        acct_num:  sel?.value ? parseInt(sel.value) : null,
+        acct_name: acctName,
+        debit:     inputs[0]?.value ? parseFloat(inputs[0].value) : null,
+        credit:    inputs[1]?.value ? parseFloat(inputs[1].value) : null,
+        notes:     inputs[2]?.value?.trim() || '',
+      };
+    });
+  }
+
+  function updateBalance() {
+    const lines  = getLines();
+    const debit  = lines.reduce((s, l) => s + (l.debit  || 0), 0);
+    const credit = lines.reduce((s, l) => s + (l.credit || 0), 0);
+    const el     = document.getElementById('balance-status');
+    if (debit === 0 && credit === 0) {
+      el.textContent = 'Enter amounts above';
+      el.className   = 'balance-zero';
+    } else {
+      const diff = Math.abs(debit - credit);
+      if (diff < 0.005) {
+        el.textContent = `✓ Balanced  ·  Dr ${fmt$(debit)}  =  Cr ${fmt$(credit)}`;
+        el.className   = 'balance-ok';
+      } else {
+        el.textContent = `Not balanced  ·  Dr ${fmt$(debit)}  vs  Cr ${fmt$(credit)}  (off by ${fmt$(diff)})`;
+        el.className   = 'balance-off';
+      }
+    }
+  }
+
+  // ── Save ──────────────────────────────────────────────────────────────────
+
+  async function saveEntry() {
+    const date = document.getElementById('je-date').value.trim();
+    const desc = document.getElementById('je-desc').value.trim();
+    const lines = getLines().filter(l => l.acct_num);
+
+    if (!date || !desc) { showToast('Date and description are required', 'error'); return; }
+    if (lines.length < 2) { showToast('At least 2 account lines required', 'error'); return; }
+
+    const td = lines.reduce((s, l) => s + (l.debit  || 0), 0);
+    const tc = lines.reduce((s, l) => s + (l.credit || 0), 0);
+    if (Math.abs(td - tc) > 0.005) {
+      showToast(`Entry not balanced: Dr ${fmt$(td)} ≠ Cr ${fmt$(tc)}`, 'error');
+      return;
+    }
+
+    const btn = document.getElementById('save-btn');
+    btn.disabled = true;
+    btn.textContent = _editMode ? 'Updating…' : 'Saving…';
+
+    try {
+      let result;
+      if (_editMode) {
+        result = await apiFetch('/journal/update', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ je_num: _editMode, date, description: desc, lines }),
+        });
+        showToast(`${result.updated} updated`, 'success');
+      } else {
+        result = await apiFetch('/journal/add', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ date, description: desc, lines }),
+        });
+        showToast(`${result.je_num} saved`, 'success');
+      }
+      resetForm();
+      loadEntries();
+    } catch (err) {
+      showToast(`Error: ${err.message}`, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = _editMode ? 'Update Entry' : 'Save Entry';
+    }
+  }
+
+  function resetForm() {
+    _editMode = null;
+    document.getElementById('je-date').value    = new Date().toISOString().slice(0,10);
+    document.getElementById('je-desc').value    = '';
+    document.getElementById('lines-body').innerHTML = '';
+    document.getElementById('form-header').textContent = 'New Journal Entry';
+    document.getElementById('edit-banner').classList.remove('visible');
+    document.getElementById('cancel-edit-btn').hidden = true;
+    document.getElementById('save-btn').textContent = 'Save Entry';
+    addLine();
+    addLine();
+    updateBalance();
+  }
+
+  function cancelEdit() {
+    resetForm();
+  }
+
+  function startEdit(entry) {
+    _editMode = entry.je_num;
+    document.getElementById('je-date').value  = entry.date || '';
+    document.getElementById('je-desc').value  = entry.description || '';
+    document.getElementById('lines-body').innerHTML = '';
+    entry.lines.forEach(l => addLine(l.acct_num, l.debit, l.credit, l.notes));
+
+    document.getElementById('form-header').textContent = `Edit ${entry.je_num}`;
+    document.getElementById('edit-je-label').textContent = entry.je_num;
+    document.getElementById('edit-banner').classList.add('visible');
+    document.getElementById('cancel-edit-btn').hidden = false;
+    document.getElementById('save-btn').textContent = 'Update Entry';
+    updateBalance();
+
+    document.querySelector('.main').scrollTo({ top: 0, behavior: 'smooth' });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  // ── Recent Entries ────────────────────────────────────────────────────────
+
+  async function loadEntries() {
+    try {
+      const data = await apiFetch('/data/journal');
+      renderEntries(data.entries || []);
+    } catch (err) {
+      document.getElementById('entries-wrap').innerHTML =
+        `<div class="card-body"><span class="empty-state">Error loading entries: ${esc(err.message)}</span></div>`;
+    }
+  }
+
+  function renderEntries(entries) {
+    const wrap = document.getElementById('entries-wrap');
+    document.getElementById('entries-count').textContent = `${entries.length} entries`;
+    if (!entries.length) {
+      wrap.innerHTML = '<div class="card-body"><span class="empty-state">No journal entries yet.</span></div>';
+      return;
+    }
+    wrap.innerHTML = entries.map((e, i) => {
+      const totalDebit = e.lines.reduce((s, l) => s + (l.debit || 0), 0);
+      const dateLabel  = e.date ? new Date(e.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
+      const linesHtml  = `
+        <div class="je-lines-inner">
+          <div class="je-line-hdr">
+            <span>#</span><span>Account</span><span style="text-align:right">Debit</span><span style="text-align:right">Credit</span><span>Notes</span>
+          </div>
+          ${e.lines.map((l, li) => `
+          <div class="je-line-row">
+            <span style="color:var(--text-3);font-size:11px;">${li + 1}</span>
+            <span class="je-acct">${esc(l.acct_num ? l.acct_num + ' – ' + l.acct_name : l.acct_name)}</span>
+            <span class="je-debit" style="text-align:right;">${l.debit != null ? fmt$(l.debit) : ''}</span>
+            <span class="je-credit" style="text-align:right;">${l.credit != null ? fmt$(l.credit) : ''}</span>
+            <span class="je-notes">${esc(l.notes)}</span>
+          </div>`).join('')}
+        </div>
+        <div class="je-actions">
+          <button class="btn-je-edit" onclick="startEditByIdx(${i})">✎ Edit</button>
+          <button class="btn-je-del"  onclick="deleteEntry('${esc(e.je_num)}', this)">✕ Delete</button>
+        </div>`;
+      return `
+        <div class="je-entry" id="je-${esc(e.je_num)}">
+          <div class="je-header-row" onclick="toggleEntry(this)">
+            <span class="je-num-badge">${esc(e.je_num)}</span>
+            <span class="je-desc-col">${esc(e.description)}</span>
+            <span class="je-date-col">${dateLabel}</span>
+            <span class="je-amount-col">${fmt$(totalDebit)}</span>
+            <span class="je-chevron">▶</span>
+          </div>
+          <div class="je-lines-panel" id="panel-${esc(e.je_num)}">${linesHtml}</div>
+        </div>`;
+    }).join('');
+    // Store entries for quick lookup by index
+    window._journalEntries = entries;
+  }
+
+  function toggleEntry(headerEl) {
+    const chevron = headerEl.querySelector('.je-chevron');
+    const jeNum   = headerEl.closest('.je-entry').id.replace('je-', '');
+    const panel   = document.getElementById(`panel-${jeNum}`);
+    if (!panel) return;
+    const open = panel.classList.toggle('open');
+    chevron.classList.toggle('open', open);
+  }
+
+  function startEditByIdx(idx) {
+    const entries = window._journalEntries || [];
+    if (entries[idx]) startEdit(entries[idx]);
+  }
+
+  async function deleteEntry(jeNum, btn) {
+    if (!confirm(`Delete ${jeNum} and all its lines? This cannot be undone.`)) return;
+    btn.disabled = true;
+    try {
+      await apiFetch('/journal/delete', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ je_num: jeNum }),
+      });
+      showToast(`${jeNum} deleted`, 'success');
+      if (_editMode === jeNum) resetForm();
+      loadEntries();
+    } catch (err) {
+      showToast(`Error: ${err.message}`, 'error');
+      btn.disabled = false;
+    }
+  }
+
+  // ── Helpers ───────────────────────────────────────────────────────────────
+
+  function fmt$(n) {
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 2 }).format(n || 0);
+  }
+
+  function esc(s) {
+    return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+</script>
+<script src="js/chat.js"></script>
+</div>
+</body>
+</html>
