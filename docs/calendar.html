@@ -8,45 +8,75 @@
   <link rel="stylesheet" href="css/style.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.css">
   <style>
-    .legend {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 14px;
-      margin-bottom: 16px;
-    }
-    .legend-item {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 12px;
-      color: var(--text-2);
-    }
-    .legend-dot {
-      width: 10px; height: 10px;
-      border-radius: 50%;
-    }
-    .fc { font-family: inherit; font-size: 13px; }
-    .fc .fc-toolbar-title { font-size: 16px; font-weight: 700; color: var(--navy); }
-    .fc .fc-button { background: var(--navy); border-color: var(--navy); font-size: 12px; }
-    .fc .fc-button:hover { background: var(--navy-dark); }
+    .legend { display:flex; flex-wrap:wrap; gap:14px; margin-bottom:16px; }
+    .legend-item { display:flex; align-items:center; gap:6px; font-size:12px; color:var(--text-2); }
+    .legend-dot  { width:10px; height:10px; border-radius:50%; }
+
+    .fc { font-family:inherit; font-size:13px; }
+    .fc .fc-toolbar-title { font-size:16px; font-weight:700; color:var(--text); }
+    .fc .fc-button { background:var(--surface); border:1px solid var(--border); color:var(--text); font-size:12px; }
+    .fc .fc-button:hover { background:rgba(255,255,255,.08); }
     .fc .fc-button-primary:not(:disabled).fc-button-active,
-    .fc .fc-button-primary:not(:disabled):active { background: var(--blue); border-color: var(--blue); }
-    .fc .fc-daygrid-day.fc-day-today { background: rgba(46, 109, 164, 0.06); }
-    .fc .fc-daygrid-event { font-size: 11px; padding: 1px 4px; border-radius: 3px; }
-    .fc-event-compliance { background: #C0392B; border-color: #C0392B; }
-    .fc-event-deadline   { background: #D4880A; border-color: #D4880A; }
-    .fc-event-calendar   { background: #2E6DA4; border-color: #2E6DA4; }
-    .fc-event-overdue    { background: #8B0000; border-color: #8B0000; }
-    [data-theme="dark"] .fc .fc-toolbar-title { color: var(--text); }
+    .fc .fc-button-primary:not(:disabled):active { background:var(--blue,#2E6DA4); border-color:var(--blue,#2E6DA4); color:#fff; }
+    .fc .fc-daygrid-day.fc-day-today { background:rgba(46,109,164,.06); }
+    .fc .fc-daygrid-event { font-size:11px; padding:1px 4px; border-radius:3px; }
+    .fc-event-compliance { background:#C0392B; border-color:#C0392B; }
+    .fc-event-deadline   { background:#D4880A; border-color:#D4880A; }
+    .fc-event-calendar   { background:#2E6DA4; border-color:#2E6DA4; cursor:pointer; }
+    .fc-event-overdue    { background:#8B0000; border-color:#8B0000; }
+    [data-theme="dark"] .fc .fc-toolbar-title { color:var(--text); }
     [data-theme="dark"] .fc .fc-scrollgrid,
-    [data-theme="dark"] .fc .fc-daygrid-day { border-color: var(--border); }
+    [data-theme="dark"] .fc .fc-daygrid-day { border-color:var(--border); }
     [data-theme="dark"] .fc .fc-daygrid-day-number,
-    [data-theme="dark"] .fc .fc-col-header-cell-cushion { color: var(--text-2); }
-    [data-theme="dark"] .fc .fc-daygrid-day.fc-day-today { background: rgba(74, 139, 196, 0.1); }
+    [data-theme="dark"] .fc .fc-col-header-cell-cushion { color:var(--text-2); }
+    [data-theme="dark"] .fc .fc-daygrid-day.fc-day-today { background:rgba(74,139,196,.1); }
     [data-theme="dark"] .fc-theme-standard td,
-    [data-theme="dark"] .fc-theme-standard th { border-color: var(--border); }
-    [data-theme="dark"] .fc-theme-standard .fc-scrollgrid { border-color: var(--border); }
-    [data-theme="dark"] .fc .fc-daygrid-body-natural .fc-daygrid-day-events { background: none; }
+    [data-theme="dark"] .fc-theme-standard th { border-color:var(--border); }
+    [data-theme="dark"] .fc-theme-standard .fc-scrollgrid { border-color:var(--border); }
+
+    .btn-add-event {
+      background: #2E6DA4; color:#fff; border:none;
+      padding:7px 16px; border-radius:7px; font-size:13px; font-weight:600;
+      cursor:pointer; transition:opacity .15s;
+    }
+    .btn-add-event:hover { opacity:.85; }
+
+    /* Modal */
+    .modal-backdrop {
+      position:fixed; inset:0; background:rgba(0,0,0,.55);
+      z-index:1000; display:flex; align-items:center; justify-content:center;
+    }
+    .modal-backdrop[hidden] { display:none; }
+    .modal {
+      background:var(--surface); border:1px solid var(--border); border-radius:12px;
+      padding:24px 28px; width:440px; max-width:95vw; box-shadow:0 8px 32px rgba(0,0,0,.4);
+    }
+    .modal-title {
+      font-size:16px; font-weight:700; color:var(--text); margin-bottom:18px;
+    }
+    .form-row { display:flex; flex-direction:column; gap:5px; margin-bottom:14px; }
+    .form-row label { font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.05em; color:var(--text-2); }
+    .form-row input, .form-row textarea {
+      background:var(--bg); border:1px solid var(--border); border-radius:7px;
+      color:var(--text); font-size:13px; padding:8px 11px; outline:none;
+      transition:border-color .15s; font-family:inherit;
+    }
+    .form-row input:focus, .form-row textarea:focus { border-color:#2E6DA4; }
+    .form-row textarea { resize:vertical; min-height:60px; }
+    .form-row-2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+    .modal-actions { display:flex; gap:8px; justify-content:flex-end; margin-top:18px; flex-wrap:wrap; }
+    .btn-save-event {
+      background:#2E6DA4; color:#fff; border:none; padding:8px 18px;
+      border-radius:7px; font-size:13px; font-weight:600; cursor:pointer;
+    }
+    .btn-cancel-modal {
+      background:none; border:1px solid var(--border); color:var(--text-2);
+      padding:8px 16px; border-radius:7px; font-size:13px; cursor:pointer;
+    }
+    .btn-delete-event {
+      background:none; border:1px solid var(--danger,#e05252); color:var(--danger,#e05252);
+      padding:8px 16px; border-radius:7px; font-size:13px; cursor:pointer; margin-right:auto;
+    }
   </style>
 </head>
 <body>
@@ -58,11 +88,14 @@
 
   <div class="error-banner" id="error-banner" hidden></div>
 
-  <div class="legend">
-    <div class="legend-item"><div class="legend-dot" style="background:#C0392B"></div>Compliance Deadline</div>
-    <div class="legend-item"><div class="legend-dot" style="background:#D4880A"></div>Engagement Deadline</div>
-    <div class="legend-item"><div class="legend-dot" style="background:#2E6DA4"></div>Calendar Event</div>
-    <div class="legend-item"><div class="legend-dot" style="background:#8B0000"></div>Overdue</div>
+  <div class="legend" style="justify-content:space-between;align-items:center;">
+    <div style="display:flex;gap:14px;flex-wrap:wrap;">
+      <div class="legend-item"><div class="legend-dot" style="background:#C0392B"></div>Compliance</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#D4880A"></div>Engagement Deadline</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#2E6DA4"></div>Calendar Event</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#8B0000"></div>Overdue</div>
+    </div>
+    <button class="btn-add-event" onclick="openModal()">+ Add Event</button>
   </div>
 
   <div class="card card--full">
@@ -71,7 +104,44 @@
     </div>
   </div>
 </main>
-</div><!-- .page-body -->
+</div>
+
+<!-- Event modal -->
+<div class="modal-backdrop" id="modal-backdrop" hidden>
+  <div class="modal">
+    <div class="modal-title" id="modal-title">Add Calendar Event</div>
+    <input type="hidden" id="edit-event-id">
+
+    <div class="form-row">
+      <label>Title *</label>
+      <input type="text" id="ev-title" placeholder="Event title">
+    </div>
+    <div class="form-row-2">
+      <div class="form-row" style="margin-bottom:0;">
+        <label>Start *</label>
+        <input type="date" id="ev-start">
+      </div>
+      <div class="form-row" style="margin-bottom:0;">
+        <label>End</label>
+        <input type="date" id="ev-end">
+      </div>
+    </div>
+    <div style="margin-top:14px;" class="form-row">
+      <label>Location</label>
+      <input type="text" id="ev-location" placeholder="Optional">
+    </div>
+    <div class="form-row">
+      <label>Notes</label>
+      <textarea id="ev-description" placeholder="Optional"></textarea>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn-delete-event" id="btn-delete-event" hidden onclick="deleteEvent()">Delete</button>
+      <button class="btn-cancel-modal" onclick="closeModal()">Cancel</button>
+      <button class="btn-save-event" onclick="saveEvent()">Save</button>
+    </div>
+  </div>
+</div>
 
 <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js"></script>
 <script src="js/nav.js"></script>
@@ -79,89 +149,189 @@
 <script src="js/palette.js"></script>
 <script src="js/auth.js"></script>
 <script>
-document.addEventListener('DOMContentLoaded', async () => {
-  if (!requireAuth()) return;
-  const payload = jwtPayload(getJWT());
-  document.getElementById('nav-user').textContent = (payload?.email || '').split('@')[0];
+  let _calendar;
+  let _calEvents = [];   // Google Calendar events from API (for edit/delete)
+
   document.getElementById('date-line').textContent = new Date().toLocaleDateString('en-US', {
-    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+    weekday:'long', year:'numeric', month:'long', day:'numeric'
   });
 
-  let allEvents = [];
+  document.addEventListener('DOMContentLoaded', async () => {
+    if (!requireAuth()) return;
+    await loadCalendar();
+  });
 
-  try {
-    const [briefing, compliance, cal] = await Promise.all([
-      apiFetch('/data/morning-briefing').catch(() => null),
-      apiFetch('/data/compliance-dates').catch(() => null),
-      apiFetch('/data/calendar').catch(() => null),
-    ]);
+  async function loadCalendar() {
+    let allEvents = [];
 
-    // Pipeline deadlines (engagement)
-    if (briefing?.pipeline?.upcoming) {
-      briefing.pipeline.upcoming.forEach(d => {
-        if (!d.due_date) return;
-        const overdue = d.days_until < 0;
-        allEvents.push({
-          title: `${d.client_name}: ${d.description}`,
-          start: d.due_date,
-          className: overdue ? 'fc-event-overdue' : 'fc-event-deadline',
-          extendedProps: { type: 'deadline', client: d.client_name },
+    try {
+      const [briefing, compliance, cal] = await Promise.all([
+        apiFetch('/data/morning-briefing').catch(() => null),
+        apiFetch('/data/compliance-dates').catch(() => null),
+        apiFetch('/data/calendar').catch(() => null),
+      ]);
+
+      if (briefing?.pipeline?.upcoming) {
+        briefing.pipeline.upcoming.forEach(d => {
+          if (!d.due_date) return;
+          allEvents.push({
+            title:     `${d.client}: ${d.type}`,
+            start:     d.due_date,
+            className: d.days_until < 0 ? 'fc-event-overdue' : 'fc-event-deadline',
+            extendedProps: { type: 'deadline', client: d.client },
+          });
         });
-      });
+      }
+
+      if (compliance?.dates) {
+        compliance.dates.forEach(d => {
+          if (!d.due_date) return;
+          allEvents.push({
+            title:     `${d.obligation}${d.client_name ? ' — '+d.client_name : ''}`,
+            start:     d.due_date,
+            className: d.days_until < 0 ? 'fc-event-overdue' : 'fc-event-compliance',
+            extendedProps: { type: 'compliance', notes: d.notes },
+          });
+        });
+      }
+
+      if (cal?.events?.length) {
+        _calEvents = cal.events;
+        cal.events.forEach(e => {
+          // start/end from API are already ISO strings (dateTime or date)
+          const start = e.start ? e.start.substring(0, 10) : null;
+          const end   = e.end   ? e.end.substring(0, 10)   : null;
+          if (!start) return;
+          allEvents.push({
+            id:        e.id,
+            title:     e.title || '(No title)',
+            start,
+            end:       end !== start ? end : undefined,
+            className: 'fc-event-calendar',
+            extendedProps: {
+              type:        'google',
+              location:    e.location    || '',
+              description: e.description || '',
+              gcal_id:     e.id,
+            },
+          });
+        });
+      }
+    } catch (err) {
+      document.getElementById('error-banner').textContent = err.message;
+      document.getElementById('error-banner').hidden = false;
     }
 
-    // Compliance dates
-    if (compliance?.dates) {
-      compliance.dates.forEach(d => {
-        if (!d.due_date) return;
-        const overdue = d.days_until < 0;
-        allEvents.push({
-          title: `${d.obligation}${d.client_name ? ' — ' + d.client_name : ''}`,
-          start: d.due_date,
-          className: overdue ? 'fc-event-overdue' : 'fc-event-compliance',
-          extendedProps: { type: 'compliance', notes: d.notes },
-        });
-      });
-    }
+    const calEl = document.getElementById('calendar-el');
+    if (_calendar) { _calendar.destroy(); }
 
-    // Calendar events
-    if (cal?.events) {
-      cal.events.forEach(e => {
-        allEvents.push({
-          title: e.summary || '(no title)',
-          start: e.start_dt ? e.start_dt.substring(0, 10) : e.start_date,
-          end:   e.end_dt   ? e.end_dt.substring(0, 10)   : e.end_date,
-          className: 'fc-event-calendar',
-          extendedProps: { type: 'calendar', location: e.location },
-        });
-      });
-    }
-  } catch (err) {
-    document.getElementById('error-banner').textContent = err.message;
-    document.getElementById('error-banner').hidden = false;
+    _calendar = new FullCalendar.Calendar(calEl, {
+      initialView: 'dayGridMonth',
+      headerToolbar: {
+        left:   'prev,next today',
+        center: 'title',
+        right:  'dayGridMonth,listMonth',
+      },
+      events: allEvents,
+      eventClick(info) {
+        const p = info.event.extendedProps;
+        if (p.type === 'google') {
+          openModal(info.event);
+        } else {
+          const lines = [info.event.title];
+          if (p.client)   lines.push('Client: ' + p.client);
+          if (p.notes)    lines.push('Notes: '  + p.notes);
+          if (p.location) lines.push('Location: '+ p.location);
+          alert(lines.join('\n'));
+        }
+      },
+      // Allow clicking empty date cells to pre-fill date
+      dateClick(info) {
+        openModal(null, info.dateStr);
+      },
+      height:   'auto',
+      firstDay: 0,
+    });
+    _calendar.render();
   }
 
-  const calendar = new FullCalendar.Calendar(document.getElementById('calendar-el'), {
-    initialView: 'dayGridMonth',
-    headerToolbar: {
-      left:   'prev,next today',
-      center: 'title',
-      right:  'dayGridMonth,listMonth',
-    },
-    events: allEvents,
-    eventClick(info) {
-      const p = info.event.extendedProps;
-      const lines = [info.event.title];
-      if (p.client) lines.push('Client: ' + p.client);
-      if (p.notes)  lines.push('Notes: ' + p.notes);
-      if (p.location) lines.push('Location: ' + p.location);
-      alert(lines.join('\n'));
-    },
-    height: 'auto',
-    firstDay: 0,
+  // ── Modal ──────────────────────────────────────────────────────────────────
+  function openModal(event, prefillDate) {
+    const isEdit = !!event;
+    document.getElementById('modal-title').textContent = isEdit ? 'Edit Event' : 'Add Calendar Event';
+    document.getElementById('edit-event-id').value     = isEdit ? (event.extendedProps.gcal_id || event.id || '') : '';
+    document.getElementById('ev-title').value          = isEdit ? event.title : '';
+    document.getElementById('ev-start').value          = isEdit ? event.startStr.substring(0,10) : (prefillDate || '');
+    document.getElementById('ev-end').value            = isEdit && event.endStr ? event.endStr.substring(0,10) : '';
+    document.getElementById('ev-location').value       = isEdit ? (event.extendedProps.location || '') : '';
+    document.getElementById('ev-description').value    = isEdit ? (event.extendedProps.description || '') : '';
+    document.getElementById('btn-delete-event').hidden = !isEdit;
+    document.getElementById('modal-backdrop').hidden   = false;
+    document.getElementById('ev-title').focus();
+  }
+
+  function closeModal() {
+    document.getElementById('modal-backdrop').hidden = true;
+  }
+
+  document.getElementById('modal-backdrop').addEventListener('click', e => {
+    if (e.target === document.getElementById('modal-backdrop')) closeModal();
   });
-  calendar.render();
-});
+
+  async function saveEvent() {
+    const event_id = document.getElementById('edit-event-id').value;
+    const title    = document.getElementById('ev-title').value.trim();
+    const start    = document.getElementById('ev-start').value;
+    const end      = document.getElementById('ev-end').value;
+    const location = document.getElementById('ev-location').value.trim();
+    const description = document.getElementById('ev-description').value.trim();
+
+    if (!title || !start) { showToast('Title and start date required', 'error'); return; }
+
+    const body = { title, start, end: end || start, description, location };
+    const isEdit = !!event_id;
+
+    try {
+      if (isEdit) {
+        await apiFetch('/calendar/update', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ event_id, ...body }),
+        });
+        showToast('Event updated', 'success');
+      } else {
+        await apiFetch('/calendar/create', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        showToast('Event created', 'success');
+      }
+      closeModal();
+      await loadCalendar();
+    } catch (err) {
+      showToast(`Failed: ${err.message}`, 'error');
+    }
+  }
+
+  async function deleteEvent() {
+    const event_id = document.getElementById('edit-event-id').value;
+    if (!event_id) return;
+    if (!confirm('Delete this event from Google Calendar?')) return;
+    try {
+      await apiFetch('/calendar/delete', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ event_id }),
+      });
+      showToast('Event deleted', 'success');
+      closeModal();
+      await loadCalendar();
+    } catch (err) {
+      showToast(`Delete failed: ${err.message}`, 'error');
+    }
+  }
 </script>
+<script src="js/chat.js"></script>
 </body>
 </html>

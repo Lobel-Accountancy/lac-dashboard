@@ -1363,19 +1363,27 @@ def _calendar_service():
     return build('calendar', 'v3', credentials=creds)
 
 
+def _cal_rw_service():
+    creds = service_account.Credentials.from_service_account_file(
+        CREDENTIALS_PATH,
+        scopes=['https://www.googleapis.com/auth/calendar'])
+    return build('calendar', 'v3', credentials=creds)
+
+
 @app.route('/data/calendar', methods=['GET'])
 @require_jwt
 def calendar_events():
     cal_id = os.getenv('GOOGLE_CALENDAR_ID', 'jlobel@lobelaccountancy.com')
     try:
-        svc = _calendar_service()
-        now    = datetime.now(timezone.utc).isoformat()
-        end_dt = (datetime.now(timezone.utc) + timedelta(days=14)).isoformat()
+        svc = _cal_rw_service()
+        # Fetch from 30 days ago to 90 days ahead to cover any current calendar view
+        start_dt = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
+        end_dt   = (datetime.now(timezone.utc) + timedelta(days=90)).isoformat()
         result = svc.events().list(
             calendarId=cal_id,
-            timeMin=now,
+            timeMin=start_dt,
             timeMax=end_dt,
-            maxResults=20,
+            maxResults=200,
             singleEvents=True,
             orderBy='startTime',
         ).execute()
@@ -1392,11 +1400,75 @@ def calendar_events():
                 'end':         end_t,
                 'all_day':     all_day,
                 'location':    ev.get('location', ''),
+                'description': ev.get('description', ''),
             })
         return jsonify({'events': events})
     except Exception as exc:
         app.logger.error('Calendar fetch failed: %s', exc)
         return jsonify({'events': [], 'error': str(exc)})
+
+
+@app.route('/calendar/update', methods=['PUT'])
+@require_jwt
+def calendar_update():
+    """Update a Google Calendar event. Body: {event_id, title, start, end, description, location}"""
+    body      = request.get_json(force=True) or {}
+    event_id  = str(body.get('event_id', '')).strip()
+    title     = str(body.get('title', '')).strip()
+    start_raw = str(body.get('start', '')).strip()
+    end_raw   = str(body.get('end', '')).strip()
+    desc      = str(body.get('description', '')).strip()
+    location  = str(body.get('location', '')).strip()
+
+    if not event_id or not title or not start_raw:
+        return jsonify({'error': 'event_id, title and start are required'}), 400
+
+    all_day = 'T' not in start_raw and len(start_raw) == 10
+    if all_day:
+        start_obj = {'date': start_raw}
+        end_obj   = {'date': end_raw or start_raw}
+    else:
+        if not start_raw.endswith('Z') and '+' not in start_raw:
+            start_raw += '-07:00'
+        if end_raw and not end_raw.endswith('Z') and '+' not in end_raw:
+            end_raw += '-07:00'
+        if not end_raw:
+            from dateutil import parser as _dp
+            s = _dp.parse(start_raw)
+            end_raw = (s + timedelta(hours=1)).isoformat()
+        start_obj = {'dateTime': start_raw}
+        end_obj   = {'dateTime': end_raw}
+
+    event_body = {'summary': title, 'start': start_obj, 'end': end_obj}
+    if desc:     event_body['description'] = desc
+    if location: event_body['location']    = location
+
+    cal_id = os.getenv('GOOGLE_CALENDAR_ID', 'jlobel@lobelaccountancy.com')
+    try:
+        svc = _cal_rw_service()
+        ev  = svc.events().update(calendarId=cal_id, eventId=event_id, body=event_body).execute()
+        return jsonify({'success': True, 'event_id': ev.get('id')})
+    except Exception as exc:
+        app.logger.error('Calendar update failed: %s', exc)
+        return jsonify({'error': str(exc)}), 500
+
+
+@app.route('/calendar/delete', methods=['DELETE'])
+@require_jwt
+def calendar_delete():
+    """Delete a Google Calendar event. Body: {event_id}"""
+    body     = request.get_json(force=True) or {}
+    event_id = str(body.get('event_id', '')).strip()
+    if not event_id:
+        return jsonify({'error': 'event_id required'}), 400
+    cal_id = os.getenv('GOOGLE_CALENDAR_ID', 'jlobel@lobelaccountancy.com')
+    try:
+        svc = _cal_rw_service()
+        svc.events().delete(calendarId=cal_id, eventId=event_id).execute()
+        return jsonify({'success': True})
+    except Exception as exc:
+        app.logger.error('Calendar delete failed: %s', exc)
+        return jsonify({'error': str(exc)}), 500
 
 
 @app.route('/data/forecast', methods=['GET'])
@@ -6266,7 +6338,7 @@ def cpe_preview():
         def _get(row, col): return str(row.get(col_map.get(col) or '', '') or '').strip()
 
         # Load existing CPE Log entries to detect duplicates
-        wb_read = _get_workbook()
+        wb_read = _workbook()
         existing = set()
         if 'CPE Log' in wb_read.sheetnames:
             ws_log = wb_read['CPE Log']
@@ -6367,67 +6439,86 @@ def _safe_float(v):
 # CPE Compliance Dashboard
 # ---------------------------------------------------------------------------
 
+@app.route('/data/cpe-log', methods=['GET'])
+@require_jwt
+def cpe_log():
+    """Return all entries from the CPE Log tab, computed from raw data."""
+    try:
+        wb = _workbook()
+        if 'CPE Log' not in wb.sheetnames:
+            return jsonify({'courses': [], 'totals': {}}), 200
+        ws = wb['CPE Log']
+
+        courses = []
+        for row in ws.iter_rows(min_row=_CPE_DATA_ROW, values_only=True):
+            if not row or not row[0]:
+                continue
+            name     = str(row[0]).strip()
+            credits_raw = row[1]
+            completed   = str(row[2]).strip() if row[2] else ''
+            delivery    = str(row[3]).strip() if row[3] else ''
+            field       = str(row[4]).strip() if row[4] else ''
+            provider    = str(row[5]).strip() if row[5] else ''
+            cba_period  = str(row[6]).strip() if row[6] else ''
+            cba_cat     = str(row[7]).strip() if row[7] else ''
+            acfe_elig   = str(row[8]).strip() if len(row) > 8 and row[8] else ''
+            fraud_topic = str(row[9]).strip() if len(row) > 9 and row[9] else ''
+
+            try:
+                credits = float(credits_raw) if credits_raw is not None else 0.0
+            except (TypeError, ValueError):
+                credits = 0.0
+
+            if not name:
+                continue
+            courses.append({
+                'course_name':     name,
+                'credits':         credits,
+                'completed_on':    completed,
+                'delivery_method': delivery,
+                'field_of_study':  field,
+                'provider':        provider,
+                'cba_period':      cba_period,
+                'cba_category':    cba_cat,
+                'acfe_eligible':   acfe_elig,
+                'fraud_topic':     fraud_topic,
+            })
+
+        # Sort newest first
+        def _sort_key(c):
+            try:
+                from dateutil import parser as _dp
+                return _dp.parse(c['completed_on']) if c['completed_on'] else date(1900,1,1)
+            except Exception:
+                return date(1900, 1, 1)
+        courses.sort(key=_sort_key, reverse=True)
+
+        total_credits  = sum(c['credits'] for c in courses)
+        by_field  = {}
+        by_period = {}
+        for c in courses:
+            f = c['field_of_study'] or 'Other'
+            by_field[f] = by_field.get(f, 0) + c['credits']
+            p = c['cba_period'] or 'Unassigned'
+            by_period[p] = by_period.get(p, 0) + c['credits']
+
+        return jsonify({
+            'courses':       courses,
+            'total_credits': total_credits,
+            'by_field':      by_field,
+            'by_period':     by_period,
+            'course_count':  len(courses),
+        })
+    except Exception as exc:
+        app.logger.error('cpe_log error: %s', exc)
+        return jsonify({'error': str(exc)}), 500
+
+
 @app.route('/data/cpe-compliance', methods=['GET'])
 @require_jwt
 def cpe_compliance():
-    try:
-        from openpyxl import load_workbook as _load_wb
-        wb = _load_wb(os.getenv('LAC_WORKBOOK', '/home/jlobel/lac_automation/LAC_Workbook.xlsx'), data_only=True)
-        if 'Compliance Dashboard' not in wb.sheetnames:
-            return jsonify({'error': 'Compliance Dashboard sheet not found'}), 404
-        ws = wb['Compliance Dashboard']
-
-        sections = []
-        current_section = None
-
-        for row in ws.iter_rows(min_row=1, max_row=100, values_only=True):
-            a = row[0]
-            if a is None:
-                continue
-            a_str = str(a).strip()
-            if not a_str:
-                continue
-
-            # Section header rows (no numeric columns)
-            b = row[1]
-            if b is None and a_str not in ('Requirement',) and not a_str.startswith('Current Period') and not a_str.startswith('Calendar Year') and not a_str.startswith('INSTRUCTIONS'):
-                current_section = {'title': a_str, 'period': None, 'rows': []}
-                sections.append(current_section)
-                continue
-
-            # Period/subheader row
-            if a_str.startswith('Current Period') or a_str.startswith('Calendar Year'):
-                if current_section:
-                    current_section['period'] = a_str
-                continue
-
-            # Skip header row and instructions
-            if a_str in ('Requirement',) or a_str.startswith('INSTRUCTIONS'):
-                continue
-
-            # Data row
-            if current_section is not None and b is not None:
-                try:
-                    required  = float(b) if b is not None else 0
-                    earned    = float(row[2]) if row[2] is not None else 0
-                    remaining = float(row[3]) if row[3] is not None else 0
-                    pct       = float(row[4]) if row[4] is not None else 0
-                    status    = str(row[5]).strip() if row[5] is not None else ''
-                    current_section['rows'].append({
-                        'requirement': a_str,
-                        'required':    required,
-                        'earned':      earned,
-                        'remaining':   remaining,
-                        'pct':         round(pct * 100, 1) if pct <= 1 else round(pct, 1),
-                        'status':      status,
-                    })
-                except (ValueError, TypeError):
-                    continue
-
-        return jsonify({'sections': sections})
-    except Exception as exc:
-        app.logger.error('cpe_compliance error: %s', exc)
-        return jsonify({'error': str(exc)}), 500
+    """Alias to cpe_log — kept for backward compat with existing frontend."""
+    return cpe_log()
 
 
 # ---------------------------------------------------------------------------
