@@ -34,6 +34,7 @@ async function loadBriefing() {
     ]);
     if (!data) return;
     renderKPIs(data);
+    loadCpeSnapshot(); // fire independently — doesn't block briefing
     renderAR(data.ar);
     renderDeadlines(data.pipeline.upcoming);
     renderCompliance(compliance);
@@ -105,21 +106,71 @@ function renderKPIs(data) {
       <div class="kpi-value">${fmt$(ar.overdue_amount)}</div>
       <div class="kpi-sub">${ar.overdue_count} invoice${ar.overdue_count !== 1 ? 's' : ''} past due</div>
     </div>
+    <div class="kpi-card kpi-card--teal">
+      <div class="kpi-label">Active Matters</div>
+      <div class="kpi-value">${pipeline.total_active}</div>
+      <div class="kpi-sub">${Object.keys(pipeline.by_stage).length} stage${Object.keys(pipeline.by_stage).length !== 1 ? 's' : ''}</div>
+    </div>
     <div class="kpi-card kpi-card--purple" id="revenue-kpi-card">
       <div class="kpi-label">Revenue — ${month}</div>
       <div class="kpi-value">${revMtd != null ? fmt$(revMtd) : '—'}</div>
       <div class="kpi-sub" style="margin-bottom:6px;">Income Statement · Total Revenue</div>
       <canvas id="revenue-sparkline" height="36" style="width:100%;display:block;"></canvas>
     </div>
-    <div class="kpi-card kpi-card--teal">
-      <div class="kpi-label">Active Matters</div>
-      <div class="kpi-value">${pipeline.total_active}</div>
-      <div class="kpi-sub">${Object.keys(pipeline.by_stage).length} stage${Object.keys(pipeline.by_stage).length !== 1 ? 's' : ''}</div>
-    </div>
   `;
 
   if (trend.length >= 2) {
     renderSparkline('revenue-sparkline', trend);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// CPE Snapshot (briefing tab mini-card)
+// ---------------------------------------------------------------------------
+
+async function loadCpeSnapshot() {
+  const body = document.getElementById('cpe-snapshot-body');
+  if (!body) return;
+  try {
+    const data = await apiFetch('/data/cpe-compliance');
+    if (!data || !data.sections || !data.sections.length) {
+      body.innerHTML = '<p class="empty-state" style="font-size:11px;">No CPE data.</p>';
+      return;
+    }
+
+    // Show first requirement from each of the first 3 sections
+    const items = data.sections.slice(0, 3).map(s => ({
+      label: s.title,
+      ...s.rows[0],
+    })).filter(it => it.requirement);
+
+    if (!items.length) {
+      body.innerHTML = '<p class="empty-state" style="font-size:11px;">No CPE data.</p>';
+      return;
+    }
+
+    body.innerHTML = items.map(it => {
+      const pct = Math.min(100, it.pct || 0);
+      const barColor = it.status === 'Complete'
+        ? '#1A7A4A'
+        : (it.earned > 0 ? 'var(--accent-teal,#2ab8a0)' : 'rgba(139,167,196,.35)');
+      const earnedFmt = Number.isInteger(it.earned) ? it.earned : it.earned.toFixed(1);
+      const reqFmt    = Number.isInteger(it.required) ? it.required : it.required.toFixed(0);
+      return `
+        <div style="margin-bottom:9px;">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;font-size:11px;margin-bottom:3px;">
+            <span style="color:var(--text-2,#8ba7c4);">${it.label}</span>
+            <span style="font-weight:600;color:var(--text);">${earnedFmt}/${reqFmt} hrs</span>
+          </div>
+          <div style="height:5px;background:rgba(139,167,196,.2);border-radius:3px;overflow:hidden;">
+            <div style="height:100%;width:${pct}%;background:${barColor};border-radius:3px;transition:width .4s;"></div>
+          </div>
+        </div>`;
+    }).join('');
+
+    if (window.initCardResize) window.initCardResize();
+  } catch {
+    body.innerHTML = '<p class="empty-state" style="font-size:11px;">CPE unavailable.</p>';
   }
 }
 

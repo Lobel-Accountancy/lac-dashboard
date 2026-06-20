@@ -161,6 +161,8 @@ body {
   margin-bottom: 20px;
   align-items: start;
 }
+/* kpi-cards stretch to match the tallest item in their row (CPE card in row 1) */
+.kpi-je-wrap .kpi-card { align-self: stretch; }
 
 .kpi-card {
   background: var(--surface);
@@ -565,7 +567,8 @@ body {
 @media (max-width: 768px) {
   .kpi-grid    { grid-template-columns: 1fr; }
   .kpi-je-wrap { grid-template-columns: 1fr; }
-  .kpi-je-wrap #recent-je-card { grid-column: 1; grid-row: auto; }
+  .kpi-je-wrap #recent-je-card  { grid-column: 1; grid-row: auto; }
+  .kpi-je-wrap #cpe-snapshot-card { grid-column: 1; grid-row: auto; }
   .content-grid { grid-template-columns: 1fr; }
   .nav-subtitle { display: none; }
 }

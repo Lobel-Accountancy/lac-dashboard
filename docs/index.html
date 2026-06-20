@@ -24,13 +24,27 @@
 
   <!-- KPI row + Recent Journal Entries side by side -->
   <div class="kpi-je-wrap">
+    <!-- 4 KPI cards auto-flow into cols 1-2 rows 1-2; CPE snapshot explicitly at col 3 row 1 -->
     <div class="kpi-grid" id="kpi-grid" style="display:contents;">
       <div class="kpi-card"><span class="kpi-skeleton-label"></span><span class="kpi-skeleton-value"></span><span class="kpi-skeleton-sub"></span></div>
       <div class="kpi-card"><span class="kpi-skeleton-label"></span><span class="kpi-skeleton-value"></span><span class="kpi-skeleton-sub"></span></div>
       <div class="kpi-card"><span class="kpi-skeleton-label"></span><span class="kpi-skeleton-value"></span><span class="kpi-skeleton-sub"></span></div>
       <div class="kpi-card"><span class="kpi-skeleton-label"></span><span class="kpi-skeleton-value"></span><span class="kpi-skeleton-sub"></span></div>
     </div>
-    <div class="card" id="recent-je-card" style="grid-column:2/span 2;grid-row:2;margin:0;">
+    <!-- CPE Snapshot: pinned to col 3, row 1 — auto-placement skips it, pushing Active Matters to row 2 col 1 and Revenue to row 3 col 1 -->
+    <div class="card" id="cpe-snapshot-card" style="grid-column:3;grid-row:1;margin:0;">
+      <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
+        <span>CPE Progress</span>
+        <a href="cpe.html" style="font-size:11px;font-weight:400;color:var(--accent-teal,#2ab8a0);text-decoration:none;">View →</a>
+      </div>
+      <div class="card-body" id="cpe-snapshot-body" style="padding:12px 16px;">
+        <div class="skeleton-line skeleton-line--full"></div>
+        <div class="skeleton-line skeleton-line--med" style="margin-top:6px;"></div>
+        <div class="skeleton-line skeleton-line--full" style="margin-top:6px;"></div>
+      </div>
+    </div>
+    <!-- JE card spans cols 2-3, rows 2-3 so Active Matters and Revenue stack in col 1 -->
+    <div class="card" id="recent-je-card" style="grid-column:2/span 2;grid-row:2/span 2;margin:0;">
       <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
         <span>Recent Journal Entries</span>
         <a href="journal.html" style="font-size:12px;font-weight:400;color:var(--accent-teal,#2ab8a0);text-decoration:none;">View all →</a>
