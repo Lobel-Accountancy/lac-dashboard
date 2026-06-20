@@ -7,23 +7,6 @@
   <title>LAC CPE Compliance</title>
   <link rel="stylesheet" href="css/style.css">
   <style>
-    .cpe-section { margin-bottom: 28px; }
-
-    .cpe-section-title {
-      font-size: 13px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: .06em;
-      color: var(--text-2);
-      margin-bottom: 4px;
-    }
-
-    .cpe-period {
-      font-size: 12px;
-      color: var(--text-3);
-      margin-bottom: 12px;
-    }
-
     .cpe-row {
       display: grid;
       grid-template-columns: 1fr 56px 56px 56px 110px 90px;
@@ -53,49 +36,75 @@
     .cpe-label { color: var(--text); }
     .cpe-num   { text-align: right; font-variant-numeric: tabular-nums; color: var(--text); }
 
-    .progress-wrap {
-      height: 6px;
-      background: var(--muted-bg);
-      border-radius: 3px;
-      overflow: hidden;
-    }
-    .progress-bar {
-      height: 100%;
-      border-radius: 3px;
-      background: var(--accent-green, #4caf7d);
-      transition: width .4s ease;
-    }
-    .progress-bar--warn  { background: var(--warning); }
-    .progress-bar--done  { background: var(--accent-green, #4caf7d); }
-
-    .pct-label {
-      font-size: 11px;
-      color: var(--text-3);
-      margin-top: 3px;
-      text-align: right;
-    }
+    .progress-wrap { height: 6px; background: var(--muted-bg); border-radius: 3px; overflow: hidden; }
+    .progress-bar  { height: 100%; border-radius: 3px; background: var(--accent-green, #4caf7d); transition: width .4s ease; }
+    .progress-bar--warn { background: var(--warning); }
+    .pct-label { font-size: 11px; color: var(--text-3); margin-top: 3px; text-align: right; }
 
     .status-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
-      padding: 3px 9px;
-      border-radius: 10px;
-      font-size: 11px;
-      font-weight: 600;
-      white-space: nowrap;
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 3px 9px; border-radius: 10px;
+      font-size: 11px; font-weight: 600; white-space: nowrap;
     }
     .status-badge--ok      { background: var(--ok-bg);      color: var(--ok); }
     .status-badge--needs   { background: var(--warning-bg); color: var(--warning); }
     .status-badge--overdue { background: var(--danger-bg);  color: var(--danger); }
 
+    /* Upload zone */
+    .upload-zone {
+      border: 2px dashed var(--border);
+      border-radius: var(--radius);
+      padding: 32px 24px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color .15s, background .15s;
+      color: var(--text-2);
+      font-size: 13px;
+    }
+    .upload-zone:hover, .upload-zone.drag-over {
+      border-color: var(--accent-green, #4caf7d);
+      background: rgba(76,175,125,.06);
+      color: var(--text);
+    }
+    .upload-zone-icon { font-size: 28px; margin-bottom: 8px; }
+    .upload-zone input[type=file] { display: none; }
+
+    /* Preview table */
+    .preview-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .preview-table th {
+      text-align: left; padding: 6px 8px;
+      font-size: 10px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .05em; color: var(--text-2);
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+      position: sticky; top: 0;
+    }
+    .preview-table td { padding: 8px 8px; border-bottom: 1px solid var(--border); color: var(--text); }
+    .preview-table tr:last-child td { border-bottom: none; }
+    .preview-table tr:nth-child(even) td { background: rgba(255,255,255,.025); }
+    .preview-table tbody tr:hover td { background: rgba(255,255,255,.06); }
+    .fraud-yes { color: var(--accent-orange, #e8622a); font-weight: 600; }
+
+    .preview-scroll { max-height: 340px; overflow-y: auto; }
+
+    .import-btn {
+      background: var(--accent-green, #4caf7d);
+      color: #fff;
+      border: none;
+      padding: 9px 20px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity .15s;
+    }
+    .import-btn:hover { opacity: .85; }
+    .import-btn:disabled { opacity: .4; cursor: not-allowed; }
+
     @media (max-width: 640px) {
-      .cpe-header,
-      .cpe-row { grid-template-columns: 1fr 48px 48px 80px; }
-      .cpe-header span:nth-child(3),
-      .cpe-header span:nth-child(4),
-      .cpe-row   .cpe-num:nth-child(3),
-      .cpe-row   .cpe-num:nth-child(4) { display: none; }
+      .cpe-header, .cpe-row { grid-template-columns: 1fr 48px 48px 80px; }
+      .cpe-header span:nth-child(3), .cpe-header span:nth-child(4),
+      .cpe-row .cpe-num:nth-child(3), .cpe-row .cpe-num:nth-child(4) { display: none; }
     }
   </style>
 </head>
@@ -107,6 +116,50 @@
   <div class="date-line" id="date-line"></div>
 
   <div class="error-banner" id="error-banner" hidden></div>
+
+  <!-- Becker Import Card -->
+  <div class="card" style="margin-bottom:20px;">
+    <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
+      <span>Import Becker CPE</span>
+      <span id="import-status" style="font-size:12px;font-weight:400;color:var(--text-3);"></span>
+    </div>
+    <div class="card-body">
+      <div class="upload-zone" id="upload-zone">
+        <div class="upload-zone-icon">⬆</div>
+        <div>Drop Becker CSV here or <strong>click to browse</strong></div>
+        <div style="font-size:11px;color:var(--text-3);margin-top:4px;">Columns A–H are read from Becker. ACFE &amp; Fraud Topic are auto-set by formula.</div>
+        <input type="file" id="csv-input" accept=".csv,text/csv">
+      </div>
+
+      <div id="preview-wrap" hidden>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin:16px 0 10px;">
+          <span id="preview-count" style="font-size:13px;color:var(--text-2);"></span>
+          <div style="display:flex;gap:10px;align-items:center;">
+            <button onclick="resetUpload()" style="background:none;border:none;color:var(--text-3);cursor:pointer;font-size:12px;">✕ Cancel</button>
+            <button class="import-btn" id="confirm-btn" onclick="confirmImport()">Import to CPE Log</button>
+          </div>
+        </div>
+        <div class="preview-scroll">
+          <table class="preview-table">
+            <thead>
+              <tr>
+                <th>Course Name</th>
+                <th>Credits</th>
+                <th>Completed On</th>
+                <th>Field of Study</th>
+                <th>CBA Period</th>
+                <th>CBA Category</th>
+                <th>Fraud?</th>
+              </tr>
+            </thead>
+            <tbody id="preview-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Compliance Dashboard -->
   <div id="cpe-content">
     <div class="card" style="margin-bottom:16px;">
       <div class="card-body">
@@ -128,9 +181,17 @@
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
   });
 
+  let _pendingRows = [];
+
   document.addEventListener('DOMContentLoaded', async () => {
     if (!requireAuth()) return;
+    loadDashboard();
+    initUpload();
+  });
 
+  // ── Dashboard ─────────────────────────────────────────────────────────────
+
+  async function loadDashboard() {
     try {
       const data = await apiFetch('/data/cpe-compliance');
       renderCPE(data.sections || []);
@@ -139,31 +200,23 @@
       document.getElementById('error-banner').hidden = false;
       document.getElementById('cpe-content').innerHTML = '';
     }
-  });
+  }
 
   function statusBadge(status) {
     const s = (status || '').toLowerCase();
     if (s === 'complete' || s === 'met') return `<span class="status-badge status-badge--ok">✓ Complete</span>`;
     if (s.includes('overdue'))           return `<span class="status-badge status-badge--overdue">Overdue</span>`;
-    return `<span class="status-badge status-badge--needs">${escHtml(status)}</span>`;
-  }
-
-  function escHtml(s) {
-    return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    return `<span class="status-badge status-badge--needs">${esc(status)}</span>`;
   }
 
   function renderCPE(sections) {
     const container = document.getElementById('cpe-content');
-    if (!sections.length) {
-      container.innerHTML = '<p class="empty-state">No compliance data found.</p>';
-      return;
-    }
-
+    if (!sections.length) { container.innerHTML = '<p class="empty-state">No compliance data found.</p>'; return; }
     container.innerHTML = sections.map(sec => `
-      <div class="card cpe-section">
-        <div class="card-header">
-          <span>${escHtml(sec.title)}</span>
-          ${sec.period ? `<span style="font-weight:400;color:var(--text-3);font-size:12px;">${escHtml(sec.period)}</span>` : ''}
+      <div class="card" style="margin-bottom:16px;">
+        <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
+          <span>${esc(sec.title)}</span>
+          ${sec.period ? `<span style="font-weight:400;color:var(--text-3);font-size:12px;">${esc(sec.period)}</span>` : ''}
         </div>
         <div class="cpe-header">
           <span>Requirement</span>
@@ -175,22 +228,122 @@
         </div>
         ${sec.rows.map(r => {
           const pct = Math.min(r.pct, 100);
-          const barClass = pct >= 100 ? 'progress-bar--done' : pct >= 50 ? '' : 'progress-bar--warn';
-          return `
-          <div class="cpe-row">
-            <span class="cpe-label">${escHtml(r.requirement)}</span>
+          return `<div class="cpe-row">
+            <span class="cpe-label">${esc(r.requirement)}</span>
             <span class="cpe-num">${r.required}</span>
             <span class="cpe-num">${r.earned}</span>
             <span class="cpe-num">${r.remaining}</span>
             <div>
-              <div class="progress-wrap"><div class="progress-bar ${barClass}" style="width:${pct}%"></div></div>
+              <div class="progress-wrap"><div class="progress-bar ${pct < 50 ? 'progress-bar--warn' : ''}" style="width:${pct}%"></div></div>
               <div class="pct-label">${pct}%</div>
             </div>
             <div>${statusBadge(r.status)}</div>
           </div>`;
         }).join('')}
-      </div>
-    `).join('');
+      </div>`).join('');
+  }
+
+  // ── Upload ────────────────────────────────────────────────────────────────
+
+  function initUpload() {
+    const zone  = document.getElementById('upload-zone');
+    const input = document.getElementById('csv-input');
+
+    zone.addEventListener('click', () => input.click());
+    input.addEventListener('change', () => { if (input.files[0]) handleFile(input.files[0]); });
+
+    zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag-over'); });
+    zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+    zone.addEventListener('drop', e => {
+      e.preventDefault(); zone.classList.remove('drag-over');
+      if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+    });
+  }
+
+  async function handleFile(file) {
+    setImportStatus('Parsing…');
+    const form = new FormData();
+    form.append('file', file);
+    try {
+      const res = await apiFetchRaw('/cpe/preview', { method: 'POST', body: form });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      _pendingRows = data.rows || [];
+      if (!_pendingRows.length) {
+        setImportStatus(`All ${data.existing_count} courses already in log — nothing to import.`);
+        return;
+      }
+      showPreview(_pendingRows, data.existing_count);
+      setImportStatus('');
+    } catch (err) {
+      setImportStatus(`Error: ${err.message}`);
+    }
+  }
+
+  function showPreview(rows, existingCount) {
+    document.getElementById('upload-zone').hidden = true;
+    document.getElementById('preview-wrap').hidden = false;
+    document.getElementById('preview-count').textContent =
+      `${rows.length} new course${rows.length !== 1 ? 's' : ''} to import` +
+      (existingCount ? ` · ${existingCount} already in log (skipped)` : '');
+
+    const isFraud = r => /fraud/i.test(r.course_name + ' ' + r.field_of_study);
+    document.getElementById('preview-body').innerHTML = rows.map(r => `
+      <tr>
+        <td>${esc(r.course_name)}</td>
+        <td style="text-align:right">${esc(r.credits)}</td>
+        <td>${esc(r.completed_on)}</td>
+        <td>${esc(r.field_of_study)}</td>
+        <td>${esc(r.cba_period)}</td>
+        <td>${esc(r.cba_category)}</td>
+        <td>${isFraud(r) ? '<span class="fraud-yes">Yes</span>' : '<span style="color:var(--text-3)">No</span>'}</td>
+      </tr>`).join('');
+  }
+
+  async function confirmImport() {
+    const btn = document.getElementById('confirm-btn');
+    btn.disabled = true;
+    btn.textContent = 'Importing…';
+    try {
+      const data = await apiFetch('/cpe/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rows: _pendingRows }),
+      });
+      showToast(`${data.added} course${data.added !== 1 ? 's' : ''} added to CPE Log`, 'success');
+      resetUpload();
+      loadDashboard();
+    } catch (err) {
+      showToast(`Import failed: ${err.message}`, 'error');
+      btn.disabled = false;
+      btn.textContent = 'Import to CPE Log';
+    }
+  }
+
+  function resetUpload() {
+    _pendingRows = [];
+    document.getElementById('upload-zone').hidden = false;
+    document.getElementById('preview-wrap').hidden = true;
+    document.getElementById('csv-input').value = '';
+    setImportStatus('');
+  }
+
+  function setImportStatus(msg) {
+    document.getElementById('import-status').textContent = msg;
+  }
+
+  // ── Helpers ───────────────────────────────────────────────────────────────
+
+  function esc(s) {
+    return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function apiFetchRaw(path, opts = {}) {
+    const jwt = getJWT();
+    opts.headers = opts.headers || {};
+    if (!(opts.body instanceof FormData)) opts.headers['Content-Type'] = opts.headers['Content-Type'] || 'application/json';
+    opts.headers['Authorization'] = `Bearer ${jwt}`;
+    return fetch(path, opts).then(r => { if (!r.ok) return r.json().then(d => { throw new Error(d.error || r.statusText); }); return r; });
   }
 </script>
 <script src="js/chat.js"></script>
