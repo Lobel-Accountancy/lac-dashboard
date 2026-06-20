@@ -77,6 +77,20 @@
       background:none; border:1px solid var(--danger,#e05252); color:var(--danger,#e05252);
       padding:8px 16px; border-radius:7px; font-size:13px; cursor:pointer; margin-right:auto;
     }
+    /* Color picker */
+    .color-picker { display:flex; flex-wrap:wrap; gap:8px; padding:4px 0; }
+    .color-swatch {
+      width:26px; height:26px; border-radius:50%; cursor:pointer;
+      border:3px solid transparent; box-sizing:border-box;
+      transition:transform .1s, border-color .1s;
+    }
+    .color-swatch:hover  { transform:scale(1.15); }
+    .color-swatch.selected { border-color:#fff; box-shadow:0 0 0 2px rgba(255,255,255,.6); }
+    .color-swatch.default-swatch {
+      background: linear-gradient(135deg, #2E6DA4 50%, #5a9fd4 50%);
+      font-size:0;
+    }
+    .color-swatch.default-swatch.selected { border-color:#fff; }
   </style>
 </head>
 <body>
@@ -134,6 +148,24 @@
       <label>Notes</label>
       <textarea id="ev-description" placeholder="Optional"></textarea>
     </div>
+    <div class="form-row">
+      <label>Color</label>
+      <div class="color-picker" id="ev-color-picker">
+        <div class="color-swatch default-swatch selected" data-color-id="" title="Default (blue)"></div>
+        <div class="color-swatch" data-color-id="1"  style="background:#7986CB" title="Lavender"></div>
+        <div class="color-swatch" data-color-id="2"  style="background:#33B679" title="Sage"></div>
+        <div class="color-swatch" data-color-id="3"  style="background:#8E24AA" title="Grape"></div>
+        <div class="color-swatch" data-color-id="4"  style="background:#E67C73" title="Flamingo"></div>
+        <div class="color-swatch" data-color-id="5"  style="background:#F6BF26" title="Banana"></div>
+        <div class="color-swatch" data-color-id="6"  style="background:#F4511E" title="Tangerine"></div>
+        <div class="color-swatch" data-color-id="7"  style="background:#039BE5" title="Peacock"></div>
+        <div class="color-swatch" data-color-id="8"  style="background:#616161" title="Graphite"></div>
+        <div class="color-swatch" data-color-id="9"  style="background:#3F51B5" title="Blueberry"></div>
+        <div class="color-swatch" data-color-id="10" style="background:#0B8043" title="Basil"></div>
+        <div class="color-swatch" data-color-id="11" style="background:#D50000" title="Tomato"></div>
+      </div>
+      <input type="hidden" id="ev-color-id" value="">
+    </div>
 
     <div class="modal-actions">
       <button class="btn-delete-event" id="btn-delete-event" hidden onclick="deleteEvent()">Delete</button>
@@ -150,7 +182,14 @@
 <script src="js/auth.js"></script>
 <script>
   let _calendar;
-  let _calEvents = [];   // Google Calendar events from API (for edit/delete)
+  let _calEvents = [];
+
+  const GCAL_COLORS = {
+    '1':'#7986CB','2':'#33B679','3':'#8E24AA','4':'#E67C73',
+    '5':'#F6BF26','6':'#F4511E','7':'#039BE5','8':'#616161',
+    '9':'#3F51B5','10':'#0B8043','11':'#D50000',
+  };
+  const DEFAULT_GCAL_COLOR = '#2E6DA4';
 
   document.getElementById('date-line').textContent = new Date().toLocaleDateString('en-US', {
     weekday:'long', year:'numeric', month:'long', day:'numeric'
@@ -198,20 +237,23 @@
       if (cal?.events?.length) {
         _calEvents = cal.events;
         cal.events.forEach(e => {
-          // start/end from API are already ISO strings (dateTime or date)
           const start = e.start ? e.start.substring(0, 10) : null;
           const end   = e.end   ? e.end.substring(0, 10)   : null;
           if (!start) return;
+          const evColor = (e.colorId && GCAL_COLORS[e.colorId]) || DEFAULT_GCAL_COLOR;
           allEvents.push({
-            id:        e.id,
-            title:     e.title || '(No title)',
+            id:              e.id,
+            title:           e.title || '(No title)',
             start,
-            end:       end !== start ? end : undefined,
-            className: 'fc-event-calendar',
+            end:             end !== start ? end : undefined,
+            backgroundColor: evColor,
+            borderColor:     evColor,
+            className:       'fc-event-calendar',
             extendedProps: {
               type:        'google',
               location:    e.location    || '',
               description: e.description || '',
+              colorId:     e.colorId     || '',
               gcal_id:     e.id,
             },
           });
@@ -255,6 +297,23 @@
     _calendar.render();
   }
 
+  // ── Color picker ──────────────────────────────────────────────────────────
+  document.getElementById('ev-color-picker').addEventListener('click', e => {
+    const swatch = e.target.closest('.color-swatch');
+    if (!swatch) return;
+    document.querySelectorAll('#ev-color-picker .color-swatch').forEach(s => s.classList.remove('selected'));
+    swatch.classList.add('selected');
+    document.getElementById('ev-color-id').value = swatch.dataset.colorId;
+  });
+
+  function setColorPicker(colorId) {
+    const id = colorId || '';
+    document.getElementById('ev-color-id').value = id;
+    document.querySelectorAll('#ev-color-picker .color-swatch').forEach(s => {
+      s.classList.toggle('selected', s.dataset.colorId === id);
+    });
+  }
+
   // ── Modal ──────────────────────────────────────────────────────────────────
   function openModal(event, prefillDate) {
     const isEdit = !!event;
@@ -266,6 +325,7 @@
     document.getElementById('ev-location').value       = isEdit ? (event.extendedProps.location || '') : '';
     document.getElementById('ev-description').value    = isEdit ? (event.extendedProps.description || '') : '';
     document.getElementById('btn-delete-event').hidden = !isEdit;
+    setColorPicker(isEdit ? (event.extendedProps.colorId || '') : '');
     document.getElementById('modal-backdrop').hidden   = false;
     document.getElementById('ev-title').focus();
   }
@@ -288,7 +348,8 @@
 
     if (!title || !start) { showToast('Title and start date required', 'error'); return; }
 
-    const body = { title, start, end: end || start, description, location };
+    const colorId = document.getElementById('ev-color-id').value;
+    const body = { title, start, end: end || start, description, location, colorId };
     const isEdit = !!event_id;
 
     try {
