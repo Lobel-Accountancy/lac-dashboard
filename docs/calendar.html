@@ -319,10 +319,8 @@
     if (!event_id) return;
     if (!confirm('Delete this event from Google Calendar?')) return;
     try {
-      await apiFetch('/calendar/delete', {
+      await apiFetch(`/calendar/delete?event_id=${encodeURIComponent(event_id)}`, {
         method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ event_id }),
       });
       showToast('Event deleted', 'success');
       closeModal();

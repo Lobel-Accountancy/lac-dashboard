@@ -223,6 +223,9 @@ body {
   color: var(--navy);
   border-bottom: 1px solid var(--border);
   background: #FAFBFC;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .card-body {
@@ -230,6 +233,31 @@ body {
 }
 
 .card--full { margin-bottom: 16px; }
+
+/* ---- Card resize (card-resize.js) ---- */
+.content-grid .card--expanded { grid-column: span 2; }
+
+/* Compact full-width card: narrows to ~half the main width */
+.card--full.card--compact {
+  max-width: 50%;
+}
+
+.card-resize-btn {
+  background: none;
+  border: none;
+  color: var(--text-3);
+  cursor: pointer;
+  font-size: 13px;
+  padding: 2px 5px;
+  border-radius: 4px;
+  margin-left: auto;
+  flex-shrink: 0;
+  line-height: 1;
+  transition: color .12s, background .12s;
+}
+.card-resize-btn:hover { color: var(--text); background: rgba(255,255,255,.08); }
+[data-theme="dark"] .card-header { background: var(--surface); color: var(--text); }
+[data-theme="dark"] .card-resize-btn:hover { background: rgba(255,255,255,.06); }
 
 .empty-state {
   color: var(--text-3);

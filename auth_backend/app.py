@@ -1453,12 +1453,12 @@ def calendar_update():
         return jsonify({'error': str(exc)}), 500
 
 
-@app.route('/calendar/delete', methods=['DELETE'])
+@app.route('/calendar/delete', methods=['DELETE', 'POST'])
 @require_jwt
 def calendar_delete():
-    """Delete a Google Calendar event. Body: {event_id}"""
-    body     = request.get_json(force=True) or {}
-    event_id = str(body.get('event_id', '')).strip()
+    """Delete a Google Calendar event. Accepts event_id as query param or JSON body."""
+    event_id = (request.args.get('event_id') or
+                (request.get_json(force=True, silent=True) or {}).get('event_id', '')).strip()
     if not event_id:
         return jsonify({'error': 'event_id required'}), 400
     cal_id = os.getenv('GOOGLE_CALENDAR_ID', 'jlobel@lobelaccountancy.com')
@@ -6517,8 +6517,66 @@ def cpe_log():
 @app.route('/data/cpe-compliance', methods=['GET'])
 @require_jwt
 def cpe_compliance():
-    """Alias to cpe_log — kept for backward compat with existing frontend."""
-    return cpe_log()
+    """Parse Compliance Dashboard tab from Drive workbook into sections."""
+    try:
+        wb = _workbook()
+        if 'Compliance Dashboard' not in wb.sheetnames:
+            return jsonify({'sections': [], 'error': 'Compliance Dashboard sheet not found'})
+        ws = wb['Compliance Dashboard']
+
+        sections = []
+        current_section = None
+
+        for row in ws.iter_rows(min_row=1, max_row=150, values_only=True):
+            a = row[0] if row else None
+            if a is None:
+                continue
+            a_str = str(a).strip()
+            if not a_str:
+                continue
+
+            b = row[1] if len(row) > 1 else None
+
+            # Section header (col A has text, col B is empty, not a known subheader)
+            if (b is None and
+                    a_str not in ('Requirement',) and
+                    not a_str.startswith(('Current Period', 'Calendar Year', 'INSTRUCTIONS', 'Period', 'Req'))):
+                current_section = {'title': a_str, 'period': None, 'rows': []}
+                sections.append(current_section)
+                continue
+
+            if a_str.startswith(('Current Period', 'Calendar Year')):
+                if current_section:
+                    current_section['period'] = a_str
+                continue
+
+            if a_str in ('Requirement',) or a_str.startswith('INSTRUCTIONS'):
+                continue
+
+            if current_section is not None and b is not None:
+                try:
+                    required  = float(b)                if b         is not None else 0
+                    earned    = float(row[2])            if len(row) > 2 and row[2] is not None else 0
+                    remaining = float(row[3])            if len(row) > 3 and row[3] is not None else 0
+                    pct_raw   = float(row[4])            if len(row) > 4 and row[4] is not None else 0
+                    status    = str(row[5]).strip()      if len(row) > 5 and row[5] is not None else ''
+                    pct = round(pct_raw * 100, 1) if pct_raw <= 1.0 else round(pct_raw, 1)
+                    current_section['rows'].append({
+                        'requirement': a_str,
+                        'required':    required,
+                        'earned':      earned,
+                        'remaining':   remaining,
+                        'pct':         pct,
+                        'status':      status,
+                    })
+                except (ValueError, TypeError):
+                    continue
+
+        sections = [s for s in sections if s['rows']]
+        return jsonify({'sections': sections})
+    except Exception as exc:
+        app.logger.error('cpe_compliance error: %s', exc)
+        return jsonify({'error': str(exc)}), 500
 
 
 # ---------------------------------------------------------------------------

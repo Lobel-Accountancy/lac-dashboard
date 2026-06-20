@@ -193,8 +193,12 @@
 
   async function loadDashboard() {
     try {
-      const data = await apiFetch('/data/cpe-log');
-      renderCPE(data);
+      const [compliance, log] = await Promise.all([
+        apiFetch('/data/cpe-compliance').catch(() => null),
+        apiFetch('/data/cpe-log').catch(() => null),
+      ]);
+      renderCompliance(compliance?.sections || []);
+      renderCourseLog(log || {});
     } catch (err) {
       document.getElementById('error-banner').textContent = err.message;
       document.getElementById('error-banner').hidden = false;
@@ -202,106 +206,103 @@
     }
   }
 
-  function renderCPE(data) {
+  // ── Compliance sections (original layout) ─────────────────────────────────
+  function statusBadge(status) {
+    const s = (status || '').toLowerCase();
+    if (s === 'complete' || s === 'met' || s.includes('complete'))
+      return `<span class="status-badge status-badge--ok">✓ Complete</span>`;
+    if (s.includes('overdue'))
+      return `<span class="status-badge status-badge--overdue">Overdue</span>`;
+    if (s) return `<span class="status-badge status-badge--needs">${esc(status)}</span>`;
+    return '';
+  }
+
+  function renderCompliance(sections) {
     const container = document.getElementById('cpe-content');
-    const courses   = data.courses   || [];
-    const byPeriod  = data.by_period || {};
-    const byField   = data.by_field  || {};
-    const total     = data.total_credits || 0;
-    const count     = data.course_count  || 0;
+    if (!sections.length) {
+      container.innerHTML = '';
+      return;
+    }
+    container.innerHTML = sections.map(sec => `
+      <div class="card" style="margin-bottom:16px;">
+        <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
+          <span>${esc(sec.title)}</span>
+          ${sec.period ? `<span style="font-weight:400;color:var(--text-3);font-size:12px;">${esc(sec.period)}</span>` : ''}
+        </div>
+        <div class="cpe-header">
+          <span>Requirement</span>
+          <span style="text-align:right">Req'd</span>
+          <span style="text-align:right">Earned</span>
+          <span style="text-align:right">Left</span>
+          <span>Progress</span>
+          <span>Status</span>
+        </div>
+        ${sec.rows.map(r => {
+          const pct = Math.min(r.pct, 100);
+          return `<div class="cpe-row">
+            <span class="cpe-label">${esc(r.requirement)}</span>
+            <span class="cpe-num">${r.required}</span>
+            <span class="cpe-num">${r.earned}</span>
+            <span class="cpe-num">${r.remaining}</span>
+            <div>
+              <div class="progress-wrap"><div class="progress-bar${pct < 50 ? ' progress-bar--warn' : ''}" style="width:${pct}%"></div></div>
+              <div class="pct-label">${pct}%</div>
+            </div>
+            <div>${statusBadge(r.status)}</div>
+          </div>`;
+        }).join('')}
+      </div>`).join('');
+  }
+
+  // ── Course log (new section below compliance) ─────────────────────────────
+  function renderCourseLog(data) {
+    const courses = data.courses || [];
+    const total   = data.total_credits || 0;
+    const count   = data.course_count  || 0;
+
+    // Remove old course section if present
+    const old = document.getElementById('course-log-section');
+    if (old) old.remove();
+
+    const section = document.createElement('div');
+    section.id = 'course-log-section';
 
     if (!count) {
-      container.innerHTML = `
-        <div class="card">
-          <div class="card-body" style="text-align:center;padding:32px;color:var(--text-2);">
-            No CPE courses in the log yet. Import a Becker CSV above to get started.
-          </div>
-        </div>`;
+      section.innerHTML = `<p style="color:var(--text-2);font-size:13px;padding:8px 0;">
+        No courses in CPE Log yet — import a Becker CSV above to populate.
+      </p>`;
+      document.getElementById('cpe-content').after(section);
       return;
     }
 
-    // Summary stat chips
-    const periodRows = Object.entries(byPeriod)
-      .sort((a,b) => b[1]-a[1])
-      .map(([p,c]) => `
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border);">
-          <span style="font-size:13px;color:var(--text);">${esc(p)}</span>
-          <span style="font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--text);">${c % 1 === 0 ? c : c.toFixed(1)} cr</span>
-        </div>`).join('');
-
-    const fieldRows = Object.entries(byField)
-      .sort((a,b) => b[1]-a[1])
-      .slice(0,6)
-      .map(([f,c]) => `
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border);">
-          <span style="font-size:13px;color:var(--text);">${esc(f)}</span>
-          <span style="font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--text);">${c % 1 === 0 ? c : c.toFixed(1)}</span>
-        </div>`).join('');
-
-    // Course rows
-    const courseRows = courses.map(c => `
-      <div class="cpe-row">
+    const rows = courses.map(c => `
+      <div class="cpe-row" style="grid-template-columns:1fr 50px 110px 1fr 1fr;">
         <span class="cpe-label">
           ${esc(c.course_name)}
-          ${c.acfe_eligible === 'Yes' ? '<span style="font-size:10px;font-weight:700;padding:1px 5px;border-radius:4px;background:rgba(42,184,160,.18);color:#2ab8a0;margin-left:6px;">ACFE</span>' : ''}
-          ${c.fraud_topic === 'Yes' ? '<span style="font-size:10px;font-weight:700;padding:1px 5px;border-radius:4px;background:rgba(232,98,42,.18);color:#e8622a;margin-left:4px;">Fraud</span>' : ''}
+          ${c.acfe_eligible==='Yes'?'<span style="font-size:10px;padding:1px 5px;border-radius:4px;background:rgba(42,184,160,.18);color:#2ab8a0;margin-left:6px;font-weight:700;">ACFE</span>':''}
+          ${c.fraud_topic==='Yes'?'<span style="font-size:10px;padding:1px 5px;border-radius:4px;background:rgba(232,98,42,.18);color:#e8622a;margin-left:4px;font-weight:700;">Fraud</span>':''}
         </span>
-        <span class="cpe-num">${c.credits % 1 === 0 ? c.credits : c.credits.toFixed(1)}</span>
+        <span class="cpe-num">${c.credits%1===0?c.credits:c.credits.toFixed(1)}</span>
         <span style="font-size:12px;color:var(--text-2);">${esc(c.completed_on)}</span>
         <span style="font-size:12px;color:var(--text-2);">${esc(c.field_of_study)}</span>
         <span style="font-size:12px;color:var(--text-3);">${esc(c.cba_period)}</span>
-        <span style="font-size:11px;color:var(--text-3);">${esc(c.provider)}</span>
       </div>`).join('');
 
-    container.innerHTML = `
-      <!-- Stats row -->
-      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:12px;margin-bottom:20px;">
-        <div class="kpi-card kpi-card--teal" style="padding:14px 16px;">
-          <div class="kpi-label">Total Credits</div>
-          <div class="kpi-value" style="font-size:26px;">${total % 1 === 0 ? total : total.toFixed(1)}</div>
-          <div class="kpi-sub">${count} course${count !== 1 ? 's' : ''}</div>
+    section.innerHTML = `
+      <div class="card">
+        <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
+          <span>Courses Completed</span>
+          <span style="font-size:12px;font-weight:400;color:var(--text-3);">
+            ${count} course${count!==1?'s':''} · ${total%1===0?total:total.toFixed(1)} total credits
+          </span>
         </div>
-        ${Object.entries(byPeriod).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([p,c])=>`
-        <div class="kpi-card" style="padding:14px 16px;">
-          <div class="kpi-label" style="font-size:10px;">${esc(p)}</div>
-          <div class="kpi-value" style="font-size:22px;">${c % 1 === 0 ? c : c.toFixed(1)}</div>
-          <div class="kpi-sub">credits</div>
-        </div>`).join('')}
-      </div>
-
-      <!-- Breakdown + course list side by side -->
-      <div style="display:grid;grid-template-columns:220px 1fr;gap:16px;align-items:start;">
-        <div>
-          <div class="card" style="margin-bottom:14px;">
-            <div class="card-header">By CBA Period</div>
-            <div style="padding:0 16px;">${periodRows || '<div style="padding:12px 0;color:var(--text-2);font-size:12px;">No period data</div>'}</div>
-          </div>
-          <div class="card">
-            <div class="card-header">By Field of Study</div>
-            <div style="padding:0 16px;">${fieldRows || '<div style="padding:12px 0;color:var(--text-2);font-size:12px;">No field data</div>'}</div>
-          </div>
+        <div class="cpe-header" style="grid-template-columns:1fr 50px 110px 1fr 1fr;">
+          <span>Course</span><span style="text-align:right">Cr</span>
+          <span>Completed</span><span>Field</span><span>Period</span>
         </div>
-
-        <div class="card">
-          <div class="card-header">Courses Completed</div>
-          <div class="cpe-header" style="grid-template-columns:1fr 56px 100px 1fr 1fr 1fr;">
-            <span>Course</span>
-            <span style="text-align:right">Cr</span>
-            <span>Completed</span>
-            <span>Field</span>
-            <span>Period</span>
-            <span>Provider</span>
-          </div>
-          <div style="max-height:420px;overflow-y:auto;">
-            ${courseRows}
-          </div>
-        </div>
+        <div style="max-height:400px;overflow-y:auto;">${rows}</div>
       </div>`;
-
-    // Fix course row grid to match header
-    container.querySelectorAll('.cpe-row').forEach(r => {
-      r.style.gridTemplateColumns = '1fr 56px 100px 1fr 1fr 1fr';
-    });
+    document.getElementById('cpe-content').after(section);
   }
 
   // ── Upload ────────────────────────────────────────────────────────────────
@@ -407,6 +408,7 @@
     return fetch(path, opts).then(r => { if (!r.ok) return r.json().then(d => { throw new Error(d.error || r.statusText); }); return r; });
   }
 </script>
+<script src="js/card-resize.js"></script>
 <script src="js/chat.js"></script>
 </div>
 </body>
