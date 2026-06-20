@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <link rel="icon" type="image/jpeg" href="favicon.jpg">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LAC Rate Research</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    /* ── Rate matrix ─────────────────────────────────────────────────────── */
+    .rate-card {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+      margin-bottom: 14px;
+    }
+    .rate-card-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 18px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+      transition: background .08s;
+    }
+    .rate-card-header:hover { background: rgba(255,255,255,.04); }
+
+    .rate-dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .rate-service-name {
+      flex: 1;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text);
+    }
+    .rate-service-desc {
+      font-size: 11px;
+      color: var(--text-2);
+      font-weight: 400;
+    }
+    .rate-range-label {
+      font-size: 12px;
+      color: var(--text-2);
+      white-space: nowrap;
+    }
+    .your-rate-badge {
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 9px;
+      border-radius: 8px;
+      background: rgba(42,184,160,.15);
+      color: var(--accent-teal, #2ab8a0);
+      white-space: nowrap;
+    }
+    .rate-chevron {
+      color: var(--text-3);
+      font-size: 11px;
+      transition: transform .2s;
+      flex-shrink: 0;
+    }
+    .rate-chevron.open { transform: rotate(90deg); }
+
+    .rate-body {
+      display: none;
+      padding: 18px;
+      border-top: 1px solid var(--border);
+    }
+    .rate-body.open { display: block; }
+
+    /* Bar visualization */
+    .rate-bar-wrap {
+      position: relative;
+      height: 28px;
+      background: rgba(255,255,255,.06);
+      border-radius: 6px;
+      margin: 14px 0;
+      overflow: visible;
+    }
+    .rate-bar {
+      position: absolute;
+      top: 0; bottom: 0;
+      border-radius: 6px;
+      opacity: .7;
+    }
+    .rate-bar-mid {
+      position: absolute;
+      top: 4px; bottom: 4px;
+      border-radius: 4px;
+      opacity: 1;
+    }
+    .rate-bar-tick {
+      position: absolute;
+      top: -8px;
+      transform: translateX(-50%);
+      font-size: 10px;
+      color: var(--text-3);
+      white-space: nowrap;
+    }
+    .rate-bar-your {
+      position: absolute;
+      top: -2px; bottom: -2px;
+      width: 3px;
+      background: var(--accent-teal, #2ab8a0);
+      border-radius: 2px;
+      transform: translateX(-50%);
+    }
+    .rate-bar-your-label {
+      position: absolute;
+      bottom: -20px;
+      transform: translateX(-50%);
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--accent-teal, #2ab8a0);
+      white-space: nowrap;
+    }
+
+    .rate-numbers {
+      display: flex;
+      gap: 16px;
+      margin: 10px 0;
+      flex-wrap: wrap;
+    }
+    .rate-num-block { text-align: center; }
+    .rate-num-val {
+      font-size: 18px;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      color: var(--text);
+    }
+    .rate-num-lbl {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      color: var(--text-2);
+      margin-top: 2px;
+    }
+
+    .rate-notes {
+      font-size: 12px;
+      color: var(--text-2);
+      line-height: 1.6;
+      margin-top: 10px;
+      padding: 10px 12px;
+      background: rgba(255,255,255,.025);
+      border-radius: 6px;
+      border-left: 3px solid var(--border);
+    }
+
+    .rate-sources {
+      margin-top: 10px;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .rate-source-chip {
+      font-size: 10px;
+      padding: 3px 8px;
+      border-radius: 6px;
+      background: rgba(255,255,255,.06);
+      color: var(--text-3);
+      text-decoration: none;
+      border: 1px solid var(--border);
+      transition: color .1s, border-color .1s;
+    }
+    .rate-source-chip:hover { color: var(--text); border-color: var(--accent-teal); }
+
+    .your-rate-form {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid var(--border);
+      flex-wrap: wrap;
+    }
+    .your-rate-label { font-size: 12px; color: var(--text-2); flex-shrink: 0; }
+    .your-rate-input {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-size: 13px;
+      padding: 6px 10px;
+      width: 100px;
+      outline: none;
+      transition: border-color .15s;
+    }
+    .your-rate-input:focus { border-color: var(--accent-teal); }
+    .btn-set-rate {
+      background: var(--accent-teal, #2ab8a0);
+      color: #fff;
+      border: none;
+      padding: 7px 14px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity .15s;
+    }
+    .btn-set-rate:hover { opacity: .85; }
+    .btn-clear-rate {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--text-3);
+      padding: 7px 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .btn-clear-rate:hover { color: var(--danger); border-color: var(--danger); }
+
+    /* ── BLS section ─────────────────────────────────────────────────────── */
+    .bls-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+      gap: 10px;
+      margin-top: 14px;
+    }
+    .bls-stat {
+      text-align: center;
+      padding: 14px 10px;
+      background: rgba(255,255,255,.025);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+    .bls-stat-val {
+      font-size: 20px;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      color: var(--text);
+    }
+    .bls-stat-lbl {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      color: var(--text-2);
+      margin-top: 3px;
+    }
+
+    .multiplier-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      margin-top: 14px;
+    }
+    .multiplier-table th {
+      text-align: left;
+      padding: 7px 10px;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      color: var(--text-2);
+      border-bottom: 1px solid var(--border);
+    }
+    .multiplier-table td {
+      padding: 9px 10px;
+      border-bottom: 1px solid var(--border);
+      color: var(--text);
+    }
+    .multiplier-table tr:last-child td { border-bottom: none; }
+    .multiplier-table tr:nth-child(even) td { background: rgba(255,255,255,.025); }
+    .range-pill {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* ── Articles ─────────────────────────────────────────────────────────── */
+    .article-item {
+      display: flex;
+      gap: 12px;
+      padding: 12px 20px;
+      border-bottom: 1px solid var(--border);
+      text-decoration: none;
+      color: var(--text);
+      transition: background .08s;
+    }
+    .article-item:last-child { border-bottom: none; }
+    .article-item:hover { background: rgba(255,255,255,.04); }
+    .article-relevant-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      margin-top: 5px;
+    }
+    .article-body { flex: 1; min-width: 0; }
+    .article-source {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      margin-bottom: 3px;
+    }
+    .article-title  { font-size: 13px; font-weight: 600; line-height: 1.4; color: var(--text); }
+    .article-item:hover .article-title { color: var(--accent-teal, #2ab8a0); }
+    .article-date   { font-size: 11px; color: var(--text-3); flex-shrink: 0; padding-top: 2px; min-width: 70px; text-align: right; }
+    .article-summary { font-size: 11px; color: var(--text-2); margin-top: 3px; line-height: 1.4;
+      overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+
+    .tab-row {
+      display: flex;
+      gap: 2px;
+      border-bottom: 1px solid var(--border);
+      padding: 0 16px;
+      background: var(--surface);
+    }
+    .tab-btn {
+      background: none;
+      border: none;
+      border-bottom: 2px solid transparent;
+      color: var(--text-2);
+      padding: 10px 14px;
+      font-size: 13px;
+      cursor: pointer;
+      transition: color .1s, border-color .1s;
+      margin-bottom: -1px;
+    }
+    .tab-btn.active { color: var(--text); border-bottom-color: var(--accent-teal, #2ab8a0); }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    .refreshed-at { font-size: 11px; color: var(--text-3); }
+    .btn-refresh-research {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--text-2);
+      padding: 5px 12px;
+      border-radius: 6px;
+      font-size: 11px;
+      cursor: pointer;
+    }
+    .btn-refresh-research:hover { border-color: var(--accent-teal); color: var(--text); }
+  </style>
+</head>
+<body>
+<aside id="lac-sidebar"></aside>
+<div class="page-body">
+<main class="main">
+  <div class="greeting">Rate Research</div>
+  <div class="date-line" id="date-line"></div>
+
+  <div class="error-banner" id="error-banner" hidden></div>
+
+  <div class="card card--full">
+    <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+      <span>Billing Rate Benchmarks</span>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span class="refreshed-at" id="refreshed-at"></span>
+        <button class="btn-refresh-research" id="refresh-btn" onclick="triggerRefresh()">↻ Run Update</button>
+      </div>
+    </div>
+
+    <div class="tab-row">
+      <button class="tab-btn active" onclick="showTab('rates',this)">Rate Matrix</button>
+      <button class="tab-btn"        onclick="showTab('bls',this)">Market Context</button>
+      <button class="tab-btn"        onclick="showTab('articles',this)" id="articles-tab-btn">Industry Articles</button>
+    </div>
+
+    <!-- Rates tab -->
+    <div class="tab-panel active" id="tab-rates">
+      <div style="padding:16px 18px 0;" id="rates-wrap">
+        <div class="card-body">
+          <div class="skeleton-line skeleton-line--full"></div>
+          <div class="skeleton-line skeleton-line--med"></div>
+          <div class="skeleton-line skeleton-line--full"></div>
+          <div class="skeleton-line skeleton-line--short"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- BLS / Market Context tab -->
+    <div class="tab-panel" id="tab-bls">
+      <div style="padding:18px;" id="bls-wrap">
+        <div class="skeleton-line skeleton-line--full"></div>
+        <div class="skeleton-line skeleton-line--med"></div>
+      </div>
+    </div>
+
+    <!-- Articles tab -->
+    <div class="tab-panel" id="tab-articles">
+      <div id="articles-wrap">
+        <div class="card-body">
+          <div class="skeleton-line skeleton-line--full"></div>
+          <div class="skeleton-line skeleton-line--med"></div>
+          <div class="skeleton-line skeleton-line--full"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<script src="js/nav.js"></script>
+<script src="js/toast.js"></script>
+<script src="js/palette.js"></script>
+<script src="js/auth.js"></script>
+<script>
+  document.getElementById('date-line').textContent = new Date().toLocaleDateString('en-US', {
+    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+  });
+
+  const COLOR_MAP = {
+    green:  {bg:'rgba(76,175,125,.25)',  bar:'#4caf7d',  dot:'#4caf7d'},
+    teal:   {bg:'rgba(42,184,160,.25)',  bar:'#2ab8a0',  dot:'#2ab8a0'},
+    purple: {bg:'rgba(123,94,167,.25)',  bar:'#7b5ea7',  dot:'#7b5ea7'},
+    orange: {bg:'rgba(232,98,42,.25)',   bar:'#e8622a',  dot:'#e8622a'},
+    blue:   {bg:'rgba(75,159,229,.25)',  bar:'#4b9fe5',  dot:'#4b9fe5'},
+    indigo: {bg:'rgba(99,102,241,.25)',  bar:'#6366f1',  dot:'#6366f1'},
+    yellow: {bg:'rgba(234,179,8,.25)',   bar:'#eab308',  dot:'#eab308'},
+  };
+
+  let _data = null;
+
+  document.addEventListener('DOMContentLoaded', async () => {
+    if (!requireAuth()) return;
+    await loadResearch();
+  });
+
+  async function loadResearch() {
+    try {
+      _data = await apiFetch('/data/research');
+      renderAll();
+    } catch (err) {
+      document.getElementById('error-banner').textContent = `Failed to load: ${err.message}`;
+      document.getElementById('error-banner').hidden = false;
+    }
+  }
+
+  function renderAll() {
+    if (!_data) return;
+    renderRefreshedAt(_data.generated_at);
+    renderRates(_data.benchmarks || []);
+    renderBLS(_data.bls || {});
+    renderArticles(_data.articles || [], _data.relevant_count || 0);
+  }
+
+  // ── Tabs ──────────────────────────────────────────────────────────────────
+  function showTab(name, btn) {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById(`tab-${name}`).classList.add('active');
+  }
+
+  // ── Rates ─────────────────────────────────────────────────────────────────
+  function renderRates(benchmarks) {
+    const wrap = document.getElementById('rates-wrap');
+    wrap.innerHTML = benchmarks.map((b, i) => rateCard(b, i)).join('') +
+      `<p style="font-size:11px;color:var(--text-3);padding:8px 0 16px;">
+        Ranges reflect California market rates with CPA + CFE credential premium.
+        Mid-range values are recommended starting points. Click any row to expand.
+      </p>`;
+  }
+
+  function rateCard(b, i) {
+    const c      = COLOR_MAP[b.color] || COLOR_MAP.teal;
+    const hasRate = b.your_rate != null;
+    const bar    = rateBar(b, c);
+    const sourcesHtml = (b.sources || []).map(s =>
+      `<a class="rate-source-chip" href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.name)}</a>`
+    ).join('');
+
+    return `
+    <div class="rate-card">
+      <div class="rate-card-header" onclick="toggleRate(${i})">
+        <div class="rate-dot" style="background:${c.dot};"></div>
+        <div style="flex:1;min-width:0;">
+          <div class="rate-service-name">${esc(b.service)}</div>
+          <div class="rate-service-desc">${esc(b.description)}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;flex-shrink:0;">
+          ${hasRate ? `<span class="your-rate-badge">Your rate: ${fmt$(b.your_rate)}/hr</span>` : ''}
+          <span class="rate-range-label">${fmt$(b.low)} – ${fmt$(b.high)}/hr</span>
+          <span class="rate-chevron" id="chev-${i}">▶</span>
+        </div>
+      </div>
+      <div class="rate-body" id="body-${i}">
+        <div class="rate-numbers">
+          <div class="rate-num-block">
+            <div class="rate-num-val" style="color:#a0a0b0;">${fmt$(b.low)}</div>
+            <div class="rate-num-lbl">Low</div>
+          </div>
+          <div class="rate-num-block">
+            <div class="rate-num-val" style="color:${c.dot};">${fmt$(b.mid)}</div>
+            <div class="rate-num-lbl">Typical Mid</div>
+          </div>
+          <div class="rate-num-block">
+            <div class="rate-num-val" style="color:var(--text);">${fmt$(b.high)}+</div>
+            <div class="rate-num-lbl">High</div>
+          </div>
+          ${hasRate ? `<div class="rate-num-block">
+            <div class="rate-num-val" style="color:var(--accent-teal)">${fmt$(b.your_rate)}</div>
+            <div class="rate-num-lbl">Your Rate</div>
+          </div>` : ''}
+        </div>
+
+        ${bar}
+
+        <div class="rate-notes">${esc(b.notes)}</div>
+
+        <div class="rate-sources">${sourcesHtml}</div>
+
+        <div class="your-rate-form">
+          <span class="your-rate-label">Set your rate:</span>
+          <input class="your-rate-input" type="number" id="rate-input-${i}"
+                 placeholder="e.g. 350" value="${b.your_rate != null ? b.your_rate : ''}">
+          <button class="btn-set-rate" onclick="saveRate('${esc(b.service)}', ${i})">Save</button>
+          ${hasRate ? `<button class="btn-clear-rate" onclick="clearRate('${esc(b.service)}', ${i})">Clear</button>` : ''}
+        </div>
+      </div>
+    </div>`;
+  }
+
+  function rateBar(b, c) {
+    // Map rate range to 0-100% of bar where max = b.high * 1.3
+    const max = Math.round(b.high * 1.3);
+    const pctLow  = (b.low  / max * 100).toFixed(1);
+    const pctMid  = (b.mid  / max * 100).toFixed(1);
+    const pctHigh = (b.high / max * 100).toFixed(1);
+
+    let yourPin = '';
+    if (b.your_rate != null) {
+      const pctYour = Math.min(b.your_rate / max * 100, 100).toFixed(1);
+      yourPin = `<div class="rate-bar-your" style="left:${pctYour}%">
+        <div class="rate-bar-your-label">${fmt$(b.your_rate)}</div>
+      </div>`;
+    }
+
+    return `
+      <div style="position:relative;margin:28px 0 24px;">
+        <div class="rate-bar-wrap">
+          <div class="rate-bar" style="left:${pctLow}%;right:${100-parseFloat(pctHigh)}%;background:${c.bg};"></div>
+          <div class="rate-bar-mid" style="left:${(parseFloat(pctLow)+parseFloat(pctMid))/2}%;right:${100-parseFloat(pctHigh)}%;background:${c.bar};"></div>
+          ${yourPin}
+        </div>
+        <div class="rate-bar-tick" style="left:${pctLow}%">${fmt$(b.low)}</div>
+        <div class="rate-bar-tick" style="left:${pctMid}%">${fmt$(b.mid)}</div>
+        <div class="rate-bar-tick" style="left:${pctHigh}%">${fmt$(b.high)}+</div>
+      </div>`;
+  }
+
+  function toggleRate(i) {
+    const body  = document.getElementById(`body-${i}`);
+    const chev  = document.getElementById(`chev-${i}`);
+    const open  = body.classList.toggle('open');
+    chev.classList.toggle('open', open);
+  }
+
+  async function saveRate(service, idx) {
+    const val  = document.getElementById(`rate-input-${idx}`).value.trim();
+    const rate = val ? parseFloat(val) : null;
+    try {
+      await apiFetch('/data/research/rate', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({service, rate}),
+      });
+      showToast(`Rate saved for ${service}`, 'success');
+      await loadResearch();
+    } catch (err) {
+      showToast(`Save failed: ${err.message}`, 'error');
+    }
+  }
+
+  async function clearRate(service, idx) {
+    await saveRate(service, idx);  // rate input is empty → null
+  }
+
+  // ── BLS ───────────────────────────────────────────────────────────────────
+  function renderBLS(bls) {
+    const wrap = document.getElementById('bls-wrap');
+    if (!bls.mean_hourly) { wrap.innerHTML = '<p style="color:var(--text-2);font-size:13px;">BLS data not loaded.</p>'; return; }
+
+    const mults = bls.multiplier_guidance || {};
+    const multRows = Object.values(mults).map(m =>
+      `<tr>
+        <td>${esc(m.label)}</td>
+        <td><span class="range-pill" style="background:rgba(160,160,176,.15);color:var(--text-2);">${fmt$(m.wage_range[0])} – ${fmt$(m.wage_range[1])}/hr</span></td>
+        <td><span class="range-pill" style="background:rgba(76,175,125,.15);color:#4caf7d;">${fmt$(m.billing_range[0])} – ${fmt$(m.billing_range[1])}/hr</span></td>
+        <td style="color:var(--text-2);font-size:12px;">${(m.billing_range[0]/m.wage_range[1]).toFixed(1)}–${(m.billing_range[1]/m.wage_range[0]).toFixed(1)}×</td>
+      </tr>`
+    ).join('');
+
+    wrap.innerHTML = `
+      <p style="font-size:13px;color:var(--text-2);margin-bottom:14px;">
+        <strong style="color:var(--text);">BLS OES ${bls.year}</strong> — ${esc(bls.occupation)}, ${esc(bls.area)}.
+        <a href="${esc(bls.source_url)}" target="_blank" rel="noopener"
+           style="color:var(--accent-teal);text-decoration:none;font-size:11px;">View source ↗</a>
+      </p>
+
+      <div class="bls-grid">
+        <div class="bls-stat"><div class="bls-stat-val">${fmt$(bls.p10_hourly)}</div><div class="bls-stat-lbl">10th %ile/hr</div></div>
+        <div class="bls-stat"><div class="bls-stat-val">${fmt$(bls.p25_hourly)}</div><div class="bls-stat-lbl">25th %ile/hr</div></div>
+        <div class="bls-stat"><div class="bls-stat-val">${fmt$(bls.median_hourly)}</div><div class="bls-stat-lbl">Median/hr</div></div>
+        <div class="bls-stat"><div class="bls-stat-val">${fmt$(bls.mean_hourly)}</div><div class="bls-stat-lbl">Mean/hr</div></div>
+        <div class="bls-stat"><div class="bls-stat-val">${fmt$(bls.p75_hourly)}</div><div class="bls-stat-lbl">75th %ile/hr</div></div>
+        <div class="bls-stat"><div class="bls-stat-val">${fmt$(bls.p90_hourly)}</div><div class="bls-stat-lbl">90th %ile/hr</div></div>
+        <div class="bls-stat"><div class="bls-stat-val">${(bls.employment/1000).toFixed(0)}K</div><div class="bls-stat-lbl">CA Employed</div></div>
+        <div class="bls-stat"><div class="bls-stat-val">${fmt$(bls.mean_annual/1000).replace('$','$')}K</div><div class="bls-stat-lbl">Mean Annual</div></div>
+      </div>
+
+      <div style="margin-top:16px;">
+        <div style="font-size:12px;font-weight:600;color:var(--text-2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;">
+          Billing Rate Multipliers — what to charge based on labor cost
+        </div>
+        <table class="multiplier-table">
+          <thead>
+            <tr>
+              <th>Level</th>
+              <th>Employee Wage</th>
+              <th>Suggested Billing Rate</th>
+              <th>Multiplier</th>
+            </tr>
+          </thead>
+          <tbody>${multRows}</tbody>
+        </table>
+      </div>
+
+      <div style="margin-top:14px;padding:12px 14px;background:rgba(255,255,255,.025);border-radius:8px;border-left:3px solid var(--accent-teal);font-size:12px;color:var(--text-2);line-height:1.6;">
+        ${esc(bls.note)}
+      </div>`;
+  }
+
+  // ── Articles ──────────────────────────────────────────────────────────────
+  function renderArticles(articles, relevantCount) {
+    const btn  = document.getElementById('articles-tab-btn');
+    if (relevantCount > 0) btn.textContent = `Industry Articles (${relevantCount} rate-related)`;
+
+    const wrap = document.getElementById('articles-wrap');
+    if (!articles.length) {
+      wrap.innerHTML = '<div style="padding:24px;text-align:center;color:var(--text-2);font-size:13px;">No articles loaded.</div>';
+      return;
+    }
+
+    const SOURCE_COLORS = {
+      'CPA Practice Advisor': '#7C3AED',
+      'Going Concern':        '#B45309',
+      'AccountingWEB':        '#1D4ED8',
+    };
+
+    // Show relevant first, then show all toggle
+    const relevant = articles.filter(a => a.relevant);
+    const rest     = articles.filter(a => !a.relevant);
+    const showAll  = relevant.length < 3;
+
+    const renderItem = a => {
+      const color = SOURCE_COLORS[a.source] || '#5A6B7C';
+      const dot   = a.relevant ? '#4caf7d' : 'transparent';
+      const date  = a.date ? fmtDate(a.date) : '';
+      return `<a class="article-item" href="${esc(a.url)}" target="_blank" rel="noopener">
+        <div class="article-relevant-dot" style="background:${dot};border:1px solid ${a.relevant ? dot : 'var(--border)'};"></div>
+        <div class="article-body">
+          <div class="article-source" style="color:${color};">${esc(a.source)}</div>
+          <div class="article-title">${esc(a.title)}</div>
+          ${a.summary ? `<div class="article-summary">${esc(a.summary)}</div>` : ''}
+        </div>
+        <div class="article-date">${date}</div>
+      </a>`;
+    };
+
+    let html = '';
+    if (relevant.length) {
+      html += `<div style="padding:8px 20px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--accent-green,#4caf7d);border-bottom:1px solid var(--border);">● Rate-Related</div>`;
+      html += relevant.map(renderItem).join('');
+    }
+    if (rest.length) {
+      html += `<div style="padding:8px 20px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);border-bottom:1px solid var(--border);border-top:1px solid var(--border);">Recent Industry News</div>`;
+      html += rest.slice(0, showAll ? rest.length : 15).map(renderItem).join('');
+      if (!showAll && rest.length > 15) {
+        html += `<div style="padding:12px;text-align:center;"><button onclick="expandArticles()" style="background:none;border:1px solid var(--border);color:var(--text-2);padding:6px 16px;border-radius:6px;font-size:12px;cursor:pointer;">Show all ${rest.length} articles</button></div>`;
+      }
+    }
+    wrap.innerHTML = html;
+    window._allArticles = rest;
+  }
+
+  function expandArticles() {
+    const rest = window._allArticles || [];
+    const SOURCE_COLORS = {'CPA Practice Advisor':'#7C3AED','Going Concern':'#B45309','AccountingWEB':'#1D4ED8'};
+    const wrap = document.getElementById('articles-wrap');
+    const existing = wrap.innerHTML;
+    const btn = wrap.querySelector('button');
+    if (!btn) return;
+    btn.closest('div').remove();
+    const extra = rest.slice(15).map(a => {
+      const color = SOURCE_COLORS[a.source] || '#5A6B7C';
+      const date  = a.date ? fmtDate(a.date) : '';
+      return `<a class="article-item" href="${esc(a.url)}" target="_blank" rel="noopener">
+        <div class="article-relevant-dot" style="background:transparent;border:1px solid var(--border);"></div>
+        <div class="article-body">
+          <div class="article-source" style="color:${color};">${esc(a.source)}</div>
+          <div class="article-title">${esc(a.title)}</div>
+        </div>
+        <div class="article-date">${date}</div>
+      </a>`;
+    }).join('');
+    wrap.insertAdjacentHTML('beforeend', extra);
+  }
+
+  // ── Refresh ───────────────────────────────────────────────────────────────
+  async function triggerRefresh() {
+    const btn = document.getElementById('refresh-btn');
+    btn.disabled = true;
+    btn.textContent = '↻ Running…';
+    showToast('Research update queued — data will refresh in ~30 seconds', 'success');
+    try {
+      await fetch('/run/billing-research', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${getJWT()}` }
+      });
+    } catch {}
+    setTimeout(async () => {
+      await loadResearch();
+      btn.disabled = false;
+      btn.textContent = '↻ Run Update';
+    }, 12000);
+  }
+
+  function renderRefreshedAt(iso) {
+    if (!iso) return;
+    try {
+      const d = new Date(iso);
+      document.getElementById('refreshed-at').textContent =
+        `Updated ${d.toLocaleDateString('en-US',{month:'short',day:'numeric'})} at ${d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}`;
+    } catch {}
+  }
+
+  // ── Helpers ───────────────────────────────────────────────────────────────
+  function fmt$(n) {
+    return new Intl.NumberFormat('en-US', {style:'currency', currency:'USD', maximumFractionDigits:0}).format(n||0);
+  }
+  function fmtDate(raw) {
+    try {
+      const d = new Date(raw);
+      return isNaN(d.getTime()) ? '' : d.toLocaleDateString('en-US', {month:'short', day:'numeric'});
+    } catch { return ''; }
+  }
+  function esc(s) {
+    return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+</script>
+<script src="js/chat.js"></script>
+</div>
+</body>
+</html>

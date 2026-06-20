@@ -6156,6 +6156,7 @@ _CRON_JOBS = [
     {'name': 'HubSpot Sync',          'script': 'hubspot_sync.py',          'log': '/home/jlobel/lac_automation/hubspot.log',                    'schedule': 'Daily'},
     {'name': 'Paperless Sync',        'script': 'paperless_sync.py',        'log': '/home/jlobel/lac_automation/paperless.log',                  'schedule': 'Hourly'},
     {'name': 'Cash Recon Alert',      'script': 'cash_recon_alert.py',      'log': '/home/jlobel/lac_automation/logs/cash_recon.log',              'schedule': 'Daily 2:15am'},
+    {'name': 'Billing Rate Research', 'script': 'billing_rate_research.py', 'log': '/home/jlobel/lac_automation/billing_research.log',             'schedule': 'Weekly Sun 11pm'},
 ]
 
 def _parse_log_tail(log_path, n_lines=8):
@@ -6689,6 +6690,77 @@ def journal_delete():
         return jsonify({'deleted': je_num, 'rows': len(rows_to_delete)})
     except Exception as exc:
         app.logger.error('journal_delete error: %s', exc)
+        return jsonify({'error': str(exc)}), 500
+
+
+# ---------------------------------------------------------------------------
+# Billing Rate Research
+# ---------------------------------------------------------------------------
+
+_BILLING_DATA_PATH = '/home/jlobel/lac_automation/data/billing_rates.json'
+
+
+@app.route('/data/research', methods=['GET'])
+@require_jwt
+def billing_research():
+    """Return latest billing rate benchmark data."""
+    try:
+        if not os.path.exists(_BILLING_DATA_PATH):
+            return jsonify({'error': 'Research data not yet generated — run billing_rate_research.py'}), 404
+        with open(_BILLING_DATA_PATH) as f:
+            data = json.load(f)
+        return jsonify(data)
+    except Exception as exc:
+        app.logger.error('billing_research error: %s', exc)
+        return jsonify({'error': str(exc)}), 500
+
+
+@app.route('/data/research/rate', methods=['POST'])
+@require_jwt
+def billing_research_rate():
+    """Save a custom rate for a service type."""
+    try:
+        body    = request.get_json(silent=True) or {}
+        service = (body.get('service') or '').strip()
+        rate    = body.get('rate')
+
+        if not service:
+            return jsonify({'error': 'service required'}), 400
+
+        with open(_BILLING_DATA_PATH) as f:
+            data = json.load(f)
+
+        for b in data.get('benchmarks', []):
+            if b['service'] == service:
+                b['your_rate'] = float(rate) if rate is not None else None
+                break
+        else:
+            return jsonify({'error': f'Service "{service}" not found'}), 404
+
+        with open(_BILLING_DATA_PATH, 'w') as f:
+            json.dump(data, f, indent=2)
+
+        return jsonify({'ok': True, 'service': service, 'rate': rate})
+    except Exception as exc:
+        app.logger.error('billing_research_rate error: %s', exc)
+        return jsonify({'error': str(exc)}), 500
+
+
+@app.route('/run/billing-research', methods=['POST'])
+@require_jwt
+def run_billing_research():
+    """Trigger billing_rate_research.py in the background."""
+    import subprocess as _sp
+    try:
+        _sp.Popen(
+            ['python3', '/home/jlobel/lac_automation/billing_rate_research.py'],
+            stdout=open('/home/jlobel/lac_automation/billing_research.log', 'a'),
+            stderr=_sp.STDOUT,
+            close_fds=True,
+        )
+        return jsonify({'ok': True, 'message': 'Research update started'})
+    except Exception as exc:
+        app.logger.error('run_billing_research error: %s', exc)
         return jsonify({'error': str(exc)}), 500
 
 

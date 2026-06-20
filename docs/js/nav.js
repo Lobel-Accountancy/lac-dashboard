@@ -15,6 +15,7 @@ const NAV_GROUPS = [
     { label: 'Forecast',      href: 'forecast.html',    icon: '◬' },
     { label: 'Budget',        href: 'budget.html',      icon: '◫' },
     { label: 'Financials',    href: 'financials.html',  icon: '▧' },
+    { label: 'Rate Research', href: 'research.html',    icon: '◈' },
   ]},
   { label: 'Work', items: [
     { label: 'Pipeline',      href: 'engagement.html',  icon: '◧', badgeId: 'badge-pipeline' },
