@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <link rel="icon" type="image/jpeg" href="favicon.jpg">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LAC CPE Compliance</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .cpe-section { margin-bottom: 28px; }
+
+    .cpe-section-title {
+      font-size: 13px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      color: var(--text-2);
+      margin-bottom: 4px;
+    }
+
+    .cpe-period {
+      font-size: 12px;
+      color: var(--text-3);
+      margin-bottom: 12px;
+    }
+
+    .cpe-row {
+      display: grid;
+      grid-template-columns: 1fr 56px 56px 56px 110px 90px;
+      gap: 8px;
+      align-items: center;
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+    }
+    .cpe-row:last-child { border-bottom: none; }
+    .cpe-row:nth-child(even) { background: rgba(255,255,255,.025); }
+    .cpe-row:hover { background: rgba(255,255,255,.06); transition: background .1s; }
+
+    .cpe-header {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      color: var(--text-2);
+      padding: 8px 16px;
+      border-bottom: 1px solid var(--border);
+      display: grid;
+      grid-template-columns: 1fr 56px 56px 56px 110px 90px;
+      gap: 8px;
+    }
+
+    .cpe-label { color: var(--text); }
+    .cpe-num   { text-align: right; font-variant-numeric: tabular-nums; color: var(--text); }
+
+    .progress-wrap {
+      height: 6px;
+      background: var(--muted-bg);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    .progress-bar {
+      height: 100%;
+      border-radius: 3px;
+      background: var(--accent-green, #4caf7d);
+      transition: width .4s ease;
+    }
+    .progress-bar--warn  { background: var(--warning); }
+    .progress-bar--done  { background: var(--accent-green, #4caf7d); }
+
+    .pct-label {
+      font-size: 11px;
+      color: var(--text-3);
+      margin-top: 3px;
+      text-align: right;
+    }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 9px;
+      border-radius: 10px;
+      font-size: 11px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .status-badge--ok      { background: var(--ok-bg);      color: var(--ok); }
+    .status-badge--needs   { background: var(--warning-bg); color: var(--warning); }
+    .status-badge--overdue { background: var(--danger-bg);  color: var(--danger); }
+
+    @media (max-width: 640px) {
+      .cpe-header,
+      .cpe-row { grid-template-columns: 1fr 48px 48px 80px; }
+      .cpe-header span:nth-child(3),
+      .cpe-header span:nth-child(4),
+      .cpe-row   .cpe-num:nth-child(3),
+      .cpe-row   .cpe-num:nth-child(4) { display: none; }
+    }
+  </style>
+</head>
+<body>
+<aside id="lac-sidebar"></aside>
+<div class="page-body">
+<main class="main">
+  <div class="greeting">CPE Compliance</div>
+  <div class="date-line" id="date-line"></div>
+
+  <div class="error-banner" id="error-banner" hidden></div>
+  <div id="cpe-content">
+    <div class="card" style="margin-bottom:16px;">
+      <div class="card-body">
+        <div class="skeleton-line skeleton-line--full"></div>
+        <div class="skeleton-line skeleton-line--med"></div>
+        <div class="skeleton-line skeleton-line--full"></div>
+        <div class="skeleton-line skeleton-line--short"></div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script src="js/nav.js"></script>
+<script src="js/toast.js"></script>
+<script src="js/palette.js"></script>
+<script src="js/auth.js"></script>
+<script>
+  document.getElementById('date-line').textContent = new Date().toLocaleDateString('en-US', {
+    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+  });
+
+  document.addEventListener('DOMContentLoaded', async () => {
+    if (!requireAuth()) return;
+
+    try {
+      const data = await apiFetch('/data/cpe-compliance');
+      renderCPE(data.sections || []);
+    } catch (err) {
+      document.getElementById('error-banner').textContent = err.message;
+      document.getElementById('error-banner').hidden = false;
+      document.getElementById('cpe-content').innerHTML = '';
+    }
+  });
+
+  function statusBadge(status) {
+    const s = (status || '').toLowerCase();
+    if (s === 'complete' || s === 'met') return `<span class="status-badge status-badge--ok">✓ Complete</span>`;
+    if (s.includes('overdue'))           return `<span class="status-badge status-badge--overdue">Overdue</span>`;
+    return `<span class="status-badge status-badge--needs">${escHtml(status)}</span>`;
+  }
+
+  function escHtml(s) {
+    return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function renderCPE(sections) {
+    const container = document.getElementById('cpe-content');
+    if (!sections.length) {
+      container.innerHTML = '<p class="empty-state">No compliance data found.</p>';
+      return;
+    }
+
+    container.innerHTML = sections.map(sec => `
+      <div class="card cpe-section">
+        <div class="card-header">
+          <span>${escHtml(sec.title)}</span>
+          ${sec.period ? `<span style="font-weight:400;color:var(--text-3);font-size:12px;">${escHtml(sec.period)}</span>` : ''}
+        </div>
+        <div class="cpe-header">
+          <span>Requirement</span>
+          <span style="text-align:right">Req'd</span>
+          <span style="text-align:right">Earned</span>
+          <span style="text-align:right">Left</span>
+          <span>Progress</span>
+          <span>Status</span>
+        </div>
+        ${sec.rows.map(r => {
+          const pct = Math.min(r.pct, 100);
+          const barClass = pct >= 100 ? 'progress-bar--done' : pct >= 50 ? '' : 'progress-bar--warn';
+          return `
+          <div class="cpe-row">
+            <span class="cpe-label">${escHtml(r.requirement)}</span>
+            <span class="cpe-num">${r.required}</span>
+            <span class="cpe-num">${r.earned}</span>
+            <span class="cpe-num">${r.remaining}</span>
+            <div>
+              <div class="progress-wrap"><div class="progress-bar ${barClass}" style="width:${pct}%"></div></div>
+              <div class="pct-label">${pct}%</div>
+            </div>
+            <div>${statusBadge(r.status)}</div>
+          </div>`;
+        }).join('')}
+      </div>
+    `).join('');
+  }
+</script>
+<script src="js/chat.js"></script>
+</div>
+</body>
+</html>

@@ -23,6 +23,9 @@ const NAV_GROUPS = [
     { label: 'Health Score',  href: 'health.html',      icon: '◉' },
     { label: 'Prospecting',   href: 'prospecting.html', icon: '◱' },
   ]},
+  { label: 'Compliance', items: [
+    { label: 'CPE',           href: 'cpe.html',         icon: '◎' },
+  ]},
   { label: 'Tools', items: [
     { label: 'Audit Tools',   href: 'audit-tools.html', icon: '◈' },
     { label: 'AI',            href: 'ai.html',          icon: '◈' },
