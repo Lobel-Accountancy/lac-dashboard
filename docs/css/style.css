@@ -153,6 +153,15 @@ body {
   margin-bottom: 20px;
 }
 
+/* KPI row + Recent JE wrapper */
+.kpi-je-wrap {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-bottom: 20px;
+  align-items: start;
+}
+
 .kpi-card {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -527,6 +536,8 @@ body {
 /* ---- Responsive ---- */
 @media (max-width: 768px) {
   .kpi-grid    { grid-template-columns: 1fr; }
+  .kpi-je-wrap { grid-template-columns: 1fr; }
+  .kpi-je-wrap #recent-je-card { grid-column: 1; grid-row: auto; }
   .content-grid { grid-template-columns: 1fr; }
   .nav-subtitle { display: none; }
 }

@@ -22,11 +22,21 @@
 
   <div class="error-banner" id="error-banner" hidden></div>
 
-  <!-- KPI row -->
-  <div class="kpi-grid" id="kpi-grid">
-    <div class="kpi-card"><span class="kpi-skeleton-label"></span><span class="kpi-skeleton-value"></span><span class="kpi-skeleton-sub"></span></div>
-    <div class="kpi-card"><span class="kpi-skeleton-label"></span><span class="kpi-skeleton-value"></span><span class="kpi-skeleton-sub"></span></div>
-    <div class="kpi-card"><span class="kpi-skeleton-label"></span><span class="kpi-skeleton-value"></span><span class="kpi-skeleton-sub"></span></div>
+  <!-- KPI row + Recent Journal Entries side by side -->
+  <div class="kpi-je-wrap">
+    <div class="kpi-grid" id="kpi-grid" style="display:contents;">
+      <div class="kpi-card"><span class="kpi-skeleton-label"></span><span class="kpi-skeleton-value"></span><span class="kpi-skeleton-sub"></span></div>
+      <div class="kpi-card"><span class="kpi-skeleton-label"></span><span class="kpi-skeleton-value"></span><span class="kpi-skeleton-sub"></span></div>
+      <div class="kpi-card"><span class="kpi-skeleton-label"></span><span class="kpi-skeleton-value"></span><span class="kpi-skeleton-sub"></span></div>
+      <div class="kpi-card"><span class="kpi-skeleton-label"></span><span class="kpi-skeleton-value"></span><span class="kpi-skeleton-sub"></span></div>
+    </div>
+    <div class="card" id="recent-je-card" style="grid-column:2/span 2;grid-row:2;margin:0;">
+      <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
+        <span>Recent Journal Entries</span>
+        <a href="journal.html" style="font-size:12px;font-weight:400;color:var(--accent-teal,#2ab8a0);text-decoration:none;">View all →</a>
+      </div>
+      <div class="card-body" id="recent-je-body"><div class="skeleton-line skeleton-line--full"></div><div class="skeleton-line skeleton-line--med"></div><div class="skeleton-line skeleton-line--full"></div></div>
+    </div>
   </div>
 
   <!-- Content: AR + Deadlines side by side -->
@@ -77,15 +87,6 @@
       <span id="reg-digest-label" style="font-size:11px;font-weight:400;opacity:.7;"></span>
     </div>
     <div class="card-body" id="reg-body"><div class="skeleton-line skeleton-line--full"></div><div class="skeleton-line skeleton-line--med"></div><div class="skeleton-line skeleton-line--full"></div><div class="skeleton-line skeleton-line--short"></div></div>
-  </div>
-
-  <!-- Recent Journal Entries -->
-  <div class="card card--full">
-    <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
-      <span>Recent Journal Entries</span>
-      <a href="journal.html" style="font-size:12px;font-weight:400;color:var(--accent-teal,#2ab8a0);text-decoration:none;">View all →</a>
-    </div>
-    <div class="card-body" id="recent-je-body"><div class="skeleton-line skeleton-line--full"></div><div class="skeleton-line skeleton-line--med"></div><div class="skeleton-line skeleton-line--full"></div></div>
   </div>
 
   <div class="refresh-bar">
