@@ -8,9 +8,15 @@
   <link rel="stylesheet" href="css/style.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.css">
   <style>
-    .legend { display:flex; flex-wrap:wrap; gap:14px; margin-bottom:16px; }
-    .legend-item { display:flex; align-items:center; gap:6px; font-size:12px; color:var(--text-2); }
-    .legend-dot  { width:10px; height:10px; border-radius:50%; }
+    /* Let the calendar use the full content area width */
+    .main { max-width: none; }
+
+    .cal-toolbar {
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      margin-bottom: 14px;
+    }
 
     .fc { font-family:inherit; font-size:13px; }
     .fc .fc-toolbar-title { font-size:16px; font-weight:700; color:var(--text); }
@@ -102,21 +108,11 @@
 
   <div class="error-banner" id="error-banner" hidden></div>
 
-  <div class="legend" style="justify-content:space-between;align-items:center;">
-    <div style="display:flex;gap:14px;flex-wrap:wrap;">
-      <div class="legend-item"><div class="legend-dot" style="background:#C0392B"></div>Compliance</div>
-      <div class="legend-item"><div class="legend-dot" style="background:#D4880A"></div>Engagement Deadline</div>
-      <div class="legend-item"><div class="legend-dot" style="background:#2E6DA4"></div>Calendar Event</div>
-      <div class="legend-item"><div class="legend-dot" style="background:#8B0000"></div>Overdue</div>
-    </div>
+  <div class="cal-toolbar">
     <button class="btn-add-event" onclick="openModal()">+ Add Event</button>
   </div>
 
-  <div class="card card--full">
-    <div class="card-body" style="padding:20px;">
-      <div id="calendar-el"></div>
-    </div>
-  </div>
+  <div id="calendar-el"></div>
 </main>
 </div>
 
@@ -291,7 +287,7 @@
       dateClick(info) {
         openModal(null, info.dateStr);
       },
-      height:   'auto',
+      height:   Math.max(620, window.innerHeight - 180),
       firstDay: 0,
     });
     _calendar.render();
