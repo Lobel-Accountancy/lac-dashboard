@@ -358,6 +358,7 @@
 // Active item in the review modal
 let _activeItem = null;
 let _approving  = false;
+const _pendingMap = {}; // id → item, avoids serialising items into onclick attributes
 
 // ── Badge icons per doc type ──────────────────────────────────────────────
 const BADGE_ICON = {
@@ -437,6 +438,8 @@ function renderPending(items) {
   countEl.textContent = items.length;
   countEl.hidden = false;
 
+  items.forEach(item => { _pendingMap[item.id] = item; });
+
   el.innerHTML = `<div class="doc-list">${items.map(item => {
     const icon   = BADGE_ICON[item.doc_type] || '📄';
     const badge  = BADGE_CLS[item.doc_type]  || '';
@@ -448,7 +451,7 @@ function renderPending(items) {
       ? new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0}).format(item.amount)
       : '';
     return `
-      <div class="doc-card" id="card-${item.id}" onclick="openReview(${JSON.stringify(JSON.stringify(item))})">
+      <div class="doc-card" id="card-${item.id}" onclick="openReview('${item.id}')">
         <div class="doc-card-badge ${badge}">${icon}</div>
         <div class="doc-card-body">
           <div class="doc-card-title">
@@ -465,8 +468,9 @@ function renderPending(items) {
 
 // ── Review modal open/close ───────────────────────────────────────────────
 
-function openReview(itemJson) {
-  const item = JSON.parse(itemJson);
+function openReview(id) {
+  const item = _pendingMap[id];
+  if (!item) return;
   _activeItem = item;
   _approving  = false;
 
