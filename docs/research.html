@@ -338,6 +338,112 @@
       cursor: pointer;
     }
     .btn-refresh-research:hover { border-color: var(--accent-teal); color: var(--text); }
+
+    /* ── Rate positioning summary ────────────────────────────────────────── */
+    .position-summary {
+      padding: 14px 16px;
+      background: rgba(255,255,255,.025);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      margin-bottom: 16px;
+    }
+    .position-chip {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      padding: 7px 11px;
+      background: rgba(255,255,255,.04);
+      border-radius: 8px;
+      border: 1px solid var(--border);
+    }
+
+    /* ── Rate Calculator ─────────────────────────────────────────────────── */
+    .calc-form {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      align-items: flex-end;
+      padding: 18px;
+      border-bottom: 1px solid var(--border);
+    }
+    .calc-field { display: flex; flex-direction: column; gap: 5px; }
+    .calc-label {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      color: var(--text-2);
+    }
+    .calc-input {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-size: 14px;
+      padding: 7px 12px;
+      outline: none;
+      transition: border-color .15s;
+      width: 130px;
+    }
+    .calc-input:focus { border-color: var(--accent-teal); }
+    .calc-select {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-size: 13px;
+      padding: 7px 12px;
+      outline: none;
+      width: 240px;
+      cursor: pointer;
+    }
+    .calc-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    .calc-table th {
+      text-align: left;
+      padding: 8px 18px;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      color: var(--text-2);
+      border-bottom: 1px solid var(--border);
+    }
+    .calc-table td {
+      padding: 11px 18px;
+      border-bottom: 1px solid var(--border);
+      color: var(--text);
+    }
+    .calc-table tr:last-child td { border-bottom: none; }
+    .calc-table tr.calc-current-row td { background: rgba(42,184,160,.06); }
+    .calc-delta-pos { color: #4caf7d; font-weight: 600; }
+
+    /* ── Rate history ────────────────────────────────────────────────────── */
+    .rate-history {
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid var(--border);
+    }
+    .rate-history-title {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      color: var(--text-3);
+      margin-bottom: 6px;
+    }
+    .rate-history-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 4px 0;
+      font-size: 12px;
+    }
+    .rate-history-date { color: var(--text-3); min-width: 90px; }
+    .rate-history-val  { font-weight: 600; color: var(--text); min-width: 60px; }
   </style>
 </head>
 <body>
@@ -362,6 +468,7 @@
       <button class="tab-btn active" onclick="showTab('rates',this)">Rate Matrix</button>
       <button class="tab-btn"        onclick="showTab('bls',this)">Market Context</button>
       <button class="tab-btn"        onclick="showTab('articles',this)" id="articles-tab-btn">Industry Articles</button>
+      <button class="tab-btn"        onclick="showTab('calc',this)">Rate Calculator</button>
     </div>
 
     <!-- Rates tab -->
@@ -389,6 +496,16 @@
       <div id="articles-wrap">
         <div class="card-body">
           <div class="skeleton-line skeleton-line--full"></div>
+          <div class="skeleton-line skeleton-line--med"></div>
+          <div class="skeleton-line skeleton-line--full"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Rate Calculator tab -->
+    <div class="tab-panel" id="tab-calc">
+      <div id="calc-wrap">
+        <div class="card-body">
           <div class="skeleton-line skeleton-line--med"></div>
           <div class="skeleton-line skeleton-line--full"></div>
         </div>
@@ -440,6 +557,7 @@
     renderRates(_data.benchmarks || []);
     renderBLS(_data.bls || {});
     renderArticles(_data.articles || [], _data.relevant_count || 0);
+    renderCalculator(_data.benchmarks || []);
   }
 
   // ── Tabs ──────────────────────────────────────────────────────────────────
@@ -453,11 +571,47 @@
   // ── Rates ─────────────────────────────────────────────────────────────────
   function renderRates(benchmarks) {
     const wrap = document.getElementById('rates-wrap');
-    wrap.innerHTML = benchmarks.map((b, i) => rateCard(b, i)).join('') +
+    wrap.innerHTML =
+      renderPositioningSummary(benchmarks) +
+      benchmarks.map((b, i) => rateCard(b, i)).join('') +
       `<p style="font-size:11px;color:var(--text-3);padding:8px 0 16px;">
         Ranges reflect California market rates with CPA + CFE credential premium.
         Mid-range values are recommended starting points. Click any row to expand.
       </p>`;
+  }
+
+  function positionLabel(rate, b) {
+    if (rate < b.low)         return {label: 'Below Market', color: 'var(--danger, #e05252)'};
+    if (rate < b.mid)         return {label: 'Low Range',    color: '#eab308'};
+    if (rate <= b.mid * 1.15) return {label: 'At Market',    color: '#4caf7d'};
+    if (rate <= b.high)       return {label: 'Upper Range',  color: '#2ab8a0'};
+                               return {label: 'Premium',      color: '#6366f1'};
+  }
+
+  function renderPositioningSummary(benchmarks) {
+    const rated = benchmarks.filter(b => b.your_rate != null);
+    if (!rated.length) return '';
+    const atOrAbove = rated.filter(b => b.your_rate >= b.mid).length;
+    const pct = Math.round(atOrAbove / rated.length * 100);
+    const chips = rated.map(b => {
+      const pos = positionLabel(b.your_rate, b);
+      return `<div class="position-chip">
+        <div style="width:8px;height:8px;border-radius:50%;background:${pos.color};flex-shrink:0;"></div>
+        <div>
+          <div style="font-size:11px;font-weight:600;color:var(--text);">${esc(b.service)}</div>
+          <div style="font-size:10px;color:${pos.color};font-weight:600;">${pos.label}</div>
+        </div>
+      </div>`;
+    }).join('');
+    return `<div class="position-summary">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:6px;">
+        <div style="font-size:11px;font-weight:700;color:var(--text-2);text-transform:uppercase;letter-spacing:.05em;">
+          Rate Positioning — ${rated.length} of ${benchmarks.length} configured
+        </div>
+        <div style="font-size:12px;color:var(--text-2);">${pct}% at or above market mid</div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">${chips}</div>
+    </div>`;
   }
 
   function rateCard(b, i) {
@@ -515,7 +669,32 @@
           <button class="btn-set-rate" onclick="saveRate('${esc(b.service)}', ${i})">Save</button>
           ${hasRate ? `<button class="btn-clear-rate" onclick="clearRate('${esc(b.service)}', ${i})">Clear</button>` : ''}
         </div>
+        ${renderHistory(b.rate_history || [])}
       </div>
+    </div>`;
+  }
+
+  function renderHistory(history) {
+    if (!history || history.length < 2) return '';
+    const sorted = [...history].sort((a, b) => b.ts.localeCompare(a.ts));
+    const rows = sorted.map((h, i) => {
+      const prev  = sorted[i + 1];
+      let delta   = '';
+      if (prev) {
+        const diff  = h.rate - prev.rate;
+        const arrow = diff > 0 ? '↑' : diff < 0 ? '↓' : '→';
+        const color = diff > 0 ? '#4caf7d' : diff < 0 ? 'var(--danger,#e05252)' : 'var(--text-3)';
+        delta = `<span class="rate-history-delta" style="color:${color};">${arrow} ${fmt$(Math.abs(diff))}</span>`;
+      }
+      return `<div class="rate-history-row">
+        <span class="rate-history-date">${fmtDate(h.ts)}</span>
+        <span class="rate-history-val">${fmt$(h.rate)}/hr</span>
+        ${delta}
+      </div>`;
+    }).join('');
+    return `<div class="rate-history">
+      <div class="rate-history-title">Rate History</div>
+      ${rows}
     </div>`;
   }
 
@@ -731,6 +910,112 @@
       document.getElementById('refreshed-at').textContent =
         `Updated ${d.toLocaleDateString('en-US',{month:'short',day:'numeric'})} at ${d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}`;
     } catch {}
+  }
+
+  // ── Rate Calculator ───────────────────────────────────────────────────────
+  function renderCalculator(benchmarks) {
+    const wrap = document.getElementById('calc-wrap');
+    if (!wrap) return;
+    const options = benchmarks.map((b, i) =>
+      `<option value="${i}">${esc(b.service)}${b.your_rate != null ? ` — ${fmt$(b.your_rate)}/hr` : ''}</option>`
+    ).join('');
+    wrap.innerHTML = `
+      <div class="calc-form">
+        <div class="calc-field">
+          <label class="calc-label" for="calc-service">Service</label>
+          <select class="calc-select" id="calc-service" onchange="onCalcServiceChange()">
+            ${options}
+          </select>
+        </div>
+        <div class="calc-field">
+          <label class="calc-label" for="calc-hours">Hours / Year</label>
+          <input class="calc-input" type="number" id="calc-hours" value="800" min="1" max="5000" oninput="updateCalc()">
+        </div>
+        <div class="calc-field">
+          <label class="calc-label" for="calc-rate">Rate ($/hr)</label>
+          <input class="calc-input" type="number" id="calc-rate" placeholder="Enter rate" oninput="updateCalc()">
+        </div>
+      </div>
+      <div id="calc-output"></div>`;
+    const firstIdx = benchmarks.findIndex(b => b.your_rate != null);
+    const startIdx = firstIdx >= 0 ? firstIdx : 0;
+    document.getElementById('calc-service').value = startIdx;
+    if (benchmarks[startIdx] && benchmarks[startIdx].your_rate != null) {
+      document.getElementById('calc-rate').value = benchmarks[startIdx].your_rate;
+    }
+    updateCalc();
+  }
+
+  function onCalcServiceChange() {
+    if (!_data) return;
+    const benchmarks = _data.benchmarks || [];
+    const idx = parseInt(document.getElementById('calc-service').value) || 0;
+    const b   = benchmarks[idx];
+    if (b && b.your_rate != null) {
+      document.getElementById('calc-rate').value = b.your_rate;
+    }
+    updateCalc();
+  }
+
+  function updateCalc() {
+    if (!_data) return;
+    const benchmarks = _data.benchmarks || [];
+    const idx   = parseInt(document.getElementById('calc-service')?.value) || 0;
+    const hours = parseFloat(document.getElementById('calc-hours')?.value) || 0;
+    const rate  = parseFloat(document.getElementById('calc-rate')?.value) || 0;
+    const b     = benchmarks[idx];
+    const out   = document.getElementById('calc-output');
+    if (!out) return;
+
+    if (!rate || !hours) {
+      out.innerHTML = '<div style="padding:24px;text-align:center;color:var(--text-3);font-size:13px;">Enter a rate and hours to see annual revenue projections.</div>';
+      return;
+    }
+
+    const scenarios = [
+      {label: 'Current', pct: 0},
+      {label: '+10%',    pct: 10},
+      {label: '+15%',    pct: 15},
+      {label: '+20%',    pct: 20},
+      {label: '+25%',    pct: 25},
+    ];
+    const base = rate * hours;
+    const rows = scenarios.map(s => {
+      const newRate = rate * (1 + s.pct / 100);
+      const revenue = newRate * hours;
+      const delta   = revenue - base;
+      return `<tr class="${s.pct === 0 ? 'calc-current-row' : ''}">
+        <td style="font-weight:${s.pct === 0 ? '700' : '400'};">${esc(s.label)}</td>
+        <td style="font-variant-numeric:tabular-nums;">${fmt$(Math.round(newRate))}/hr</td>
+        <td style="font-variant-numeric:tabular-nums;font-weight:${s.pct === 0 ? '700' : '400'};">${fmtK(revenue)}</td>
+        <td class="${delta > 0 ? 'calc-delta-pos' : ''}">${delta > 0 ? `+${fmtK(delta)}` : '—'}</td>
+      </tr>`;
+    }).join('');
+
+    let posNote = '';
+    if (b) {
+      const pos = positionLabel(rate, b);
+      posNote = `<div style="padding:10px 18px 14px;font-size:12px;color:var(--text-2);">
+        At ${fmt$(Math.round(rate))}/hr, your <strong style="color:var(--text);">${esc(b.service)}</strong> rate is
+        <strong style="color:${pos.color};">${pos.label}</strong>
+        (market range ${fmt$(b.low)}–${fmt$(b.high)}/hr, mid ${fmt$(b.mid)}/hr).
+      </div>`;
+    }
+
+    out.innerHTML = `
+      <table class="calc-table">
+        <thead><tr>
+          <th>Scenario</th><th>Hourly Rate</th><th>Annual Revenue</th><th>Additional vs. Current</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+      ${posNote}`;
+  }
+
+  function fmtK(n) {
+    if (n >= 1000000) return '$' + (n / 1000000).toFixed(2) + 'M';
+    if (n >= 1000)    return '$' + (n / 1000).toFixed(0) + 'K';
+    return fmt$(Math.round(n));
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────

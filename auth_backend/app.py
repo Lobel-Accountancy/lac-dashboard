@@ -287,6 +287,31 @@ _WB_TTL = 600  # 10-minute cache
 _wb_lock = threading.Lock()
 _wb_file_id_cache: dict = {'id': None}  # permanent cache — file ID never changes
 
+# Seed formula baseline from local copy so the guard has a reference from first boot.
+# _FORMULA_BASELINE and _FORMULA_GUARD_TABS are defined near _wb_upload below;
+# the actual seeding runs after those are defined (see _seed_formula_baseline()).
+def _seed_formula_baseline():
+    local = '/home/jlobel/lac_automation/LAC_Workbook.xlsx'
+    try:
+        if not os.path.exists(local):
+            return
+        from openpyxl import load_workbook as _lw_seed
+        _wb_seed = _lw_seed(local, read_only=True)
+        for tab in ['Trial Balance', 'Balance Sheet', 'Income Statement',
+                    'Budget & Projections', 'Shareholder Reimbursements']:
+            if tab in _wb_seed.sheetnames:
+                cnt = sum(1 for r in _wb_seed[tab].iter_rows()
+                          for c in r if isinstance(c.value, str) and c.value.startswith('='))
+                if cnt > 0:
+                    _FORMULA_BASELINE[tab] = cnt
+        _wb_seed.close()
+        if _FORMULA_BASELINE:
+            import logging
+            logging.getLogger(__name__).info('Formula baseline seeded: %s', _FORMULA_BASELINE)
+    except Exception as _e:
+        import logging
+        logging.getLogger(__name__).warning('Could not seed formula baseline: %s', _e)
+
 
 def _drive_service():
     creds = service_account.Credentials.from_service_account_file(
@@ -356,7 +381,8 @@ def _wb_file_id(svc):
 
 def _wb_download_writable():
     """Download workbook from Drive as a writable openpyxl workbook.
-    Returns (wb, file_id, svc) so caller can upload after editing."""
+    Returns (wb, file_id, svc) so caller can upload after editing.
+    NOTE: loads WITHOUT data_only so formulas are preserved on save."""
     from googleapiclient.http import MediaIoBaseDownload as _DL
     svc     = _drive_rw_service()
     fid     = _wb_file_id(svc)
@@ -369,7 +395,7 @@ def _wb_download_writable():
     buf.seek(0)
     with open(_WB_LOCAL_PATH, 'wb') as f:
         f.write(buf.read())
-    wb = load_xlsx(_WB_LOCAL_PATH, data_only=True)
+    wb = load_xlsx(_WB_LOCAL_PATH)
     return wb, fid, svc
 
 def _wb_save_and_upload(wb, fid, svc):
@@ -1876,15 +1902,53 @@ def _wb_download_fresh():
     return wb, file_id, svc
 
 
+_FORMULA_GUARD_TABS = [
+    'Trial Balance', 'Balance Sheet', 'Income Statement',
+    'Budget & Projections', 'Shareholder Reimbursements',
+]
+_FORMULA_BASELINE: dict = {}  # tab -> minimum expected formula count
+
+
+def _count_formulas(wb):
+    """Return {tab: formula_count} for the guarded tabs that exist in wb."""
+    counts = {}
+    for tab in _FORMULA_GUARD_TABS:
+        if tab in wb.sheetnames:
+            counts[tab] = sum(
+                1 for row in wb[tab].iter_rows()
+                for cell in row
+                if isinstance(cell.value, str) and cell.value.startswith('=')
+            )
+    return counts
+
+
 def _wb_upload(wb, file_id, svc):
-    """Save workbook locally and push to Drive, then bust cache."""
+    """Save workbook locally and push to Drive, then bust cache.
+    Guards against formula stripping: aborts if any critical tab loses formulas."""
     import io as _io
     from googleapiclient.http import MediaFileUpload as _UL
+
+    # Formula-loss guard
+    outgoing_counts = _count_formulas(wb)
+    for tab, count in outgoing_counts.items():
+        baseline = _FORMULA_BASELINE.get(tab, 0)
+        if baseline > 0 and count < baseline * 0.9:
+            msg = (f'ABORT: {tab} would drop from {baseline} to {count} formulas — '
+                   f'workbook not saved. Check for data_only=True in a load_workbook call.')
+            app.logger.error(msg)
+            raise RuntimeError(msg)
+
     out = _io.BytesIO()
     wb.save(out)
     out.seek(0)
     with open(WB_LOCAL_PATH, 'wb') as f:
         f.write(out.read())
+
+    # After a successful write, update the baseline
+    for tab, count in outgoing_counts.items():
+        if count > 0:
+            _FORMULA_BASELINE[tab] = count
+
     svc.files().update(
         fileId=file_id,
         media_body=_UL(WB_LOCAL_PATH,
@@ -2155,6 +2219,11 @@ def budget_data():
         return jsonify({'error': str(exc)}), 503
 
     HOURLY_RATE = float(os.getenv('CLOCKIFY_HOURLY_RATE', 225))
+    # Per-client rate override stored in budget JSON
+    _bj = _load_budget_json()
+    _client_rate = _bj.get('_client_rates', {}).get(client)
+    if _client_rate:
+        HOURLY_RATE = float(_client_rate)
 
     # Budget data from workbook Budget Data tab (two-way sync); fall back to JSON
     budget_map = {}
@@ -2367,6 +2436,27 @@ def budget_save():
                     'wb_error': wb_err, 'ck_error': ck_err})
 
 
+@app.route('/budget/rate', methods=['POST'])
+@require_jwt
+def budget_rate():
+    """Save a per-client hourly billing rate override."""
+    body   = request.get_json(force=True) or {}
+    client = str(body.get('client', '')).strip()
+    rate   = body.get('rate')
+    if not client or rate is None:
+        return jsonify({'error': 'client and rate required'}), 400
+    try:
+        rate = float(rate)
+        if rate <= 0:
+            return jsonify({'error': 'rate must be positive'}), 400
+    except (TypeError, ValueError):
+        return jsonify({'error': 'rate must be a number'}), 400
+    data = _load_budget_json()
+    data.setdefault('_client_rates', {})[client] = rate
+    _save_budget_json(data)
+    return jsonify({'ok': True, 'client': client, 'rate': rate})
+
+
 @app.route('/clockify/tasks', methods=['GET'])
 @require_jwt
 def clockify_tasks():
@@ -2522,6 +2612,33 @@ def docs_pending():
             'template_link': _DOC_TEMPLATE_LINKS.get(doc_type, ''),
         })
     return jsonify({'pending': items, 'count': len(items)})
+
+
+@app.route('/docs/email-preview', methods=['POST'])
+@require_jwt
+def docs_email_preview():
+    """Return the email that would be sent on approval — without sending it."""
+    body    = request.get_json(silent=True) or {}
+    item_id = body.get('id')
+    if not item_id:
+        return jsonify({'error': 'id required'}), 400
+
+    state = _load_doc_state()
+    item  = next((p for p in state['pending'] if p['id'] == item_id), None)
+    if not item:
+        return jsonify({'error': 'item not found'}), 404
+
+    phase8_path = '/home/jlobel/lac_automation/phase8'
+    if phase8_path not in _sys.path:
+        _sys.path.insert(0, phase8_path)
+
+    try:
+        import doc_generator
+        preview = doc_generator.build_email_preview(item)
+        return jsonify(preview)
+    except Exception as exc:
+        app.logger.error('docs_email_preview error: %s', exc)
+        return jsonify({'error': str(exc)}), 500
 
 
 @app.route('/docs/preview', methods=['POST'])
@@ -6336,6 +6453,70 @@ def cron_status():
         return jsonify({'error': str(exc)}), 500
 
 
+def _job_script_path(job):
+    """Derive full script path, checking phase subdirs inferred from log path."""
+    base = '/home/jlobel/lac_automation/'
+    log  = job['log']
+    for sub in ('phase8/', 'phase6/', 'phase5/'):
+        if f'/{sub}' in log:
+            p = base + sub + job['script']
+            if os.path.exists(p):
+                return p
+    return base + job['script']
+
+
+@app.route('/cron/run', methods=['POST'])
+@require_jwt
+def cron_run():
+    """Trigger a cron job immediately in the background."""
+    body   = request.get_json(force=True) or {}
+    script = str(body.get('script', '')).strip()
+    job    = next((j for j in _CRON_JOBS if j['script'] == script), None)
+    if not job:
+        return jsonify({'error': f'Unknown job: {script}'}), 404
+    try:
+        path = _job_script_path(job)
+        if not os.path.exists(path):
+            return jsonify({'error': f'Script not found at {path}'}), 500
+        _subprocess.Popen(
+            ['python3', path],
+            stdout=open(job['log'], 'a'),
+            stderr=_subprocess.STDOUT,
+            close_fds=True,
+        )
+        return jsonify({'ok': True, 'message': f'Started {job["name"]}'})
+    except Exception as exc:
+        app.logger.error('cron_run error: %s', exc)
+        return jsonify({'error': str(exc)}), 500
+
+
+@app.route('/cron/log', methods=['GET'])
+@require_jwt
+def cron_log_full():
+    """Return full log content (last 600 lines) for a cron job."""
+    script = request.args.get('script', '').strip()
+    job    = next((j for j in _CRON_JOBS if j['script'] == script), None)
+    if not job:
+        return jsonify({'error': 'Unknown job'}), 404
+    path = job['log']
+    if not os.path.exists(path):
+        return jsonify({'lines': '(no log yet)', 'size': 0, 'total_lines': 0, 'truncated': False})
+    try:
+        stat_info  = os.stat(path)
+        with open(path, 'r', errors='replace') as f:
+            content = f.read()
+        all_lines = content.splitlines()
+        tail      = '\n'.join(all_lines[-600:])
+        return jsonify({
+            'lines':       tail,
+            'size':        stat_info.st_size,
+            'total_lines': len(all_lines),
+            'truncated':   len(all_lines) > 600,
+        })
+    except Exception as exc:
+        return jsonify({'error': str(exc)}), 500
+
+
 # ---------------------------------------------------------------------------
 # CPE Log — Becker CSV import
 # ---------------------------------------------------------------------------
@@ -6791,6 +6972,52 @@ def get_accounts():
         return jsonify({'error': str(exc)}), 500
 
 
+def _je_capture_row_template(ws, row_num):
+    """Capture cell styles and formulas from a row before it is deleted."""
+    from copy import copy as _cp
+    styles, formulas = {}, {}
+    max_col = ws.max_column or 30
+    for col in range(1, max_col + 1):
+        cell = ws.cell(row=row_num, column=col)
+        if cell.has_style:
+            styles[col] = {
+                'font':          _cp(cell.font),
+                'fill':          _cp(cell.fill),
+                'border':        _cp(cell.border),
+                'alignment':     _cp(cell.alignment),
+                'number_format': cell.number_format,
+            }
+        if isinstance(cell.value, str) and cell.value.startswith('='):
+            formulas[col] = cell.value
+    return styles, formulas
+
+
+def _je_apply_row_template(ws, new_row, original_row, styles, formulas, skip_cols):
+    """Apply captured styles and formula patterns to a newly inserted row."""
+    delta = new_row - original_row
+
+    def _shift_rows(formula):
+        # Shift relative row references; leave absolute ($ROW) alone.
+        def _sub(m):
+            col_part, abs_marker, row_str = m.group(1), m.group(2), m.group(3)
+            if abs_marker:
+                return m.group(0)
+            return col_part + str(int(row_str) + delta)
+        return re.sub(r'(\$?[A-Za-z]+)(\$?)(\d+)', _sub, formula)
+
+    from copy import copy as _cp
+    for col, style in styles.items():
+        dst = ws.cell(row=new_row, column=col)
+        dst.font          = _cp(style['font'])
+        dst.fill          = _cp(style['fill'])
+        dst.border        = _cp(style['border'])
+        dst.alignment     = _cp(style['alignment'])
+        dst.number_format = style['number_format']
+    for col, formula in formulas.items():
+        if col not in skip_cols:
+            ws.cell(row=new_row, column=col).value = _shift_rows(formula)
+
+
 def _parse_je_rows(ws):
     """Read Transactions tab and group rows by JE number. Returns ordered list of JEs."""
     je_map   = {}
@@ -6876,7 +7103,7 @@ def journal_add():
         if abs(total_debit - total_credit) > 0.005:
             return jsonify({'error': f'Entry not balanced: debits {total_debit:.2f} ≠ credits {total_credit:.2f}'}), 400
 
-        wb, fid, svc = _wb_download_writable()
+        wb, fid, svc = _wb_download_fresh()
         if 'Transactions' not in wb.sheetnames:
             return jsonify({'error': 'Transactions sheet not found'}), 404
         ws = wb['Transactions']
@@ -6897,23 +7124,36 @@ def journal_add():
             next_row += 1
 
         try:
-            d = datetime.strptime(je_date, '%Y-%m-%d')
+            d = datetime.strptime(je_date, '%Y-%m-%d').date()
         except ValueError:
             d = _to_date(je_date)
             if d is None:
                 return jsonify({'error': 'Invalid date format'}), 400
-            d = datetime(d.year, d.month, d.day)
+
+        # Capture style/formulas from the last data row to apply to new rows
+        template_row = next_row - 1
+        tmpl_styles, tmpl_formulas = (
+            _je_capture_row_template(ws, template_row) if template_row >= 3 else ({}, {})
+        )
+        # Columns explicitly written — formula copy skipped for these
+        _DATA_COLS = {1, 2, 3, 4, 6, 7, 8}
 
         for line in lines:
-            ws.cell(row=next_row, column=1).value = d
+            if tmpl_styles:
+                _je_apply_row_template(ws, next_row, template_row, tmpl_styles, tmpl_formulas, _DATA_COLS)
+            cell_date = ws.cell(row=next_row, column=1)
+            cell_date.value         = d
+            cell_date.number_format = 'MM/DD/YY'
             ws.cell(row=next_row, column=2).value = next_je
             ws.cell(row=next_row, column=3).value = je_desc
             ws.cell(row=next_row, column=4).value = int(line['acct_num'])
-            ws.cell(row=next_row, column=5).value = str(line.get('acct_name', ''))
+            if 5 not in tmpl_formulas:
+                ws.cell(row=next_row, column=5).value = str(line.get('acct_name', ''))
             ws.cell(row=next_row, column=6).value = float(line['debit'])  if line.get('debit')  else None
             ws.cell(row=next_row, column=7).value = float(line['credit']) if line.get('credit') else None
             ws.cell(row=next_row, column=8).value = str(line.get('notes', ''))
-            ws.cell(row=next_row, column=9).value = d.month
+            if 9 not in tmpl_formulas:
+                ws.cell(row=next_row, column=9).value = d.month
             next_row += 1
 
         _wb_upload(wb, fid, svc)
@@ -6947,7 +7187,7 @@ def journal_update():
         if abs(total_debit - total_credit) > 0.005:
             return jsonify({'error': f'Entry not balanced: {total_debit:.2f} ≠ {total_credit:.2f}'}), 400
 
-        wb, fid, svc = _wb_download_writable()
+        wb, fid, svc = _wb_download_fresh()
         if 'Transactions' not in wb.sheetnames:
             return jsonify({'error': 'Transactions sheet not found'}), 404
         ws = wb['Transactions']
@@ -6957,29 +7197,38 @@ def journal_update():
             return jsonify({'error': f'{je_num} not found'}), 404
 
         insert_at = min(rows_to_delete)
+
+        # Capture style and formulas from the existing JE rows before deletion
+        tmpl_styles, tmpl_formulas = _je_capture_row_template(ws, rows_to_delete[0])
+        _DATA_COLS = {1, 2, 3, 4, 6, 7, 8}
+
         for rn in sorted(rows_to_delete, reverse=True):
             ws.delete_rows(rn)
 
         try:
-            d = datetime.strptime(je_date, '%Y-%m-%d')
+            d = datetime.strptime(je_date, '%Y-%m-%d').date()
         except (ValueError, TypeError):
             d = _to_date(je_date)
             if d is None:
                 return jsonify({'error': 'Invalid date'}), 400
-            d = datetime(d.year, d.month, d.day)
 
         ws.insert_rows(insert_at, amount=len(lines))
         for i, line in enumerate(lines):
             rn = insert_at + i
-            ws.cell(row=rn, column=1).value = d
+            _je_apply_row_template(ws, rn, rows_to_delete[0], tmpl_styles, tmpl_formulas, _DATA_COLS)
+            cell_date = ws.cell(row=rn, column=1)
+            cell_date.value         = d
+            cell_date.number_format = 'MM/DD/YY'
             ws.cell(row=rn, column=2).value = je_num
             ws.cell(row=rn, column=3).value = je_desc
             ws.cell(row=rn, column=4).value = int(line['acct_num'])
-            ws.cell(row=rn, column=5).value = str(line.get('acct_name', ''))
+            if 5 not in tmpl_formulas:
+                ws.cell(row=rn, column=5).value = str(line.get('acct_name', ''))
             ws.cell(row=rn, column=6).value = float(line['debit'])  if line.get('debit')  else None
             ws.cell(row=rn, column=7).value = float(line['credit']) if line.get('credit') else None
             ws.cell(row=rn, column=8).value = str(line.get('notes', ''))
-            ws.cell(row=rn, column=9).value = d.month
+            if 9 not in tmpl_formulas:
+                ws.cell(row=rn, column=9).value = d.month
 
         _wb_upload(wb, fid, svc)
         _wb_cache['wb'] = None
@@ -7001,7 +7250,7 @@ def journal_delete():
         if not je_num:
             return jsonify({'error': 'je_num required'}), 400
 
-        wb, fid, svc = _wb_download_writable()
+        wb, fid, svc = _wb_download_fresh()
         if 'Transactions' not in wb.sheetnames:
             return jsonify({'error': 'Transactions sheet not found'}), 404
         ws = wb['Transactions']
@@ -7063,6 +7312,11 @@ def billing_research_rate():
         for b in data.get('benchmarks', []):
             if b['service'] == service:
                 b['your_rate'] = float(rate) if rate is not None else None
+                if rate is not None:
+                    entry = {'ts': datetime.now(timezone.utc).isoformat(), 'rate': float(rate)}
+                    hist  = b.setdefault('rate_history', [])
+                    if not hist or hist[-1].get('rate') != float(rate):
+                        hist.append(entry)
                 break
         else:
             return jsonify({'error': f'Service "{service}" not found'}), 404
@@ -7330,6 +7584,8 @@ def global_search():
     except Exception as exc:
         return jsonify({'error': str(exc)}), 500
 
+
+_seed_formula_baseline()
 
 if __name__ == '__main__':
     port = int(os.getenv('AUTH_PORT', 5001))

@@ -119,6 +119,30 @@
     .toast.toast--error { background: #C0392B; }
 
     .sync-note { font-size: 11px; color: var(--text-2); margin-top: 4px; }
+
+    .rate-wrap {
+      display: none;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 10px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: #FAFBFC;
+    }
+    .rate-wrap.visible { display: flex; }
+    .rate-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing:.05em; color: var(--text-2); }
+    .rate-input {
+      width: 72px; padding: 3px 6px; border: 1px solid var(--border);
+      border-radius: 4px; font-size: 13px; text-align: right; color: var(--text);
+    }
+    .rate-input:focus { outline: none; border-color: var(--navy); }
+    .rate-unit { font-size: 12px; color: var(--text-2); }
+    .btn-save-rate {
+      padding: 4px 10px; background: var(--navy); color: white;
+      border: none; border-radius: 4px; font-size: 11px; font-weight: 600;
+      cursor: pointer; transition: opacity .15s;
+    }
+    .btn-save-rate:hover { opacity: .85; }
   </style>
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#1B2A3F">
@@ -141,6 +165,13 @@
     <select class="client-select" id="client-select" onchange="onClientChange()">
       <option value="">— Select client —</option>
     </select>
+    <div class="rate-wrap" id="rate-wrap">
+      <span class="rate-label">Rate</span>
+      <span class="rate-unit">$</span>
+      <input class="rate-input" type="number" id="rate-input" min="1" step="5" placeholder="225">
+      <span class="rate-unit">/hr</span>
+      <button class="btn-save-rate" onclick="saveRate()">Save</button>
+    </div>
     <span class="sync-note" id="sync-note"></span>
   </div>
 
@@ -260,8 +291,12 @@ async function loadBudget(client) {
   const data = await apiFetch(`/budget/data?client=${encodeURIComponent(client)}`);
   if (!data) return;
 
-  _rowData     = data.rows;
-  _hourlyRate  = data.hourly_rate || 225;
+  _rowData    = data.rows;
+  _hourlyRate = data.hourly_rate || 225;
+
+  const rateWrap = document.getElementById('rate-wrap');
+  rateWrap.classList.add('visible');
+  document.getElementById('rate-input').value = _hourlyRate;
 
   renderSummary(data);
   renderTable(data.rows);
@@ -384,6 +419,30 @@ async function saveAll() {
     setTimeout(() => loadBudget(_currentClient), 800);
   } else {
     showToast(`${failed} save(s) failed — check connection`, true);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Rate
+// ---------------------------------------------------------------------------
+
+async function saveRate() {
+  const val  = parseFloat(document.getElementById('rate-input').value);
+  if (!val || val <= 0) { showToast('Enter a valid rate', true); return; }
+  const btn  = document.querySelector('.btn-save-rate');
+  btn.disabled = true; btn.textContent = '…';
+  try {
+    await apiFetch('/budget/rate', {
+      method: 'POST',
+      body: JSON.stringify({ client: _currentClient, rate: val }),
+    });
+    _hourlyRate = val;
+    showToast(`Rate set to $${val}/hr for ${_currentClient}`);
+    loadBudget(_currentClient);
+  } catch (err) {
+    showToast('Failed to save rate: ' + err.message, true);
+  } finally {
+    btn.disabled = false; btn.textContent = 'Save';
   }
 }
 

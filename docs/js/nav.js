@@ -90,7 +90,7 @@ const NAV_GROUPS = [
       <div class="sidebar-footer">
         <div id="nav-user" hidden></div>
         <button class="sidebar-user-btn" id="settings-btn">
-          <div class="sidebar-user-avatar" id="user-avatar">?</div>
+          <div class="sidebar-user-avatar" id="user-avatar"><img src="https://github.com/jlobel.png" alt="" style="width:100%;height:100%;border-radius:50%;object-fit:cover;"></div>
           <span class="sidebar-user-name" id="sidebar-username">Account</span>
           <span class="sidebar-user-caret">&#9662;</span>
         </button>
@@ -145,14 +145,8 @@ const NAV_GROUPS = [
       const name = navUser.textContent.trim();
       if (!name) return;
       sidebarName.textContent = name;
-      avatar.textContent = '';
-      if (!avatar.querySelector('img')) {
-        const img = document.createElement('img');
-        img.src = 'https://github.com/jlobel.png';
-        img.alt = name;
-        img.style.cssText = 'width:100%;height:100%;border-radius:50%;object-fit:cover;';
-        avatar.appendChild(img);
-      }
+      const img = avatar.querySelector('img');
+      if (img) img.alt = name;
     }
     update();
     new MutationObserver(update).observe(navUser, { childList: true, characterData: true, subtree: true });

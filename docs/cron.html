@@ -78,6 +78,86 @@
     }
     .last-checked { font-size: 12px; color: var(--text-3); }
     @media (max-width: 768px) { .cron-grid { grid-template-columns: 1fr; } }
+
+    .cron-run-btn {
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      color: var(--text-2);
+      font-size: 11px;
+      padding: 3px 9px;
+      cursor: pointer;
+      transition: all .12s;
+      white-space: nowrap;
+    }
+    .cron-run-btn:hover { border-color: var(--ok); color: var(--ok); }
+    .cron-run-btn:disabled { opacity: .5; cursor: not-allowed; }
+    .cron-log-footer {
+      padding: 6px 16px 10px;
+      display: flex;
+      justify-content: flex-end;
+    }
+    .cron-full-log-btn {
+      background: none;
+      border: none;
+      color: var(--text-3);
+      font-size: 11px;
+      cursor: pointer;
+      padding: 2px 0;
+      transition: color .1s;
+    }
+    .cron-full-log-btn:hover { color: var(--text); }
+
+    /* Log modal */
+    .log-modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.65);
+      z-index: 2000;
+      align-items: center;
+      justify-content: center;
+    }
+    .log-modal-overlay.open { display: flex; }
+    .log-modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      width: min(900px, 95vw);
+      max-height: 85vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .log-modal-header {
+      padding: 13px 18px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+    .log-modal-title { font-weight: 700; font-size: 13px; color: var(--text); }
+    .log-modal-meta  { font-size: 11px; color: var(--text-3); }
+    .log-modal-close {
+      background: none; border: none;
+      color: var(--text-3); font-size: 20px;
+      cursor: pointer; line-height: 1; padding: 0 2px;
+    }
+    .log-modal-close:hover { color: var(--text); }
+    .log-modal-pre {
+      flex: 1;
+      overflow-y: auto;
+      padding: 14px 18px;
+      font-family: 'SF Mono','Fira Code',monospace;
+      font-size: 11px;
+      color: var(--text-2);
+      white-space: pre-wrap;
+      word-break: break-all;
+      background: var(--bg, #111);
+      margin: 0;
+      line-height: 1.55;
+    }
   </style>
 </head>
 <body>
@@ -91,6 +171,20 @@
   <div class="controls-bar">
     <span class="last-checked" id="last-checked"></span>
     <button class="refresh-btn" id="btn-refresh">↻ Refresh</button>
+  </div>
+
+  <!-- Full log modal -->
+  <div class="log-modal-overlay" id="log-modal" onclick="closeLogModal(event)">
+    <div class="log-modal">
+      <div class="log-modal-header">
+        <span class="log-modal-title" id="log-modal-title"></span>
+        <div style="display:flex;align-items:center;gap:14px;">
+          <span class="log-modal-meta" id="log-modal-meta"></span>
+          <button class="log-modal-close" onclick="closeLogModal()">×</button>
+        </div>
+      </div>
+      <pre class="log-modal-pre" id="log-modal-pre">Loading…</pre>
+    </div>
   </div>
 
   <div class="cron-grid" id="cron-grid">
@@ -147,11 +241,16 @@ document.addEventListener('DOMContentLoaded', () => {
       const logHtml = j.last_lines
         ? `<div class="cron-log"><pre class="cron-log-pre">${escHtml(j.last_lines)}</pre></div>`
         : '';
+      const s = escHtml(j.script);
+      const n = escHtml(j.name);
       return `
         <div class="cron-card ${statusClass}">
           <div class="cron-card-header">
-            <span class="cron-name">${escHtml(j.name)}</span>
-            <span class="cron-status ${badgeClass}">${statusLabel}</span>
+            <span class="cron-name">${n}</span>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <button class="cron-run-btn" id="run-${s}" onclick="runJob('${s}','${n}')">▶ Run</button>
+              <span class="cron-status ${badgeClass}">${statusLabel}</span>
+            </div>
           </div>
           <div class="cron-card-meta">
             <div>
@@ -174,6 +273,9 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
           </div>
           ${logHtml}
+          <div class="cron-log-footer">
+            <button class="cron-full-log-btn" onclick="viewLog('${s}','${n}')">Full Log →</button>
+          </div>
         </div>
       `;
     }).join('');
@@ -181,6 +283,56 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function escHtml(s) {
     return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  async function runJob(script, name) {
+    if (!confirm(`Run "${name}" now?`)) return;
+    const btn = document.getElementById(`run-${script}`);
+    if (btn) { btn.disabled = true; btn.textContent = '…'; }
+    try {
+      await apiFetch('/cron/run', {
+        method: 'POST',
+        body: JSON.stringify({ script }),
+      });
+      showToast(`${name} started — refresh in ~30s to see updated log`, 'success');
+    } catch (err) {
+      showToast(`Failed: ${err.message}`, 'error');
+      if (btn) { btn.disabled = false; btn.textContent = '▶ Run'; }
+    }
+    setTimeout(loadCron, 8000);
+  }
+
+  async function viewLog(script, name) {
+    const modal = document.getElementById('log-modal');
+    document.getElementById('log-modal-title').textContent = name;
+    document.getElementById('log-modal-meta').textContent  = 'Loading…';
+    document.getElementById('log-modal-pre').textContent   = '';
+    modal.classList.add('open');
+    try {
+      const data = await apiFetch(`/cron/log?script=${encodeURIComponent(script)}`);
+      document.getElementById('log-modal-pre').textContent = data.lines || '(empty)';
+      const meta = data.truncated
+        ? `Last 600 of ${data.total_lines} lines · ${fmtBytes(data.size)}`
+        : `${data.total_lines} lines · ${fmtBytes(data.size)}`;
+      document.getElementById('log-modal-meta').textContent = meta;
+      const pre = document.getElementById('log-modal-pre');
+      pre.scrollTop = pre.scrollHeight;
+    } catch (err) {
+      document.getElementById('log-modal-pre').textContent = 'Error: ' + err.message;
+      document.getElementById('log-modal-meta').textContent = '';
+    }
+  }
+
+  function closeLogModal(e) {
+    if (!e || e.target === document.getElementById('log-modal')) {
+      document.getElementById('log-modal').classList.remove('open');
+    }
+  }
+
+  function fmtBytes(n) {
+    if (n > 1048576) return (n / 1048576).toFixed(1) + ' MB';
+    if (n > 1024)    return (n / 1024).toFixed(0) + ' KB';
+    return n + ' B';
   }
 });
 </script>

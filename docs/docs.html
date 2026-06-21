@@ -7,118 +7,7 @@
   <title>LAC Documents</title>
   <link rel="stylesheet" href="css/style.css">
   <style>
-    .doc-toolbar {
-      display: flex; align-items: center; gap: 12px; margin-bottom: 24px; flex-wrap: wrap;
-    }
-    .doc-count-chip {
-      display: inline-flex; align-items: center; justify-content: center;
-      background: #C0392B; color: white; font-size: 11px; font-weight: 700;
-      border-radius: 10px; min-width: 20px; height: 20px; padding: 0 6px;
-      margin-left: 6px;
-    }
-    .doc-list { display: flex; flex-direction: column; gap: 10px; }
-    .doc-card {
-      background: white; border: 1px solid var(--border);
-      border-radius: 8px; padding: 16px 20px;
-      display: grid;
-      grid-template-columns: 1fr auto;
-      gap: 8px 16px;
-      align-items: start;
-    }
-    .doc-card:hover { border-color: var(--navy); }
-    .doc-card-left { min-width: 0; }
-    .doc-card-right {
-      display: flex; gap: 8px; align-items: center; flex-shrink: 0;
-    }
-    .doc-client {
-      font-size: 15px; font-weight: 700; color: var(--navy);
-      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-    }
-    .doc-type-badge {
-      display: inline-block; padding: 2px 8px; border-radius: 10px;
-      font-size: 10px; font-weight: 700; text-transform: uppercase;
-      letter-spacing: .05em; margin-right: 6px;
-    }
-    .badge-proposal          { background: #EDE9FE; color: #5B21B6; }
-    .badge-engagement_letter { background: #DBEAFE; color: #1D4ED8; }
-    .badge-rep_letter        { background: #D1FAE5; color: #065F46; }
-    .badge-invoice_1         { background: #FEF3C7; color: #92400E; }
-    .badge-invoice_2         { background: #FEE2E2; color: #991B1B; }
-    .doc-meta {
-      font-size: 11px; color: var(--text-2); margin-top: 4px;
-    }
-    .doc-trigger {
-      font-size: 11px; color: var(--text-2); font-style: italic; margin-top: 2px;
-    }
-    .doc-amount {
-      font-size: 13px; font-weight: 600; color: var(--navy);
-      white-space: nowrap;
-    }
-    .btn-view {
-      padding: 7px 14px; background: white; color: var(--navy);
-      border: 1px solid var(--border); border-radius: 6px; font-size: 12px;
-      font-weight: 600; cursor: pointer; white-space: nowrap; text-decoration: none;
-      display: inline-flex; align-items: center; gap: 5px;
-    }
-    .btn-view:hover { background: var(--muted-bg); border-color: var(--navy); }
-    .btn-edit {
-      padding: 7px 14px; background: #EEF6FF; color: #1D4ED8;
-      border: 1px solid #BFDBFE; border-radius: 6px; font-size: 12px;
-      font-weight: 600; cursor: pointer; white-space: nowrap; text-decoration: none;
-      display: inline-flex; align-items: center; gap: 5px;
-    }
-    .btn-edit:hover { background: #DBEAFE; }
-    .btn-preview {
-      padding: 7px 14px; background: white; color: var(--navy);
-      border: 1px solid var(--border); border-radius: 6px; font-size: 12px;
-      font-weight: 600; cursor: pointer; white-space: nowrap;
-    }
-    .btn-preview:hover { background: var(--muted-bg); }
-    .btn-preview:disabled { opacity: .5; cursor: not-allowed; }
-    .btn-approve {
-      padding: 7px 16px; background: #1A7A4A; color: white;
-      border: none; border-radius: 6px; font-size: 12px; font-weight: 600;
-      cursor: pointer; white-space: nowrap;
-    }
-    .btn-approve:hover { background: #145f3a; }
-    .btn-approve:disabled { opacity: .5; cursor: not-allowed; }
-    .btn-reject {
-      padding: 7px 12px; background: white; color: #C0392B;
-      border: 1px solid #C0392B; border-radius: 6px; font-size: 12px;
-      font-weight: 600; cursor: pointer; white-space: nowrap;
-    }
-    .btn-reject:hover { background: #FEF2F2; }
-    .btn-reject:disabled { opacity: .5; cursor: not-allowed; }
-    .btn-send-sig {
-      padding: 7px 14px; background: #5B21B6; color: white;
-      border: none; border-radius: 6px; font-size: 12px;
-      font-weight: 600; cursor: pointer; white-space: nowrap;
-    }
-    .btn-send-sig:hover { background: #4C1D95; }
-    .btn-send-sig:disabled { opacity: .5; cursor: not-allowed; }
-    .processing-msg {
-      font-size: 12px; color: var(--text-2); font-style: italic;
-    }
-    .empty-docs {
-      text-align: center; padding: 48px 24px; color: var(--text-2); font-size: 14px;
-    }
-    .empty-docs .check { font-size: 36px; margin-bottom: 12px; }
-
-    /* Toast */
-    .toast {
-      position: fixed; bottom: 24px; right: 24px;
-      background: var(--navy); color: white;
-      padding: 12px 20px; border-radius: 8px;
-      font-size: 13px; font-weight: 600;
-      box-shadow: 0 4px 16px rgba(0,0,0,.15);
-      transform: translateY(80px); opacity: 0;
-      transition: transform .25s, opacity .25s;
-      z-index: 1000;
-    }
-    .toast.show { transform: translateY(0); opacity: 1; }
-    .toast.toast--error { background: #C0392B; }
-    .toast.toast--ok { background: #1A7A4A; }
-
+    /* ── Queue cards ─────────────────────────────────────────────────────── */
     .section-header {
       display: flex; align-items: center; justify-content: space-between;
       margin-bottom: 16px;
@@ -127,27 +16,237 @@
       font-size: 14px; font-weight: 700; text-transform: uppercase;
       letter-spacing: .06em; color: var(--text-2);
     }
+    .doc-count-chip {
+      display: inline-flex; align-items: center; justify-content: center;
+      background: #C0392B; color: white; font-size: 11px; font-weight: 700;
+      border-radius: 10px; min-width: 20px; height: 20px; padding: 0 6px;
+      margin-left: 6px;
+    }
     .btn-refresh-sm {
       font-size: 12px; color: var(--text-2); background: none; border: none;
       cursor: pointer; padding: 0;
     }
     .btn-refresh-sm:hover { color: var(--navy); }
 
-    /* Full-screen PDF overlay */
-    #pdf-modal {
-      display: none; position: fixed; inset: 0; z-index: 9999;
-      flex-direction: column; background: #1a1a1a;
+    .doc-list { display: flex; flex-direction: column; gap: 8px; }
+
+    .doc-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 8px; padding: 14px 18px;
+      display: flex; align-items: center; gap: 14px;
+      cursor: pointer; transition: border-color .15s, box-shadow .15s;
     }
-    #pdf-modal.open { display: flex; }
-    .pdf-modal-bar {
+    .doc-card:hover {
+      border-color: var(--navy);
+      box-shadow: 0 2px 8px rgba(27,42,63,.10);
+    }
+    .doc-card-badge {
+      flex-shrink: 0;
+      width: 42px; height: 42px; border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px;
+    }
+    .badge-proposal          { background: #EDE9FE; }
+    .badge-engagement_letter { background: #DBEAFE; }
+    .badge-rep_letter        { background: #D1FAE5; }
+    .badge-invoice_1         { background: #FEF3C7; }
+    .badge-invoice_2         { background: #FEE2E2; }
+
+    .doc-card-body { flex: 1; min-width: 0; }
+    .doc-card-title {
+      font-size: 14px; font-weight: 700; color: var(--navy);
+      display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    }
+    .doc-type-label {
+      font-size: 10px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .05em; padding: 2px 7px; border-radius: 10px;
+    }
+    .label-proposal          { background: #EDE9FE; color: #5B21B6; }
+    .label-engagement_letter { background: #DBEAFE; color: #1D4ED8; }
+    .label-rep_letter        { background: #D1FAE5; color: #065F46; }
+    .label-invoice_1         { background: #FEF3C7; color: #92400E; }
+    .label-invoice_2         { background: #FEE2E2; color: #991B1B; }
+
+    .doc-card-sub {
+      font-size: 11px; color: var(--text-2); margin-top: 3px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .doc-card-amount {
+      font-size: 14px; font-weight: 700; color: var(--navy);
+      white-space: nowrap; flex-shrink: 0;
+    }
+    .doc-card-arrow {
+      color: var(--text-3); font-size: 16px; flex-shrink: 0;
+    }
+
+    .empty-docs {
+      text-align: center; padding: 48px 24px; color: var(--text-2);
+      font-size: 14px;
+    }
+    .empty-docs .check { font-size: 36px; margin-bottom: 12px; }
+
+    /* ── Review modal ────────────────────────────────────────────────────── */
+    #review-modal {
+      display: none; position: fixed; inset: 0; z-index: 9000;
+      background: #1a1a1a; flex-direction: column;
+    }
+    #review-modal.open { display: flex; }
+
+    .rm-topbar {
       display: flex; align-items: center; gap: 12px;
-      padding: 0 16px; height: 48px; flex-shrink: 0;
+      padding: 0 18px; height: 52px; flex-shrink: 0;
       background: var(--navy); color: white;
     }
-    .pdf-modal-title { flex: 1; font-size: 14px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .pdf-modal-newtab { font-size: 13px; color: #93c5fd; text-decoration: none; white-space: nowrap; flex-shrink: 0; }
-    .pdf-modal-close { background: none; border: none; color: white; font-size: 28px; line-height: 1; cursor: pointer; padding: 0 2px; flex-shrink: 0; }
-    #pdf-modal-frame { flex: 1; width: 100%; border: none; }
+    .rm-topbar-left { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; }
+    .rm-badge { font-size: 20px; }
+    .rm-client {
+      font-size: 15px; font-weight: 700;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .rm-label {
+      font-size: 10px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .05em; padding: 2px 7px; border-radius: 8px;
+      flex-shrink: 0;
+    }
+    .rm-amount {
+      font-size: 13px; font-weight: 600; color: #93C5FD; flex-shrink: 0;
+    }
+    .rm-close {
+      background: none; border: none; color: white;
+      font-size: 28px; line-height: 1; cursor: pointer; padding: 0 2px;
+      flex-shrink: 0;
+    }
+
+    /* Two-pane body */
+    .rm-body {
+      flex: 1; display: flex; min-height: 0; overflow: hidden;
+    }
+
+    /* Left pane — Email */
+    .rm-email-pane {
+      width: 380px; flex-shrink: 0;
+      display: flex; flex-direction: column;
+      background: #f4f6f9; border-right: 1px solid #333;
+      overflow: hidden;
+    }
+    .rm-pane-label {
+      padding: 10px 16px; font-size: 11px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: .07em;
+      color: #5A6B7C; background: #e8edf3;
+      border-bottom: 1px solid #d0d8e4; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .rm-email-meta {
+      padding: 12px 16px; flex-shrink: 0;
+      background: white; border-bottom: 1px solid #d0d8e4;
+    }
+    .rm-meta-row {
+      display: flex; gap: 8px; font-size: 12px; line-height: 1.6;
+    }
+    .rm-meta-label { color: #5A6B7C; font-weight: 600; min-width: 52px; }
+    .rm-meta-val   { color: #1B2A3F; word-break: break-all; }
+    .rm-email-body-wrap {
+      flex: 1; overflow-y: auto; background: white;
+    }
+    #rm-email-iframe {
+      width: 100%; height: 100%; border: none; display: block;
+    }
+
+    /* Right pane — Document */
+    .rm-doc-pane {
+      flex: 1; display: flex; flex-direction: column; min-width: 0;
+      background: #2a2a2a;
+    }
+    .rm-doc-actions {
+      padding: 8px 14px; flex-shrink: 0;
+      background: #1a1a1a; border-bottom: 1px solid #3a3a3a;
+      display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    }
+    .btn-edit-doc {
+      padding: 6px 14px; background: #1D4ED8; color: white;
+      border: none; border-radius: 6px; font-size: 12px; font-weight: 600;
+      cursor: pointer; text-decoration: none; white-space: nowrap;
+      display: inline-flex; align-items: center; gap: 5px;
+    }
+    .btn-edit-doc:hover { background: #1e40af; }
+    .btn-newtab {
+      padding: 6px 14px; background: #374151; color: white;
+      border: none; border-radius: 6px; font-size: 12px; font-weight: 600;
+      cursor: pointer; text-decoration: none; white-space: nowrap;
+      display: inline-flex; align-items: center; gap: 5px;
+    }
+    .btn-newtab:hover { background: #4b5563; }
+    .rm-doc-wrap { flex: 1; position: relative; }
+    #rm-doc-iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: none; }
+    .rm-doc-loading {
+      position: absolute; inset: 0; display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      color: #9ca3af; font-size: 13px; gap: 12px;
+    }
+    .rm-doc-loading .spinner {
+      width: 32px; height: 32px; border: 3px solid #4b5563;
+      border-top-color: #93c5fd; border-radius: 50%;
+      animation: spin .8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Footer */
+    .rm-footer {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 20px; flex-shrink: 0;
+      background: #111; border-top: 1px solid #333;
+      gap: 12px;
+    }
+    .rm-footer-left { display: flex; align-items: center; gap: 10px; }
+    .rm-footer-right { display: flex; align-items: center; gap: 10px; }
+    .rm-trigger-note {
+      font-size: 11px; color: #6b7280; font-style: italic;
+      max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .btn-rm-dismiss {
+      padding: 9px 18px; background: transparent; color: #ef4444;
+      border: 1px solid #ef4444; border-radius: 6px; font-size: 13px;
+      font-weight: 600; cursor: pointer; white-space: nowrap;
+    }
+    .btn-rm-dismiss:hover { background: rgba(239,68,68,.1); }
+    .btn-rm-dismiss:disabled { opacity: .5; cursor: not-allowed; }
+    .btn-rm-approve {
+      padding: 9px 24px; background: #1A7A4A; color: white;
+      border: none; border-radius: 6px; font-size: 13px; font-weight: 600;
+      cursor: pointer; white-space: nowrap;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .btn-rm-approve:hover { background: #145f3a; }
+    .btn-rm-approve:disabled { opacity: .5; cursor: not-allowed; }
+
+    .rm-status-msg {
+      font-size: 12px; color: #9ca3af; font-style: italic;
+    }
+
+    /* ── Toast ───────────────────────────────────────────────────────────── */
+    .toast {
+      position: fixed; bottom: 24px; right: 24px;
+      background: var(--navy); color: white;
+      padding: 12px 20px; border-radius: 8px;
+      font-size: 13px; font-weight: 600;
+      box-shadow: 0 4px 16px rgba(0,0,0,.15);
+      transform: translateY(80px); opacity: 0;
+      transition: transform .25s, opacity .25s;
+      z-index: 10000;
+    }
+    .toast.show { transform: translateY(0); opacity: 1; }
+    .toast.toast--error { background: #C0392B; }
+    .toast.toast--ok    { background: #1A7A4A; }
+
+    /* ── Responsive ──────────────────────────────────────────────────────── */
+    @media (max-width: 700px) {
+      .rm-body { flex-direction: column; }
+      .rm-email-pane { width: 100%; flex-shrink: 0; height: 45%; border-right: none; border-bottom: 1px solid #333; }
+      .rm-doc-pane   { flex: 1; }
+      .rm-footer { flex-direction: column; gap: 8px; }
+      .rm-footer-left, .rm-footer-right { width: 100%; justify-content: center; }
+      .btn-rm-approve, .btn-rm-dismiss { flex: 1; justify-content: center; }
+    }
   </style>
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#1B2A3F">
@@ -161,7 +260,7 @@
 <div class="page-body">
 <main class="main">
   <div class="greeting">Document Approvals</div>
-  <div class="date-line">Review and approve generated client documents before they are sent</div>
+  <div class="date-line">Review the email and document before approving</div>
 
   <div class="error-banner" id="error-banner" hidden></div>
 
@@ -170,25 +269,84 @@
       Pending
       <span class="doc-count-chip" id="pending-count" hidden>0</span>
     </span>
-    <button class="btn-refresh-sm" onclick="loadDocs()">↻ Refresh</button>
+    <button class="btn-refresh-sm" onclick="loadDocs()">&#8635; Refresh</button>
   </div>
 
   <div id="pending-list">
-    <div class="empty-docs">
-      <div>Loading…</div>
+    <div class="empty-docs"><div>Loading…</div></div>
+  </div>
+</main>
+
+<!-- ── Review modal ──────────────────────────────────────────────────────── -->
+<div id="review-modal" role="dialog" aria-modal="true" aria-label="Document Review">
+
+  <!-- Top bar -->
+  <div class="rm-topbar">
+    <div class="rm-topbar-left">
+      <span class="rm-badge" id="rm-badge-icon"></span>
+      <span class="rm-client" id="rm-client"></span>
+      <span class="rm-label" id="rm-label-chip"></span>
+      <span class="rm-amount" id="rm-amount"></span>
+    </div>
+    <button class="rm-close" onclick="closeReview()" title="Close">&#215;</button>
+  </div>
+
+  <!-- Two-pane body -->
+  <div class="rm-body">
+
+    <!-- Left: Email -->
+    <div class="rm-email-pane">
+      <div class="rm-pane-label">
+        <span>Outgoing Email</span>
+        <span id="rm-email-loading-badge" style="font-size:10px;color:#8BA7C4;font-weight:400;font-style:italic;">Loading…</span>
+      </div>
+      <div class="rm-email-meta" id="rm-email-meta">
+        <div class="rm-meta-row"><span class="rm-meta-label">From</span><span class="rm-meta-val" id="rm-from">—</span></div>
+        <div class="rm-meta-row"><span class="rm-meta-label">To</span><span class="rm-meta-val" id="rm-to">—</span></div>
+        <div class="rm-meta-row" id="rm-cc-row" style="display:none"><span class="rm-meta-label">CC</span><span class="rm-meta-val" id="rm-cc">—</span></div>
+        <div class="rm-meta-row"><span class="rm-meta-label">Subject</span><span class="rm-meta-val" id="rm-subject">—</span></div>
+        <div class="rm-meta-row"><span class="rm-meta-label">Attach</span><span class="rm-meta-val" id="rm-attach">Document PDF</span></div>
+      </div>
+      <div class="rm-email-body-wrap">
+        <iframe id="rm-email-iframe" sandbox="allow-same-origin" title="Email body preview"></iframe>
+      </div>
+    </div>
+
+    <!-- Right: Document -->
+    <div class="rm-doc-pane">
+      <div class="rm-pane-label" style="background:#1a1a1a;border-bottom:1px solid #3a3a3a;color:#9ca3af;">
+        <span>Document Preview</span>
+        <span id="rm-doc-status-label" style="font-size:10px;font-weight:400;font-style:italic;"></span>
+      </div>
+      <div class="rm-doc-actions" id="rm-doc-actions">
+        <!-- populated dynamically -->
+      </div>
+      <div class="rm-doc-wrap">
+        <div class="rm-doc-loading" id="rm-doc-loading">
+          <div class="spinner"></div>
+          <div id="rm-doc-loading-msg">Generating preview…</div>
+        </div>
+        <iframe id="rm-doc-iframe" src="" title="Document preview" style="display:none"></iframe>
+      </div>
+    </div>
+
+  </div><!-- .rm-body -->
+
+  <!-- Footer -->
+  <div class="rm-footer">
+    <div class="rm-footer-left">
+      <span class="rm-trigger-note" id="rm-trigger"></span>
+    </div>
+    <div class="rm-footer-right">
+      <span class="rm-status-msg" id="rm-status-msg"></span>
+      <button class="btn-rm-dismiss" id="rm-dismiss-btn" onclick="doReject()">Dismiss</button>
+      <button class="btn-rm-approve" id="rm-approve-btn" onclick="doApprove()">
+        <span>&#10003;</span> <span id="rm-approve-label">Approve &amp; Send</span>
+      </button>
     </div>
   </div>
 
-</main>
-
-<div id="pdf-modal">
-  <div class="pdf-modal-bar">
-    <span class="pdf-modal-title" id="pdf-modal-title">Invoice Preview</span>
-    <a class="pdf-modal-newtab" id="pdf-modal-newtab" href="#" target="_blank" rel="noopener">Open in new tab ↗</a>
-    <button class="pdf-modal-close" onclick="closePdfModal()">×</button>
-  </div>
-  <iframe id="pdf-modal-frame" src=""></iframe>
-</div>
+</div><!-- #review-modal -->
 
 <div class="toast" id="toast"></div>
 
@@ -199,6 +357,33 @@
 <script>
 const AUTH_URL = 'https://auth.lobelaccountancy.com';
 
+// Active item in the review modal
+let _activeItem = null;
+let _approving  = false;
+
+// ── Badge icons per doc type ──────────────────────────────────────────────
+const BADGE_ICON = {
+  proposal:          '📋',
+  engagement_letter: '📄',
+  rep_letter:        '📝',
+  invoice_1:         '🧾',
+  invoice_2:         '🧾',
+};
+const BADGE_CLS = {
+  proposal:          'badge-proposal',
+  engagement_letter: 'badge-engagement_letter',
+  rep_letter:        'badge-rep_letter',
+  invoice_1:         'badge-invoice_1',
+  invoice_2:         'badge-invoice_2',
+};
+const LABEL_CLS = {
+  proposal:          'label-proposal',
+  engagement_letter: 'label-engagement_letter',
+  rep_letter:        'label-rep_letter',
+  invoice_1:         'label-invoice_1',
+  invoice_2:         'label-invoice_2',
+};
+
 document.addEventListener('DOMContentLoaded', () => {
   if (!requireAuth()) return;
   const payload = jwtPayload(getJWT());
@@ -207,44 +392,35 @@ document.addEventListener('DOMContentLoaded', () => {
   loadDocs();
 });
 
-function openPdfModal(url, title) {
-  if (title) document.getElementById('pdf-modal-title').textContent = title;
-  document.getElementById('pdf-modal-newtab').href = url;
-  document.getElementById('pdf-modal-frame').src = url;
-  document.getElementById('pdf-modal').classList.add('open');
-  document.body.style.overflow = 'hidden';
-}
-
-function closePdfModal() {
-  document.getElementById('pdf-modal').classList.remove('open');
-  document.getElementById('pdf-modal-frame').src = '';
-  document.body.style.overflow = '';
-}
-
-// ---------------------------------------------------------------------------
-// Data
-// ---------------------------------------------------------------------------
+// ── Data ──────────────────────────────────────────────────────────────────
 
 async function loadDocs() {
-  const data = await apiFetch('/docs/pending');
-  if (!data) return;
-  renderPending(data.pending || []);
+  const list    = document.getElementById('pending-list');
+  const banner  = document.getElementById('error-banner');
+  banner.hidden = true;
+  list.innerHTML = '<div class="empty-docs"><div>Loading…</div></div>';
+
+  try {
+    const data = await apiFetch('/docs/pending');
+    if (!data) return; // 401 redirect handled by apiFetch
+    renderPending(data.pending || []);
+  } catch (err) {
+    list.innerHTML = `
+      <div class="empty-docs" style="color:#C0392B;">
+        <div style="font-size:24px;margin-bottom:8px;">&#9888;</div>
+        <div>Failed to load pending documents.</div>
+        <div style="font-size:12px;margin-top:6px;">${escHtml(err.message)}</div>
+        <button style="margin-top:14px;padding:7px 18px;border:1px solid #C0392B;border-radius:6px;
+          background:white;color:#C0392B;font-size:12px;font-weight:600;cursor:pointer;"
+          onclick="loadDocs()">Retry</button>
+      </div>`;
+  }
 }
 
-// ---------------------------------------------------------------------------
-// Render
-// ---------------------------------------------------------------------------
-
-const BADGE_CLASS = {
-  proposal:          'badge-proposal',
-  engagement_letter: 'badge-engagement_letter',
-  rep_letter:        'badge-rep_letter',
-  invoice_1:         'badge-invoice_1',
-  invoice_2:         'badge-invoice_2',
-};
+// ── Render ────────────────────────────────────────────────────────────────
 
 function renderPending(items) {
-  const el = document.getElementById('pending-list');
+  const el      = document.getElementById('pending-list');
   const countEl = document.getElementById('pending-count');
 
   if (items.length === 0) {
@@ -254,7 +430,7 @@ function renderPending(items) {
         <div class="check">&#10003;</div>
         <div>No documents pending approval.</div>
         <div style="margin-top:6px;font-size:12px;">
-          The nightly stage poller will queue new documents as deals progress.
+          The nightly stage poller queues new documents as deals progress.
         </div>
       </div>`;
     return;
@@ -264,193 +440,302 @@ function renderPending(items) {
   countEl.hidden = false;
 
   el.innerHTML = `<div class="doc-list">${items.map(item => {
-    const badgeCls = BADGE_CLASS[item.doc_type] || '';
-    const created = item.created ? new Date(item.created).toLocaleDateString('en-US', {
-      month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
-    }) : '';
-    const amountStr = item.amount
-      ? ` · ${new Intl.NumberFormat('en-US', {style:'currency',currency:'USD',maximumFractionDigits:0}).format(item.amount)}`
+    const icon   = BADGE_ICON[item.doc_type] || '📄';
+    const badge  = BADGE_CLS[item.doc_type]  || '';
+    const lbl    = LABEL_CLS[item.doc_type]  || '';
+    const created = item.created
+      ? new Date(item.created).toLocaleDateString('en-US', {month:'short',day:'numeric',year:'2-digit',hour:'2-digit',minute:'2-digit'})
       : '';
-    const isEditable  = ['proposal','engagement_letter','rep_letter'].includes(item.doc_type);
-    const needsDocHub = ['engagement_letter','rep_letter'].includes(item.doc_type);
-    const canSendSig  = ['engagement_letter','rep_letter'].includes(item.doc_type);
+    const amtStr = item.amount
+      ? new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0}).format(item.amount)
+      : '';
     return `
-      <div class="doc-card" id="card-${item.id}">
-        <div class="doc-card-left">
-          <div class="doc-client">
-            <span class="doc-type-badge ${badgeCls}">${item.label}</span>${item.client}
+      <div class="doc-card" id="card-${item.id}" onclick="openReview(${JSON.stringify(JSON.stringify(item))})">
+        <div class="doc-card-badge ${badge}">${icon}</div>
+        <div class="doc-card-body">
+          <div class="doc-card-title">
+            ${escHtml(item.client)}
+            <span class="doc-type-label ${lbl}">${escHtml(item.label)}</span>
           </div>
-          <div class="doc-trigger">${item.trigger || ''}</div>
-          <div class="doc-meta">${created}${amountStr}</div>
+          <div class="doc-card-sub">${created}${item.trigger ? ' · ' + escHtml(item.trigger) : ''}</div>
         </div>
-        <div class="doc-card-right" id="actions-${item.id}">
-          ${isEditable
-            ? `<button class="btn-preview" id="prev-${item.id}"
-                 onclick="previewDoc('${item.id}', '${escHtml(item.doc_type)}')">Preview PDF</button>`
-            : ''}
-          ${needsDocHub
-            ? `<button class="btn-view" id="dl-${item.id}"
-                 onclick="downloadDoc('${item.id}')">Download for DocHub</button>`
-            : `<button class="btn-approve" id="approve-${item.id}"
-                 onclick="approve('${item.id}', '${escHtml(item.client)}', '${escHtml(item.label)}')">
-                 Approve &amp; Send
-               </button>`}
-          ${canSendSig
-            ? `<button class="btn-send-sig" id="send-${item.id}"
-                 onclick="sendForSig('${item.id}')">Send for Signature</button>`
-            : ''}
-          <button class="btn-reject" id="reject-${item.id}" onclick="reject('${item.id}')">
-            Dismiss
-          </button>
-        </div>
+        ${amtStr ? `<div class="doc-card-amount">${amtStr}</div>` : ''}
+        <div class="doc-card-arrow">&#8250;</div>
       </div>`;
   }).join('')}</div>`;
 }
 
-// ---------------------------------------------------------------------------
-// Actions
-// ---------------------------------------------------------------------------
+// ── Review modal open/close ───────────────────────────────────────────────
 
-async function previewDoc(id, docType) {
-  const btn = document.getElementById(`prev-${id}`);
-  btn.disabled = true;
-  btn.textContent = 'Generating…';
+function openReview(itemJson) {
+  const item = JSON.parse(itemJson);
+  _activeItem = item;
+  _approving  = false;
+
+  // Top bar
+  const icon  = BADGE_ICON[item.doc_type] || '📄';
+  const lCls  = LABEL_CLS[item.doc_type]  || '';
+  document.getElementById('rm-badge-icon').textContent = icon;
+  document.getElementById('rm-client').textContent     = item.client;
+
+  const chip = document.getElementById('rm-label-chip');
+  chip.textContent = item.label;
+  chip.className   = 'rm-label ' + lCls;
+
+  const amtEl = document.getElementById('rm-amount');
+  amtEl.textContent = item.amount
+    ? new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0}).format(item.amount)
+    : '';
+
+  document.getElementById('rm-trigger').textContent = item.trigger || '';
+
+  // Reset state
+  _setApproveState('idle');
+  document.getElementById('rm-from').textContent    = '—';
+  document.getElementById('rm-to').textContent      = '—';
+  document.getElementById('rm-subject').textContent = '—';
+  document.getElementById('rm-cc-row').style.display = 'none';
+  document.getElementById('rm-email-loading-badge').textContent = 'Loading…';
+  document.getElementById('rm-email-iframe').srcdoc = '';
+  _showDocLoading('Generating preview…');
+
+  const modal = document.getElementById('review-modal');
+  modal.classList.add('open');
+  document.body.style.overflow = 'hidden';
+
+  // Kick off both loads in parallel
+  _loadEmailPreview(item);
+  _loadDocPreview(item);
+}
+
+function closeReview() {
+  document.getElementById('review-modal').classList.remove('open');
+  document.getElementById('rm-doc-iframe').src = '';
+  document.getElementById('rm-email-iframe').srcdoc = '';
+  document.body.style.overflow = '';
+  _activeItem = null;
+}
+
+// ── Email preview ─────────────────────────────────────────────────────────
+
+async function _loadEmailPreview(item) {
+  const badge = document.getElementById('rm-email-loading-badge');
+  try {
+    const jwt = localStorage.getItem('lac_jwt');
+    const res = await fetch(`${AUTH_URL}/docs/email-preview`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${jwt}` },
+      body: JSON.stringify({ id: item.id }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+
+    document.getElementById('rm-from').textContent    = data.from_name ? `${data.from_name} <${data.from_addr}>` : (data.from_addr || '—');
+    document.getElementById('rm-to').textContent      = data.to || '—';
+    document.getElementById('rm-subject').textContent = data.subject || '—';
+
+    if (data.cc) {
+      document.getElementById('rm-cc').textContent    = data.cc;
+      document.getElementById('rm-cc-row').style.display = '';
+    }
+
+    document.getElementById('rm-attach').textContent =
+      item.doc_type.startsWith('invoice') ? 'Invoice PDF' : `${item.label} PDF`;
+
+    // Render email body in sandboxed iframe
+    document.getElementById('rm-email-iframe').srcdoc = data.body_html || '';
+    badge.textContent = '';
+  } catch (err) {
+    badge.textContent = 'Error';
+    badge.style.color = '#ef4444';
+    document.getElementById('rm-email-iframe').srcdoc =
+      `<p style="font-family:sans-serif;color:#C0392B;padding:16px;">Could not load email preview: ${escHtml(err.message)}</p>`;
+  }
+}
+
+// ── Document preview ──────────────────────────────────────────────────────
+
+async function _loadDocPreview(item) {
+  const jwt = localStorage.getItem('lac_jwt');
+
+  // For invoices there's no pre-existing draft — we still generate via /docs/preview
+  _showDocLoading('Generating preview…');
+
+  try {
+    const res  = await fetch(`${AUTH_URL}/docs/preview`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${jwt}` },
+      body: JSON.stringify({ id: item.id }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+
+    const pdfUrl  = `${AUTH_URL}${data.pdf_url}?token=${encodeURIComponent(jwt)}`;
+    const editUrl = data.edit_url || '';
+
+    // Build toolbar
+    const actionsEl = document.getElementById('rm-doc-actions');
+    const docLabel  = item.doc_type === 'proposal' ? 'Edit in Google Slides' : 'Edit in Google Docs';
+    actionsEl.innerHTML = `
+      ${editUrl ? `<a class="btn-edit-doc" href="${escHtml(editUrl)}" target="_blank" rel="noopener">&#9998; ${docLabel}</a>` : ''}
+      <a class="btn-newtab" href="${escHtml(pdfUrl)}" target="_blank" rel="noopener">&#8599; Open PDF</a>
+    `;
+
+    document.getElementById('rm-doc-status-label').textContent = editUrl ? 'Draft — edits sync on approve' : '';
+
+    _showDocFrame(pdfUrl);
+  } catch (err) {
+    _showDocError(err.message);
+  }
+}
+
+function _showDocLoading(msg) {
+  document.getElementById('rm-doc-loading').style.display = 'flex';
+  document.getElementById('rm-doc-loading-msg').textContent = msg || 'Loading…';
+  document.getElementById('rm-doc-iframe').style.display   = 'none';
+}
+
+function _showDocFrame(url) {
+  document.getElementById('rm-doc-loading').style.display = 'none';
+  const fr = document.getElementById('rm-doc-iframe');
+  fr.src = url;
+  fr.style.display = 'block';
+}
+
+function _showDocError(msg) {
+  document.getElementById('rm-doc-loading').style.display = 'flex';
+  document.getElementById('rm-doc-loading-msg').innerHTML =
+    `<span style="color:#ef4444;">&#9888; ${escHtml(msg)}</span>`;
+  document.getElementById('rm-doc-iframe').style.display  = 'none';
+}
+
+// ── Approve ───────────────────────────────────────────────────────────────
+
+async function doApprove() {
+  if (!_activeItem || _approving) return;
+  _approving = true;
+  _setApproveState('sending');
 
   try {
     const jwt = localStorage.getItem('lac_jwt');
-    const res = await fetch(`${AUTH_URL}/docs/preview`, {
+    const res = await fetch(`${AUTH_URL}/docs/approve`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${jwt}` },
-      body: JSON.stringify({ id }),
+      body: JSON.stringify({ id: _activeItem.id }),
     });
     const data = await res.json();
-    if (!res.ok) { btn.textContent = data.error || 'Error'; btn.disabled = false; return; }
 
-    const editLabel = docType === 'proposal' ? 'Edit in Google Slides' : 'Edit in Google Docs';
-    const editBtn   = data.edit_url
-      ? `<a class="btn-edit" href="${data.edit_url}" target="_blank" rel="noopener">✏ ${editLabel}</a>`
-      : '';
-    const pdfUrl = `${AUTH_URL}${data.pdf_url}?token=${encodeURIComponent(jwt)}`;
+    if (res.ok && data.success) {
+      showToast(`Sent: ${_activeItem.label} for ${_activeItem.client}`, 'ok');
+      _removeCard(_activeItem.id);
+      closeReview();
 
-    // Replace preview button with PDF viewer + edit links; keep approve/dismiss
-    btn.outerHTML = `<button class="btn-view" data-pdf-url="${pdfUrl}" onclick="openPdfModal(this.dataset.pdfUrl,'Preview PDF')">📄 Preview PDF</button>${editBtn}`;
-  } catch (e) {
-    btn.textContent = 'Error'; btn.disabled = false;
-  }
-}
-
-async function downloadDoc(id) {
-  const btn = document.getElementById(`dl-${id}`);
-  btn.disabled = true;
-  btn.textContent = 'Generating…';
-
-  const jwt = localStorage.getItem('lac_jwt');
-
-  // Ensure preview (PDF) exists first
-  const prev = await fetch(`${AUTH_URL}/docs/preview`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${jwt}` },
-    body: JSON.stringify({ id }),
-  });
-  const prevData = await prev.json();
-  if (!prev.ok) {
-    btn.textContent = prevData.error || 'Error';
-    btn.disabled = false;
-    return;
-  }
-
-  // Trigger download via hidden link
-  const pdfUrl = `${AUTH_URL}${prevData.pdf_url}?token=${encodeURIComponent(jwt)}`;
-  const a = document.createElement('a');
-  a.href = pdfUrl;
-  a.download = '';
-  a.target = '_blank';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-
-  btn.textContent = 'Download for DocHub';
-  btn.disabled = false;
-}
-
-async function approve(id, client, label) {
-  const actionsEl = document.getElementById(`actions-${id}`);
-  actionsEl.innerHTML = '<span class="processing-msg">Generating &amp; sending…</span>';
-
-  const res = await apiFetch('/docs/approve', {
-    method: 'POST',
-    body: JSON.stringify({ id }),
-  });
-
-  if (res && res.success) {
-    showToast(`Sent: ${label} for ${client}`, 'ok');
-    document.getElementById(`card-${id}`).remove();
-    // Update count
-    const remaining = document.querySelectorAll('[id^="card-"]').length;
-    const countEl = document.getElementById('pending-count');
-    if (remaining === 0) {
-      loadDocs();
+      // Show the final sent PDF in a full-screen viewer
+      if (data.pdf_url) {
+        const pdfUrl = `${AUTH_URL}${data.pdf_url}?token=${encodeURIComponent(jwt)}`;
+        _openPdfViewer(pdfUrl, `${_activeItem.label} — ${_activeItem.client}`);
+      }
     } else {
-      countEl.textContent = remaining;
+      const errMsg = data.error || 'Error sending document';
+      showToast(errMsg, 'error');
+      _setApproveState('error', errMsg);
+      _approving = false;
     }
-    // Show the sent PDF full-screen
-    if (res.pdf_url) {
-      const jwt = localStorage.getItem('lac_jwt');
-      const pdfUrl = `${AUTH_URL}${res.pdf_url}?token=${encodeURIComponent(jwt)}`;
-      openPdfModal(pdfUrl, `${label} — ${client}`);
-    }
-  } else {
-    actionsEl.innerHTML = `
-      <span style="font-size:12px;color:#C0392B;">Error — check logs</span>
-      <button class="btn-reject" onclick="reject('${id}')">Dismiss</button>`;
-    showToast('Generation failed — check server logs', 'error');
+  } catch (err) {
+    showToast(err.message || 'Network error', 'error');
+    _setApproveState('error', err.message);
+    _approving = false;
   }
 }
 
-async function reject(id) {
-  const res = await apiFetch('/docs/reject', {
-    method: 'POST',
-    body: JSON.stringify({ id }),
-  });
-  if (res && res.success) {
-    document.getElementById(`card-${id}`).remove();
-    const remaining = document.querySelectorAll('[id^="card-"]').length;
-    if (remaining === 0) loadDocs();
-    else document.getElementById('pending-count').textContent = remaining;
+function _setApproveState(state, msg) {
+  const approveBtn  = document.getElementById('rm-approve-btn');
+  const dismissBtn  = document.getElementById('rm-dismiss-btn');
+  const statusMsg   = document.getElementById('rm-status-msg');
+  const approveLabel = document.getElementById('rm-approve-label');
+
+  if (state === 'idle') {
+    approveBtn.disabled  = false;
+    dismissBtn.disabled  = false;
+    approveLabel.textContent = 'Approve & Send';
+    statusMsg.textContent = '';
+  } else if (state === 'sending') {
+    approveBtn.disabled  = true;
+    dismissBtn.disabled  = true;
+    approveLabel.textContent = 'Sending…';
+    statusMsg.textContent = 'Generating document and sending email…';
+  } else if (state === 'error') {
+    approveBtn.disabled  = false;
+    dismissBtn.disabled  = false;
+    approveLabel.textContent = 'Retry Approve';
+    statusMsg.textContent = msg || 'Error — check logs';
+    statusMsg.style.color = '#ef4444';
   }
 }
 
-// ---------------------------------------------------------------------------
-// Send for Signature (DocuSeal)
-// ---------------------------------------------------------------------------
+// ── Dismiss / reject ──────────────────────────────────────────────────────
 
-async function sendForSig(id) {
-  const btn = document.getElementById(`send-${id}`);
-  if (btn) { btn.disabled = true; btn.textContent = 'Sending…'; }
+async function doReject() {
+  if (!_activeItem || _approving) return;
+  const id = _activeItem.id;
 
   try {
-    const res = await apiFetch('/docs/send', {
+    const res = await apiFetch('/docs/reject', {
       method: 'POST',
       body: JSON.stringify({ id }),
     });
     if (res && res.success) {
-      showToast('Sent for signature', 'ok');
-    } else {
-      showToast((res && res.error) || 'DocuSeal not yet configured', 'error');
+      _removeCard(id);
+      closeReview();
     }
   } catch (err) {
-    showToast(err.message || 'Error sending for signature', 'error');
-  } finally {
-    if (btn) { btn.disabled = false; btn.textContent = 'Send for Signature'; }
+    showToast(err.message || 'Error dismissing item', 'error');
   }
 }
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
+// ── Post-approval PDF viewer ──────────────────────────────────────────────
+
+let _pdfViewer = null;
+
+function _openPdfViewer(url, title) {
+  if (_pdfViewer) document.body.removeChild(_pdfViewer);
+  _pdfViewer = document.createElement('div');
+  _pdfViewer.style.cssText =
+    'position:fixed;inset:0;z-index:10000;display:flex;flex-direction:column;background:#1a1a1a;';
+  _pdfViewer.innerHTML = `
+    <div style="display:flex;align-items:center;gap:12px;padding:0 16px;height:48px;
+         background:var(--navy);color:white;flex-shrink:0;">
+      <span style="flex:1;font-size:14px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escHtml(title)}</span>
+      <a href="${escHtml(url)}" target="_blank" rel="noopener"
+         style="font-size:12px;color:#93c5fd;text-decoration:none;white-space:nowrap;">Open in new tab &#8599;</a>
+      <button onclick="this.closest('div[style]').remove()"
+              style="background:none;border:none;color:white;font-size:28px;line-height:1;cursor:pointer;">&#215;</button>
+    </div>
+    <iframe src="${escHtml(url)}" style="flex:1;width:100%;border:none;"></iframe>`;
+  document.body.appendChild(_pdfViewer);
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────
+
+function _removeCard(id) {
+  const card = document.getElementById(`card-${id}`);
+  if (card) card.remove();
+  const remaining = document.querySelectorAll('[id^="card-"]').length;
+  const countEl   = document.getElementById('pending-count');
+  if (remaining === 0) {
+    loadDocs();
+  } else {
+    countEl.textContent = remaining;
+  }
+}
 
 function escHtml(str) {
-  return String(str || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+  return String(str || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 function showToast(msg, type = 'default') {
@@ -460,6 +745,13 @@ function showToast(msg, type = 'default') {
   t.classList.add('show');
   setTimeout(() => t.classList.remove('show'), 4000);
 }
+
+// Close modal on Escape key
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && document.getElementById('review-modal').classList.contains('open')) {
+    closeReview();
+  }
+});
 </script>
 <script src="js/chat.js"></script>
 <script>
