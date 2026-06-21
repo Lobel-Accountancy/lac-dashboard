@@ -2655,8 +2655,8 @@ def docs_preview():
     if not item:
         return jsonify({'error': 'item not found'}), 404
 
-    # Return cached result if preview already exists
-    if item.get('draft_pdf') and os.path.exists(item['draft_pdf']) and item.get('edit_url') is not None:
+    # Return cached result if preview already exists (edit_url='' means invoice — no editable doc)
+    if item.get('draft_pdf') and os.path.exists(item['draft_pdf']) and item.get('edit_url'):
         return jsonify({
             'pdf_url':  f'/docs/pdf/{item_id}',
             'edit_url': item.get('edit_url', ''),
