@@ -13,7 +13,6 @@ const NAV_GROUPS = [
     { label: 'Journal',       href: 'journal.html',     icon: '◫' },
     { label: 'Analytics',     href: 'bi.html',          icon: '▤' },
     { label: 'Forecast',      href: 'forecast.html',    icon: '◬' },
-    { label: 'Budget',        href: 'budget.html',      icon: '◫' },
     { label: 'Financials',    href: 'financials.html',  icon: '▧' },
     { label: 'Rate Research', href: 'research.html',    icon: '◈' },
   ]},
@@ -23,6 +22,7 @@ const NAV_GROUPS = [
     { label: 'Documents',      href: 'docs.html',          icon: '◪', badgeId: 'badge-docs' },
     { label: 'Drive',          href: 'drive.html',         icon: '◈' },
     { label: 'Time Tracking',  href: 'time.html',          icon: '◷' },
+    { label: 'Budget',         href: 'budget.html',        icon: '◫' },
   ]},
   { label: 'Clients', items: [
     { label: 'Health Score',  href: 'health.html',      icon: '◉' },
@@ -90,7 +90,7 @@ const NAV_GROUPS = [
       <div class="sidebar-footer">
         <div id="nav-user" hidden></div>
         <button class="sidebar-user-btn" id="settings-btn">
-          <div class="sidebar-user-avatar" id="user-avatar"><img src="https://github.com/jlobel.png" alt="" style="width:100%;height:100%;border-radius:50%;object-fit:cover;"></div>
+          <div class="sidebar-user-avatar" id="user-avatar"><img src="jeffrey-lobel-photo.jpg" alt="" style="width:100%;height:100%;border-radius:50%;object-fit:cover;"></div>
           <span class="sidebar-user-name" id="sidebar-username">Account</span>
           <span class="sidebar-user-caret">&#9662;</span>
         </button>
