@@ -7585,6 +7585,19 @@ def global_search():
         return jsonify({'error': str(exc)}), 500
 
 
+@app.route('/admin/workbook/reload', methods=['POST'])
+@require_jwt
+def admin_workbook_reload():
+    """Clear the in-memory workbook cache so the next request pulls fresh from Drive."""
+    import datetime as _dt
+    with _wb_lock:
+        _wb_cache['wb'] = None
+        _wb_cache['fetched_at'] = 0.0
+    ts = _dt.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')
+    print(f'[workbook-reload] cache cleared by {request.user_email} at {ts}', flush=True)
+    return jsonify({'ok': True, 'message': 'Workbook cache cleared — next request will fetch from Drive.'})
+
+
 _seed_formula_baseline()
 
 if __name__ == '__main__':
