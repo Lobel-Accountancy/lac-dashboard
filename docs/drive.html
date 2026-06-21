@@ -112,6 +112,17 @@
     .drive-search:focus { border-color: var(--accent-teal, #2ab8a0); }
     @media (max-width: 500px) { .drive-search { width: 100%; } }
 
+    @media (max-width: 600px) {
+      .file-list-header,
+      .file-row { grid-template-columns: 30px 1fr 68px; }
+      .file-list-header span:nth-child(3),
+      .file-list-header span:nth-child(4),
+      .file-list-header span:nth-child(5),
+      .file-type-col,
+      .file-date-col,
+      .file-size-col { display: none; }
+    }
+
     .view-toggle {
       display: flex;
       background: var(--bg);

@@ -188,6 +188,10 @@
       .controls-bar { flex-direction: column; align-items: flex-start; }
       .search-input { width: 100%; }
     }
+    @media (max-width: 480px) {
+      .detail-stats { grid-template-columns: repeat(2, 1fr); }
+      .ar-row2 { grid-template-columns: 1fr; }
+    }
 
     /* Payment button + modal */
     .btn-pay {

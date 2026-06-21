@@ -176,8 +176,12 @@
     .je-lines-inner {
       border: 1px solid var(--border);
       border-radius: 6px;
-      overflow: hidden;
+      overflow-x: auto;
+      overflow-y: hidden;
       font-size: 12px;
+    }
+    @media (max-width: 600px) {
+      .je-line-row, .je-line-hdr { min-width: 540px; }
     }
     .je-line-row {
       display: grid;

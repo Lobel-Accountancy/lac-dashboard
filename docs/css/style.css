@@ -567,10 +567,20 @@ body {
 @media (max-width: 768px) {
   .kpi-grid    { grid-template-columns: 1fr; }
   .kpi-je-wrap { grid-template-columns: 1fr; }
-  .kpi-je-wrap #recent-je-card  { grid-column: 1; grid-row: auto; }
-  .kpi-je-wrap #cpe-snapshot-card { grid-column: 1; grid-row: auto; }
+  /* Inline grid-column/grid-row on these cards create implicit columns
+     and cause horizontal overflow — must override with !important */
+  .kpi-je-wrap #recent-je-card    { grid-column: 1 !important; grid-row: auto !important; }
+  .kpi-je-wrap #cpe-snapshot-card { grid-column: 1 !important; grid-row: auto !important; }
   .content-grid { grid-template-columns: 1fr; }
   .nav-subtitle { display: none; }
+  /* Compact card: full width on mobile */
+  .card--full.card--compact { max-width: 100%; }
+  /* Toast: span full width so long messages don't clip */
+  .toast-container { right: 12px; left: 12px; }
+  .toast { min-width: 0; max-width: 100%; width: 100%; }
+  /* Command palette: fill viewport with gutters */
+  .palette-overlay { padding-top: 8vh; }
+  .palette-modal   { margin: 0 12px; }
 }
 
 @media print {
@@ -1272,3 +1282,10 @@ body.density-compact .kpi-value { font-size: 22px; }
   transition: background .15s;
 }
 .settings-signout:hover { background: var(--danger-bg); }
+
+/* ---- Narrow phone (≤480px) ---- */
+@media (max-width: 480px) {
+  .main        { padding-left: 14px; padding-right: 14px; }
+  .card-header { padding: 10px 14px; }
+  .card-body   { padding: 12px 14px; }
+}
