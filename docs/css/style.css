@@ -800,6 +800,7 @@ body.has-sidebar {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  overflow: hidden;
 }
 .sidebar-user-name {
   flex: 1;

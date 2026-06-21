@@ -145,7 +145,14 @@ const NAV_GROUPS = [
       const name = navUser.textContent.trim();
       if (!name) return;
       sidebarName.textContent = name;
-      avatar.textContent = name.charAt(0).toUpperCase();
+      avatar.textContent = '';
+      if (!avatar.querySelector('img')) {
+        const img = document.createElement('img');
+        img.src = 'https://github.com/jlobel.png';
+        img.alt = name;
+        img.style.cssText = 'width:100%;height:100%;border-radius:50%;object-fit:cover;';
+        avatar.appendChild(img);
+      }
     }
     update();
     new MutationObserver(update).observe(navUser, { childList: true, characterData: true, subtree: true });
