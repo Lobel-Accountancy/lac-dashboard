@@ -1938,6 +1938,7 @@ def _wb_upload(wb, file_id, svc):
             app.logger.error(msg)
             raise RuntimeError(msg)
 
+    wb.calculation.fullCalcOnLoad = True
     out = _io.BytesIO()
     wb.save(out)
     out.seek(0)
@@ -1974,6 +1975,7 @@ def _wb_upload_async(wb, file_id, svc):
 
     def _do_upload():
         try:
+            wb.calculation.fullCalcOnLoad = True
             out = _io.BytesIO()
             wb.save(out)
             out.seek(0)
