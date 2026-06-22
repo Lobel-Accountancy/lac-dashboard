@@ -197,6 +197,151 @@
     .news-error {
       padding: 24px; color: var(--danger, #e05555); font-size: 13px;
     }
+
+    /* ── FASB ASU section ────────────────────────────────────────────── */
+    .fasb-section {
+      margin-bottom: 28px;
+    }
+    .fasb-section-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+    .fasb-section-title {
+      font-size: 13px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .07em;
+      color: var(--text-2);
+    }
+    .fasb-badge {
+      font-size: 9px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .07em;
+      padding: 2px 8px;
+      border-radius: 10px;
+      background: rgba(27,42,63,.1);
+      color: #1B2A3F;
+      border: 1px solid rgba(27,42,63,.25);
+    }
+    .fasb-powered {
+      font-size: 9px;
+      color: var(--text-3);
+      margin-left: auto;
+    }
+    .fasb-scroll {
+      display: flex;
+      gap: 14px;
+      overflow-x: auto;
+      padding-bottom: 8px;
+      scrollbar-width: thin;
+    }
+    .fasb-scroll::-webkit-scrollbar { height: 4px; }
+    .fasb-scroll::-webkit-scrollbar-track { background: transparent; }
+    .fasb-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+    .fasb-card {
+      flex-shrink: 0;
+      width: 280px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      text-decoration: none;
+      color: var(--text);
+      transition: box-shadow .15s, transform .15s;
+      border-top: 3px solid #1B2A3F;
+    }
+    .fasb-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,.2); }
+    .fasb-card-top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .fasb-number {
+      font-size: 14px;
+      font-weight: 700;
+      font-family: monospace;
+      color: #1B2A3F;
+    }
+    .fasb-status {
+      font-size: 9px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      padding: 2px 8px;
+      border-radius: 10px;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .fasb-status-new         { background: rgba(26,122,74,.12);  color: #1A7A4A; border: 1px solid rgba(26,122,74,.25); }
+    .fasb-status-amended     { background: rgba(180,83,9,.12);   color: #B45309; border: 1px solid rgba(180,83,9,.25); }
+    .fasb-status-clarification { background: rgba(46,109,164,.12); color: #2E6DA4; border: 1px solid rgba(46,109,164,.25); }
+    .fasb-status-simplification { background: rgba(99,102,241,.12); color: #6366F1; border: 1px solid rgba(99,102,241,.25); }
+    .fasb-topic {
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--text-3);
+      text-transform: uppercase;
+      letter-spacing: .04em;
+    }
+    .fasb-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text);
+      line-height: 1.4;
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .fasb-summary {
+      font-size: 11px;
+      color: var(--text-2);
+      line-height: 1.5;
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      flex: 1;
+    }
+    .fasb-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+      margin-top: 2px;
+    }
+    .fasb-date {
+      font-size: 10px;
+      color: var(--text-3);
+    }
+    .fasb-effective {
+      font-size: 10px;
+      color: var(--text-3);
+      padding: 1px 6px;
+      background: rgba(0,0,0,.04);
+      border-radius: 4px;
+    }
+    .fasb-early {
+      font-size: 9px;
+      font-weight: 700;
+      color: #1A7A4A;
+      padding: 1px 6px;
+      background: rgba(26,122,74,.08);
+      border-radius: 4px;
+      border: 1px solid rgba(26,122,74,.2);
+    }
+    .fasb-skeleton {
+      flex-shrink: 0; width: 280px; height: 200px;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 10px; animation: pulse 1.4s ease-in-out infinite;
+    }
   </style>
 </head>
 <body>
@@ -211,6 +356,22 @@
   <div class="news-topbar" id="news-topbar">
     <button class="filter-chip active" data-source="all" onclick="setFilter('all',this)">All Sources</button>
     <button class="refresh-btn" id="refresh-btn" onclick="loadNews()">↻ Refresh</button>
+  </div>
+
+  <!-- FASB ASU section — loaded independently -->
+  <div class="fasb-section" id="fasb-section">
+    <div class="fasb-section-header">
+      <span class="fasb-section-title">FASB Standards Updates</span>
+      <span class="fasb-badge">ASUs</span>
+      <span class="fasb-powered">Powered by Gemini 2.5</span>
+    </div>
+    <div class="fasb-scroll" id="fasb-scroll">
+      <div class="fasb-skeleton"></div>
+      <div class="fasb-skeleton"></div>
+      <div class="fasb-skeleton"></div>
+      <div class="fasb-skeleton"></div>
+      <div class="fasb-skeleton"></div>
+    </div>
   </div>
 
   <div id="news-wrap">
@@ -234,6 +395,7 @@
   });
 
   const SOURCE_COLORS = {
+    'Journal of Accountancy': '#1B2A3F',
     'Going Concern':          '#B45309',
     'CPA Practice Advisor':   '#7C3AED',
     'Tax Foundation':         '#0369A1',
@@ -251,8 +413,50 @@
 
   document.addEventListener('DOMContentLoaded', async () => {
     if (!requireAuth()) return;
+    loadFasbAsus();
     loadNews();
   });
+
+  async function loadFasbAsus() {
+    try {
+      const data = await apiFetch('/data/fasb-asus');
+      renderFasbAsus(data.asus || []);
+    } catch (err) {
+      document.getElementById('fasb-scroll').innerHTML =
+        `<div style="padding:16px;color:var(--text-3);font-size:12px;">Could not load ASUs: ${esc(err.message)}</div>`;
+    }
+  }
+
+  function renderFasbAsus(asus) {
+    const scroll = document.getElementById('fasb-scroll');
+    if (!asus.length) {
+      scroll.innerHTML = '<div style="padding:16px;color:var(--text-3);font-size:12px;">No ASU data available.</div>';
+      return;
+    }
+    scroll.innerHTML = asus.map(a => {
+      const statusClass = {
+        'New Standard':     'fasb-status-new',
+        'Amended':          'fasb-status-amended',
+        'Clarification':    'fasb-status-clarification',
+        'Simplification':   'fasb-status-simplification',
+      }[a.status] || 'fasb-status-new';
+      return `
+        <a class="fasb-card" href="${esc(a.url || 'https://www.fasb.org/standards/accounting-standards-updates')}" target="_blank" rel="noopener">
+          <div class="fasb-card-top">
+            <span class="fasb-number">${esc(a.number)}</span>
+            <span class="fasb-status ${statusClass}">${esc(a.status)}</span>
+          </div>
+          ${a.topic ? `<div class="fasb-topic">${esc(a.topic)}</div>` : ''}
+          <div class="fasb-title">${esc(a.title)}</div>
+          ${a.summary ? `<div class="fasb-summary">${esc(a.summary)}</div>` : ''}
+          <div class="fasb-meta">
+            ${a.issue_date ? `<span class="fasb-date">Issued ${esc(a.issue_date)}</span>` : ''}
+            ${a.effective_date ? `<span class="fasb-effective">Effective: ${esc(a.effective_date)}</span>` : ''}
+            ${a.early_adopt ? `<span class="fasb-early">Early Adopt ✓</span>` : ''}
+          </div>
+        </a>`;
+    }).join('');
+  }
 
   async function loadNews() {
     const btn = document.getElementById('refresh-btn');
