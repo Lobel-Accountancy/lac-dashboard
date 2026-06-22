@@ -560,6 +560,120 @@
       color: var(--ok);
       border: 1px solid rgba(26,122,74,.2);
     }
+
+    /* ── Bookmark feature ────────────────────────────────────────────────── */
+    .gr-view-tabs {
+      display: flex;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+      flex-shrink: 0;
+    }
+
+    .gr-view-tab {
+      flex: 1;
+      padding: 9px 12px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-2);
+      border: none;
+      background: none;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: color .1s, border-color .1s;
+      margin-bottom: -1px;
+    }
+    .gr-view-tab.active { color: var(--text); border-bottom-color: var(--blue); }
+    .gr-view-tab:hover:not(.active) { color: var(--text); }
+
+    .gr-saved-badge {
+      display: inline-block;
+      min-width: 16px;
+      height: 16px;
+      border-radius: 8px;
+      background: #EAB308;
+      color: #fff;
+      font-size: 9px;
+      font-weight: 700;
+      text-align: center;
+      line-height: 16px;
+      padding: 0 4px;
+      margin-left: 5px;
+      vertical-align: middle;
+    }
+
+    .gr-star-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: 15px;
+      color: var(--text-3);
+      padding: 2px 3px;
+      flex-shrink: 0;
+      transition: color .12s, transform .1s;
+      line-height: 1;
+      align-self: flex-start;
+      margin-top: 3px;
+    }
+    .gr-star-btn:hover { color: #EAB308; transform: scale(1.2); }
+    .gr-star-btn.saved { color: #EAB308; }
+
+    .gr-bookmark-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      padding: 8px 12px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-2);
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all .12s;
+      flex-shrink: 0;
+    }
+    .gr-bookmark-btn:hover { border-color: #EAB308; color: #B45309; }
+    .gr-bookmark-btn.saved { border-color: #EAB308; color: #B45309; background: rgba(234,179,8,.08); }
+
+    .gr-saved-date {
+      font-size: 10px;
+      color: var(--text-3);
+      margin-top: 3px;
+    }
+
+    .gr-saved-query {
+      font-size: 10px;
+      color: var(--text-3);
+      font-style: italic;
+      margin-top: 1px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .gr-remove-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--text-3);
+      font-size: 16px;
+      padding: 2px 4px;
+      flex-shrink: 0;
+      line-height: 1;
+      align-self: flex-start;
+      margin-top: 2px;
+      transition: color .1s;
+    }
+    .gr-remove-btn:hover { color: var(--danger); }
+
+    .gr-bookmarks-empty {
+      padding: 32px 20px;
+      text-align: center;
+      color: var(--text-3);
+      font-size: 12px;
+      line-height: 1.6;
+    }
   </style>
 </head>
 <body>
@@ -599,6 +713,13 @@
         <span class="gr-filter-chip" data-src="PCAOB" onclick="toggleFilter(this)">PCAOB</span>
         <span class="gr-filter-chip" data-src="Deloitte" onclick="toggleFilter(this)">Deloitte Tools</span>
         <span class="gr-filter-chip" data-src="SEC" onclick="toggleFilter(this)">SEC</span>
+      </div>
+
+      <div class="gr-view-tabs">
+        <button class="gr-view-tab active" id="tab-results" onclick="switchView('results')">Results</button>
+        <button class="gr-view-tab" id="tab-saved" onclick="switchView('saved')">
+          Saved<span class="gr-saved-badge" id="saved-count-badge" hidden></span>
+        </button>
       </div>
 
       <div class="gr-results-wrap" id="gr-results-wrap">
@@ -642,6 +763,157 @@
 <script src="js/palette.js"></script>
 <script src="js/auth.js"></script>
 <script>
+  // ── Bookmarks ─────────────────────────────────────────────────────────────
+  const BOOKMARK_KEY = 'lac_guidance_bookmarks';
+  let _viewMode = 'results'; // 'results' | 'saved'
+
+  function loadBookmarks() {
+    try { return JSON.parse(localStorage.getItem(BOOKMARK_KEY) || '[]'); }
+    catch { return []; }
+  }
+
+  function saveBookmarks(list) {
+    localStorage.setItem(BOOKMARK_KEY, JSON.stringify(list));
+    updateSavedBadge();
+  }
+
+  function isBookmarked(id) {
+    return loadBookmarks().some(b => b.id === id);
+  }
+
+  function toggleBookmark(result) {
+    const list = loadBookmarks();
+    const idx = list.findIndex(b => b.id === result.id);
+    if (idx >= 0) {
+      list.splice(idx, 1);
+      showToast(`Removed: ${result.code}`, 'success');
+    } else {
+      list.unshift({
+        id: result.id,
+        code: result.code,
+        title: result.title,
+        source: result.source,
+        url: result.url,
+        summary: result.summary,
+        key_principle: result.key_principle,
+        tags: result.tags || [],
+        effective_date: result.effective_date || '',
+        saved_at: new Date().toISOString(),
+        query_context: _currentQuery,
+      });
+      showToast(`Saved: ${result.code}`, 'success');
+    }
+    saveBookmarks(list);
+
+    // Refresh star buttons in results list
+    document.querySelectorAll('.gr-star-btn').forEach(btn => {
+      if (btn.dataset.id === result.id) {
+        btn.classList.toggle('saved', idx < 0);
+        btn.title = idx < 0 ? 'Remove bookmark' : 'Bookmark this';
+        btn.textContent = idx < 0 ? '★' : '☆';
+      }
+    });
+
+    // Refresh bookmark button in detail panel if showing
+    const detailBmBtn = document.getElementById('detail-bookmark-btn');
+    if (detailBmBtn && detailBmBtn.dataset.id === result.id) {
+      const nowSaved = idx < 0;
+      detailBmBtn.classList.toggle('saved', nowSaved);
+      detailBmBtn.textContent = nowSaved ? '★ Saved' : '☆ Save';
+    }
+
+    // If in saved view, refresh it
+    if (_viewMode === 'saved') showBookmarks();
+  }
+
+  function updateSavedBadge() {
+    const count = loadBookmarks().length;
+    const badge = document.getElementById('saved-count-badge');
+    if (badge) {
+      badge.textContent = count;
+      badge.hidden = count === 0;
+    }
+  }
+
+  function switchView(mode) {
+    _viewMode = mode;
+    document.getElementById('tab-results').classList.toggle('active', mode === 'results');
+    document.getElementById('tab-saved').classList.toggle('active', mode === 'saved');
+    document.getElementById('gr-filters').style.display = mode === 'results' ? '' : 'none';
+    if (mode === 'saved') showBookmarks();
+    else renderCurrentResults();
+  }
+
+  function renderCurrentResults() {
+    if (_currentResults.length || _currentQuery) {
+      renderResults({ answer: _lastAnswer, gaap_applicable: _lastGaap, gaas_applicable: _lastGaas, results: _currentResults });
+    } else {
+      document.getElementById('gr-results-wrap').innerHTML =
+        '<div style="padding:24px 16px;text-align:center;color:var(--text-3);font-size:12px;">Enter a topic above to search accounting and auditing standards.</div>';
+    }
+  }
+
+  function showBookmarks() {
+    const list = loadBookmarks();
+    const wrap = document.getElementById('gr-results-wrap');
+    if (!list.length) {
+      wrap.innerHTML = `<div class="gr-bookmarks-empty">
+        <div style="font-size:28px;margin-bottom:10px;opacity:.4;">★</div>
+        <div style="font-weight:600;color:var(--text-2);margin-bottom:6px;">No saved guidance yet</div>
+        Search for a standard and click the ★ star to save it here.
+      </div>`;
+      return;
+    }
+
+    const items = list.map((b, i) => {
+      const c = srcColor(b.source);
+      const date = b.saved_at ? new Date(b.saved_at).toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'}) : '';
+      return `
+        <div class="gr-result-item" onclick="selectBookmark(${i})">
+          <div class="gr-result-dot" style="background:${c.dot};"></div>
+          <div class="gr-result-body" style="min-width:0;">
+            <div class="gr-result-source-row">
+              <span class="gr-source-badge" style="background:${c.bg};color:${c.text};">${esc(b.source)}</span>
+              <span class="gr-code-label">${esc(b.code)}</span>
+            </div>
+            <div class="gr-result-title">${esc(b.title)}</div>
+            <div class="gr-saved-date">Saved ${date}</div>
+            ${b.query_context ? `<div class="gr-saved-query">From: "${esc(b.query_context)}"</div>` : ''}
+          </div>
+          <button class="gr-remove-btn" title="Remove bookmark"
+            onclick="event.stopPropagation(); removeBookmarkAt(${i})">×</button>
+        </div>`;
+    }).join('');
+
+    wrap.innerHTML = `
+      <div style="padding:8px 16px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);border-bottom:1px solid var(--border);">
+        ${list.length} saved standard${list.length !== 1 ? 's' : ''}
+      </div>
+      ${items}`;
+  }
+
+  function removeBookmarkAt(i) {
+    const list = loadBookmarks();
+    list.splice(i, 1);
+    saveBookmarks(list);
+    showBookmarks();
+    showToast('Bookmark removed', 'success');
+  }
+
+  function selectBookmark(i) {
+    const list = loadBookmarks();
+    const b = list[i];
+    if (!b) return;
+
+    // Highlight
+    document.querySelectorAll('.gr-result-item').forEach((el, idx) => {
+      el.classList.toggle('active', idx === i);
+    });
+
+    // Load detail for this bookmark
+    loadDetailForResult(b);
+  }
+
   // ── Source color map ──────────────────────────────────────────────────────
   const SRC_COLORS = {
     'ASC':          {bg:'rgba(27,42,63,.12)',    text:'#1B2A3F',   dot:'#1B2A3F'},
@@ -699,6 +971,9 @@
   // ── Search ────────────────────────────────────────────────────────────────
   let _currentQuery = '';
   let _currentResults = [];
+  let _lastAnswer = '';
+  let _lastGaap = false;
+  let _lastGaas = false;
 
   async function doSearch() {
     const input = document.getElementById('gr-query');
@@ -712,6 +987,8 @@
 
     _currentQuery = query;
     _currentResults = [];
+    _lastAnswer = '';
+    if (_viewMode !== 'results') switchView('results');
 
     const resultsWrap = document.getElementById('gr-results-wrap');
     resultsWrap.innerHTML = `
@@ -738,6 +1015,9 @@
       }
 
       _currentResults = data.results || [];
+      _lastAnswer = data.answer || '';
+      _lastGaap = !!data.gaap_applicable;
+      _lastGaas = !!data.gaas_applicable;
       renderResults(data);
 
     } catch (err) {
@@ -787,6 +1067,7 @@
     } else {
       results.forEach((r, i) => {
         const c = srcColor(r.source);
+        const bm = isBookmarked(r.id);
         html += `
           <div class="gr-result-item" id="result-${i}" onclick="selectResult(${i})">
             <div class="gr-result-dot" style="background:${c.dot};"></div>
@@ -799,6 +1080,9 @@
               <div class="gr-result-principle">${esc(r.key_principle || r.summary)}</div>
               ${r.tags && r.tags.length ? `<div class="gr-result-tags">${r.tags.map(t => `<span class="gr-tag">${esc(t)}</span>`).join('')}</div>` : ''}
             </div>
+            <button class="gr-star-btn ${bm ? 'saved' : ''}" data-id="${esc(r.id)}"
+              title="${bm ? 'Remove bookmark' : 'Bookmark this'}"
+              onclick="event.stopPropagation(); toggleBookmark(_currentResults[${i}])">${bm ? '★' : '☆'}</button>
           </div>`;
       });
     }
@@ -808,23 +1092,21 @@
 
   // ── Select result → load detail ───────────────────────────────────────────
   async function selectResult(idx) {
-    // Highlight active
     document.querySelectorAll('.gr-result-item').forEach((el, i) => {
       el.classList.toggle('active', i === idx);
     });
-
     const result = _currentResults[idx];
     if (!result) return;
+    await loadDetailForResult(result);
+  }
 
+  async function loadDetailForResult(result) {
     const detailWrap = document.getElementById('gr-detail-wrap');
-
-    // Show loading
     detailWrap.innerHTML = `
       <div class="gr-loading-detail">
         <span class="gr-spinner-dark"></span>
         Loading detail for ${esc(result.code)}…
       </div>`;
-
     try {
       const data = await apiFetch('/guidance/detail', {
         method: 'POST',
@@ -836,7 +1118,6 @@
           original_query: _currentQuery,
         }),
       });
-
       renderDetail(result, data);
     } catch (err) {
       detailWrap.innerHTML = `<div style="padding:24px;color:var(--danger);font-size:13px;">Failed to load detail: ${esc(err.message)}</div>`;
@@ -937,9 +1218,16 @@
             </div>
             <div class="gr-detail-title">${esc(result.title)}</div>
           </div>
-          <a class="gr-open-btn" href="${esc(result.url)}" target="_blank" rel="noopener">
-            Open Source ↗
-          </a>
+          <div style="display:flex;gap:8px;flex-shrink:0;">
+            <button class="gr-bookmark-btn ${isBookmarked(result.id) ? 'saved' : ''}"
+              id="detail-bookmark-btn" data-id="${esc(result.id)}"
+              onclick="toggleBookmark(${JSON.stringify(result).replace(/</g,'\\u003c')})">
+              ${isBookmarked(result.id) ? '★ Saved' : '☆ Save'}
+            </button>
+            <a class="gr-open-btn" href="${esc(result.url)}" target="_blank" rel="noopener">
+              Open Source ↗
+            </a>
+          </div>
         </div>
         <div style="margin-top:12px;font-size:13px;color:var(--text-2);line-height:1.55;border-top:1px solid var(--border);padding-top:12px;">
           ${esc(result.summary)}
@@ -976,7 +1264,7 @@
   // ── Keyboard: Enter to search ─────────────────────────────────────────────
   document.addEventListener('DOMContentLoaded', () => {
     if (!requireAuth()) return;
-
+    updateSavedBadge();
     document.getElementById('gr-query').addEventListener('keydown', e => {
       if (e.key === 'Enter') doSearch();
     });
