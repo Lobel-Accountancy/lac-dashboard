@@ -30,6 +30,7 @@ const NAV_GROUPS = [
   ]},
   { label: 'Compliance', items: [
     { label: 'CPE',           href: 'cpe.html',         icon: '◎' },
+    { label: 'Guidance',      href: 'guidance.html',    icon: '§' },
   ]},
   { label: 'Tools', items: [
     { label: 'Audit Tools',   href: 'audit-tools.html', icon: '◈' },

@@ -1,0 +1,993 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <link rel="icon" type="image/jpeg" href="favicon.jpg">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LAC Guidance Research</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    /* ── Layout ──────────────────────────────────────────────────────────── */
+    .gr-layout {
+      display: grid;
+      grid-template-columns: 380px 1fr;
+      gap: 0;
+      height: calc(100vh - 52px);
+      overflow: hidden;
+    }
+
+    .gr-left {
+      display: flex;
+      flex-direction: column;
+      border-right: 1px solid var(--border);
+      background: var(--surface);
+      overflow: hidden;
+    }
+
+    .gr-right {
+      display: flex;
+      flex-direction: column;
+      background: var(--bg);
+      overflow: hidden;
+    }
+
+    @media (max-width: 860px) {
+      .gr-layout { grid-template-columns: 1fr; height: auto; overflow: visible; }
+      .gr-left, .gr-right { height: auto; overflow: visible; }
+    }
+
+    /* ── Left: Search bar ────────────────────────────────────────────────── */
+    .gr-search-header {
+      padding: 16px 16px 12px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+    }
+
+    .gr-search-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+
+    .gr-ai-badge {
+      font-size: 9px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .07em;
+      padding: 2px 7px;
+      border-radius: 10px;
+      background: rgba(46,109,164,.12);
+      color: var(--blue);
+      border: 1px solid rgba(46,109,164,.25);
+    }
+
+    .gr-search-row {
+      display: flex;
+      gap: 8px;
+    }
+
+    .gr-search-input {
+      flex: 1;
+      background: var(--bg);
+      border: 1.5px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 13px;
+      padding: 9px 12px;
+      font-family: inherit;
+      outline: none;
+      transition: border-color .15s;
+    }
+    .gr-search-input:focus { border-color: var(--blue); }
+    .gr-search-input::placeholder { color: var(--text-3); }
+
+    .gr-search-btn {
+      background: var(--navy);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 9px 14px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: opacity .15s;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .gr-search-btn:hover { opacity: .85; }
+    .gr-search-btn:disabled { opacity: .5; cursor: default; }
+
+    /* ── Source filters ───────────────────────────────────────────────────── */
+    .gr-filters {
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .gr-filter-chip {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: 12px;
+      border: 1.5px solid var(--border);
+      background: var(--surface);
+      color: var(--text-2);
+      cursor: pointer;
+      transition: all .12s;
+      user-select: none;
+    }
+    .gr-filter-chip:hover { border-color: var(--navy); color: var(--navy); }
+    .gr-filter-chip.active {
+      background: var(--navy);
+      color: #fff;
+      border-color: var(--navy);
+    }
+    .gr-filter-chip[data-src="ASC"].active        { background: #1B2A3F; border-color: #1B2A3F; }
+    .gr-filter-chip[data-src="PCAOB"].active      { background: #B45309; border-color: #B45309; }
+    .gr-filter-chip[data-src="AICPA-SAS"].active  { background: #1A7A4A; border-color: #1A7A4A; }
+    .gr-filter-chip[data-src="AICPA-SSARS"].active{ background: #2ab8a0; border-color: #2ab8a0; }
+    .gr-filter-chip[data-src="SEC"].active        { background: #C0392B; border-color: #C0392B; }
+    .gr-filter-chip[data-src="Deloitte"].active   { background: #2E6DA4; border-color: #2E6DA4; }
+
+    /* ── Left: Results list ──────────────────────────────────────────────── */
+    .gr-results-wrap {
+      flex: 1;
+      overflow-y: auto;
+    }
+
+    .gr-answer-banner {
+      padding: 12px 16px;
+      background: rgba(46,109,164,.05);
+      border-bottom: 1px solid var(--border);
+      font-size: 12px;
+      color: var(--text-2);
+      line-height: 1.5;
+    }
+    .gr-answer-label {
+      font-size: 9px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .07em;
+      color: var(--blue);
+      margin-bottom: 4px;
+    }
+
+    .gr-result-item {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+      transition: background .08s;
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+    }
+    .gr-result-item:hover { background: rgba(46,109,164,.04); }
+    .gr-result-item.active { background: rgba(46,109,164,.08); border-left: 3px solid var(--blue); padding-left: 13px; }
+
+    .gr-result-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      margin-top: 5px;
+    }
+
+    .gr-result-body { flex: 1; min-width: 0; }
+
+    .gr-result-source-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 3px;
+    }
+
+    .gr-source-badge {
+      font-size: 9px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+
+    .gr-code-label {
+      font-size: 11px;
+      font-weight: 600;
+      font-family: monospace;
+      color: var(--text-2);
+    }
+
+    .gr-result-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+      line-height: 1.35;
+      margin-bottom: 3px;
+    }
+
+    .gr-result-principle {
+      font-size: 11px;
+      color: var(--text-2);
+      line-height: 1.4;
+      overflow: hidden;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+    }
+
+    .gr-result-tags {
+      display: flex;
+      gap: 4px;
+      flex-wrap: wrap;
+      margin-top: 5px;
+    }
+
+    .gr-tag {
+      font-size: 9px;
+      padding: 1px 6px;
+      border-radius: 4px;
+      background: rgba(0,0,0,.05);
+      color: var(--text-3);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+    }
+
+    /* ── Right: Detail panel ─────────────────────────────────────────────── */
+    .gr-detail-wrap {
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px;
+    }
+
+    .gr-empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      text-align: center;
+      color: var(--text-3);
+      padding: 40px;
+    }
+
+    .gr-empty-icon {
+      font-size: 40px;
+      margin-bottom: 14px;
+      opacity: .4;
+    }
+
+    .gr-empty-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text-2);
+      margin-bottom: 8px;
+    }
+
+    .gr-empty-sub {
+      font-size: 13px;
+      color: var(--text-3);
+      max-width: 320px;
+      line-height: 1.5;
+    }
+
+    .gr-quick-searches {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: center;
+      margin-top: 20px;
+    }
+
+    .gr-quick-chip {
+      font-size: 12px;
+      padding: 6px 12px;
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      background: var(--surface);
+      color: var(--text-2);
+      cursor: pointer;
+      transition: all .12s;
+    }
+    .gr-quick-chip:hover { border-color: var(--blue); color: var(--blue); background: rgba(46,109,164,.05); }
+
+    /* Detail header */
+    .gr-detail-header {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 18px 20px;
+      margin-bottom: 20px;
+    }
+
+    .gr-detail-header-top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .gr-detail-code {
+      font-size: 12px;
+      font-weight: 700;
+      font-family: monospace;
+      color: var(--blue);
+      margin-bottom: 4px;
+    }
+
+    .gr-detail-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text);
+      line-height: 1.3;
+    }
+
+    .gr-open-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      background: var(--navy);
+      color: #fff;
+      text-decoration: none;
+      border: none;
+      border-radius: 7px;
+      padding: 8px 14px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: opacity .15s;
+      flex-shrink: 0;
+    }
+    .gr-open-btn:hover { opacity: .85; }
+
+    /* Detail sections */
+    .gr-section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      margin-bottom: 14px;
+      overflow: hidden;
+    }
+
+    .gr-section-header {
+      padding: 12px 18px;
+      border-bottom: 1px solid var(--border);
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .07em;
+      color: var(--text-2);
+      background: rgba(0,0,0,.02);
+    }
+
+    .gr-section-body {
+      padding: 16px 18px;
+      font-size: 13px;
+      color: var(--text);
+      line-height: 1.65;
+    }
+
+    .gr-req-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .gr-req-item {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .gr-req-num {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: rgba(46,109,164,.12);
+      color: var(--blue);
+      font-size: 10px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    .gr-issue-item {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      font-size: 13px;
+      line-height: 1.5;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .gr-issue-item:last-child { border-bottom: none; }
+
+    .gr-issue-icon {
+      width: 18px;
+      height: 18px;
+      border-radius: 4px;
+      background: rgba(192,57,43,.1);
+      color: var(--danger);
+      font-size: 10px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+
+    .gr-related-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 8px;
+    }
+
+    .gr-related-card {
+      padding: 10px 12px;
+      background: rgba(0,0,0,.02);
+      border: 1px solid var(--border);
+      border-radius: 7px;
+    }
+
+    .gr-related-code {
+      font-size: 11px;
+      font-weight: 700;
+      font-family: monospace;
+      color: var(--blue);
+      margin-bottom: 2px;
+    }
+
+    .gr-related-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 2px;
+    }
+
+    .gr-related-rel {
+      font-size: 11px;
+      color: var(--text-3);
+    }
+
+    .gr-scenario-item {
+      font-size: 13px;
+      line-height: 1.5;
+      padding: 10px 12px;
+      background: rgba(46,109,164,.04);
+      border-left: 3px solid var(--blue);
+      border-radius: 0 6px 6px 0;
+      margin-bottom: 8px;
+    }
+    .gr-scenario-item:last-child { margin-bottom: 0; }
+
+    .gr-updates-box {
+      padding: 12px 16px;
+      background: rgba(212,136,10,.06);
+      border-left: 3px solid var(--warning);
+      border-radius: 0 6px 6px 0;
+      font-size: 13px;
+      color: var(--text);
+      line-height: 1.5;
+    }
+
+    /* ── Loading / spinners ──────────────────────────────────────────────── */
+    .gr-spinner {
+      display: inline-block;
+      width: 14px;
+      height: 14px;
+      border: 2px solid rgba(255,255,255,.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+    }
+    .gr-spinner-dark {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 2px solid var(--border);
+      border-top-color: var(--blue);
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .gr-loading-detail {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 40px;
+      color: var(--text-2);
+      font-size: 13px;
+    }
+
+    /* ── No-key warning ──────────────────────────────────────────────────── */
+    .gr-no-key-banner {
+      margin: 16px;
+      padding: 14px 16px;
+      background: var(--warning-bg);
+      border: 1px solid rgba(212,136,10,.3);
+      border-radius: 8px;
+      font-size: 12px;
+      color: var(--warning);
+      line-height: 1.5;
+    }
+    .gr-no-key-banner strong { color: #92600A; }
+
+    /* ── GAAP / GAAS indicators ──────────────────────────────────────────── */
+    .gr-standard-flags {
+      display: flex;
+      gap: 6px;
+      margin-top: 10px;
+      flex-wrap: wrap;
+    }
+
+    .gr-flag {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 3px 9px;
+      border-radius: 6px;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+    }
+
+    .gr-flag-gaap {
+      background: rgba(27,42,63,.1);
+      color: var(--navy);
+      border: 1px solid rgba(27,42,63,.2);
+    }
+
+    .gr-flag-gaas {
+      background: rgba(26,122,74,.1);
+      color: var(--ok);
+      border: 1px solid rgba(26,122,74,.2);
+    }
+  </style>
+</head>
+<body>
+<aside id="lac-sidebar"></aside>
+<div class="page-body">
+<main class="main" style="padding:0;">
+
+  <div class="gr-layout">
+
+    <!-- ── LEFT PANEL ── -->
+    <div class="gr-left">
+
+      <div class="gr-search-header">
+        <div class="gr-search-title">
+          Guidance Research
+          <span class="gr-ai-badge">Gemini AI</span>
+        </div>
+        <div class="gr-search-row">
+          <input
+            class="gr-search-input"
+            id="gr-query"
+            type="text"
+            placeholder="e.g. revenue recognition for subscriptions…"
+            autocomplete="off"
+          >
+          <button class="gr-search-btn" id="gr-search-btn" onclick="doSearch()">
+            <span id="gr-btn-label">Search</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="gr-filters" id="gr-filters">
+        <span class="gr-filter-chip active" data-src="All" onclick="toggleFilter(this)">All Sources</span>
+        <span class="gr-filter-chip" data-src="ASC" onclick="toggleFilter(this)">ASC / GAAP</span>
+        <span class="gr-filter-chip" data-src="AICPA-SAS" onclick="toggleFilter(this)">GAAS / SAS</span>
+        <span class="gr-filter-chip" data-src="AICPA-SSARS" onclick="toggleFilter(this)">SSARS</span>
+        <span class="gr-filter-chip" data-src="PCAOB" onclick="toggleFilter(this)">PCAOB</span>
+        <span class="gr-filter-chip" data-src="Deloitte" onclick="toggleFilter(this)">Deloitte Tools</span>
+        <span class="gr-filter-chip" data-src="SEC" onclick="toggleFilter(this)">SEC</span>
+      </div>
+
+      <div class="gr-results-wrap" id="gr-results-wrap">
+        <div style="padding:24px 16px;text-align:center;color:var(--text-3);font-size:12px;">
+          Enter a topic above to search accounting and auditing standards.
+        </div>
+      </div>
+
+    </div><!-- /.gr-left -->
+
+    <!-- ── RIGHT PANEL ── -->
+    <div class="gr-right">
+      <div class="gr-detail-wrap" id="gr-detail-wrap">
+
+        <div class="gr-empty-state" id="gr-empty-state">
+          <div class="gr-empty-icon">§</div>
+          <div class="gr-empty-title">Accounting &amp; Audit Guidance</div>
+          <div class="gr-empty-sub">
+            Search any accounting topic — GAAP, GAAS, SSARS, Deloitte Tools, and more —
+            then click a result to see the full guidance detail.
+          </div>
+          <div class="gr-quick-searches">
+            <span class="gr-quick-chip" onclick="quickSearch('revenue recognition for subscriptions')">Revenue recognition — subscriptions</span>
+            <span class="gr-quick-chip" onclick="quickSearch('lease classification criteria ASC 842')">Lease classification ASC 842</span>
+            <span class="gr-quick-chip" onclick="quickSearch('going concern evaluation audit')">Going concern — audit</span>
+            <span class="gr-quick-chip" onclick="quickSearch('compilation vs review differences SSARS')">Compilation vs. review SSARS</span>
+            <span class="gr-quick-chip" onclick="quickSearch('internal control over financial reporting')">ICFR requirements</span>
+            <span class="gr-quick-chip" onclick="quickSearch('related party disclosure requirements')">Related party disclosures</span>
+          </div>
+        </div>
+
+      </div>
+    </div><!-- /.gr-right -->
+
+  </div><!-- /.gr-layout -->
+
+</main>
+
+<script src="js/nav.js"></script>
+<script src="js/toast.js"></script>
+<script src="js/palette.js"></script>
+<script src="js/auth.js"></script>
+<script>
+  // ── Source color map ──────────────────────────────────────────────────────
+  const SRC_COLORS = {
+    'ASC':          {bg:'rgba(27,42,63,.12)',    text:'#1B2A3F',   dot:'#1B2A3F'},
+    'PCAOB':        {bg:'rgba(180,83,9,.12)',     text:'#B45309',   dot:'#B45309'},
+    'AICPA-SAS':    {bg:'rgba(26,122,74,.12)',    text:'#1A7A4A',   dot:'#1A7A4A'},
+    'AICPA-SSARS':  {bg:'rgba(42,184,160,.15)',   text:'#2ab8a0',   dot:'#2ab8a0'},
+    'SEC':          {bg:'rgba(192,57,43,.12)',     text:'#C0392B',   dot:'#C0392B'},
+    'Deloitte':     {bg:'rgba(46,109,164,.12)',    text:'#2E6DA4',   dot:'#2E6DA4'},
+    'COSO':         {bg:'rgba(99,102,241,.12)',    text:'#6366F1',   dot:'#6366F1'},
+    'Other':        {bg:'rgba(90,107,124,.12)',    text:'#5A6B7C',   dot:'#5A6B7C'},
+  };
+
+  function srcColor(src) {
+    return SRC_COLORS[src] || SRC_COLORS['Other'];
+  }
+
+  // ── Filter state ──────────────────────────────────────────────────────────
+  let _activeFilters = new Set();
+
+  function toggleFilter(chip) {
+    const src = chip.dataset.src;
+    const chips = document.querySelectorAll('.gr-filter-chip');
+
+    if (src === 'All') {
+      // Activate All, deactivate others
+      _activeFilters.clear();
+      chips.forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+      return;
+    }
+
+    // Deactivate "All"
+    chips.forEach(c => { if (c.dataset.src === 'All') c.classList.remove('active'); });
+
+    if (_activeFilters.has(src)) {
+      _activeFilters.delete(src);
+      chip.classList.remove('active');
+    } else {
+      _activeFilters.add(src);
+      chip.classList.add('active');
+    }
+
+    // If nothing selected, re-activate All
+    if (_activeFilters.size === 0) {
+      chips.forEach(c => { if (c.dataset.src === 'All') c.classList.add('active'); });
+    }
+  }
+
+  // ── Quick search ──────────────────────────────────────────────────────────
+  function quickSearch(q) {
+    document.getElementById('gr-query').value = q;
+    doSearch();
+  }
+
+  // ── Search ────────────────────────────────────────────────────────────────
+  let _currentQuery = '';
+  let _currentResults = [];
+
+  async function doSearch() {
+    const input = document.getElementById('gr-query');
+    const query = input.value.trim();
+    if (!query) return;
+
+    const btn = document.getElementById('gr-search-btn');
+    const label = document.getElementById('gr-btn-label');
+    btn.disabled = true;
+    label.innerHTML = '<span class="gr-spinner"></span>';
+
+    _currentQuery = query;
+    _currentResults = [];
+
+    const resultsWrap = document.getElementById('gr-results-wrap');
+    resultsWrap.innerHTML = `
+      <div style="padding:24px 16px;display:flex;align-items:center;gap:10px;color:var(--text-2);font-size:12px;">
+        <span class="gr-spinner-dark"></span> Searching standards…
+      </div>`;
+
+    // Reset right panel
+    showEmptyState();
+
+    try {
+      const body = { query };
+      if (_activeFilters.size > 0) body.sources = Array.from(_activeFilters);
+
+      const data = await apiFetch('/guidance/search', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify(body),
+      });
+
+      if (data.error) {
+        resultsWrap.innerHTML = renderNoKeyBanner(data.error);
+        return;
+      }
+
+      _currentResults = data.results || [];
+      renderResults(data);
+
+    } catch (err) {
+      if (err.message && err.message.includes('503')) {
+        resultsWrap.innerHTML = renderNoKeyBanner('ANTHROPIC_API_KEY not configured');
+      } else {
+        resultsWrap.innerHTML = `<div style="padding:16px;color:var(--danger);font-size:12px;">Error: ${esc(err.message)}</div>`;
+      }
+    } finally {
+      btn.disabled = false;
+      label.textContent = 'Search';
+    }
+  }
+
+  function renderNoKeyBanner(msg) {
+    const isKeyMissing = msg && msg.includes('not configured');
+    return `
+      <div class="gr-no-key-banner">
+        <strong>${isKeyMissing ? 'Gemini API key not configured' : 'Search unavailable'}</strong><br>
+        ${isKeyMissing
+          ? 'Get a free key at <strong>aistudio.google.com</strong>, then add it to <code>/home/jlobel/lac_automation/.env</code> as <code>GEMINI_API_KEY=AIza…</code> and restart the service.'
+          : esc(msg)}
+      </div>`;
+  }
+
+  function renderResults(data) {
+    const resultsWrap = document.getElementById('gr-results-wrap');
+    const results = data.results || [];
+
+    let html = '';
+
+    // AI answer banner
+    if (data.answer) {
+      html += `
+        <div class="gr-answer-banner">
+          <div class="gr-answer-label">AI Summary</div>
+          <div>${esc(data.answer)}</div>
+          <div class="gr-standard-flags">
+            ${data.gaap_applicable ? '<span class="gr-flag gr-flag-gaap">GAAP Applies</span>' : ''}
+            ${data.gaas_applicable ? '<span class="gr-flag gr-flag-gaas">GAAS Applies</span>' : ''}
+          </div>
+        </div>`;
+    }
+
+    if (!results.length) {
+      html += `<div style="padding:24px 16px;text-align:center;color:var(--text-3);font-size:12px;">No results found. Try rephrasing your search.</div>`;
+    } else {
+      results.forEach((r, i) => {
+        const c = srcColor(r.source);
+        html += `
+          <div class="gr-result-item" id="result-${i}" onclick="selectResult(${i})">
+            <div class="gr-result-dot" style="background:${c.dot};"></div>
+            <div class="gr-result-body">
+              <div class="gr-result-source-row">
+                <span class="gr-source-badge" style="background:${c.bg};color:${c.text};">${esc(r.source)}</span>
+                <span class="gr-code-label">${esc(r.code)}</span>
+              </div>
+              <div class="gr-result-title">${esc(r.title)}</div>
+              <div class="gr-result-principle">${esc(r.key_principle || r.summary)}</div>
+              ${r.tags && r.tags.length ? `<div class="gr-result-tags">${r.tags.map(t => `<span class="gr-tag">${esc(t)}</span>`).join('')}</div>` : ''}
+            </div>
+          </div>`;
+      });
+    }
+
+    resultsWrap.innerHTML = html;
+  }
+
+  // ── Select result → load detail ───────────────────────────────────────────
+  async function selectResult(idx) {
+    // Highlight active
+    document.querySelectorAll('.gr-result-item').forEach((el, i) => {
+      el.classList.toggle('active', i === idx);
+    });
+
+    const result = _currentResults[idx];
+    if (!result) return;
+
+    const detailWrap = document.getElementById('gr-detail-wrap');
+
+    // Show loading
+    detailWrap.innerHTML = `
+      <div class="gr-loading-detail">
+        <span class="gr-spinner-dark"></span>
+        Loading detail for ${esc(result.code)}…
+      </div>`;
+
+    try {
+      const data = await apiFetch('/guidance/detail', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({
+          code: result.code,
+          title: result.title,
+          source: result.source,
+          original_query: _currentQuery,
+        }),
+      });
+
+      renderDetail(result, data);
+    } catch (err) {
+      detailWrap.innerHTML = `<div style="padding:24px;color:var(--danger);font-size:13px;">Failed to load detail: ${esc(err.message)}</div>`;
+    }
+  }
+
+  function renderDetail(result, detail) {
+    const c = srcColor(result.source);
+    const detailWrap = document.getElementById('gr-detail-wrap');
+
+    // Key requirements
+    let reqHtml = '';
+    if (detail.key_requirements && detail.key_requirements.length) {
+      const items = detail.key_requirements.map((r, i) =>
+        `<li class="gr-req-item"><span class="gr-req-num">${i+1}</span><span>${esc(r)}</span></li>`
+      ).join('');
+      reqHtml = `
+        <div class="gr-section">
+          <div class="gr-section-header">Key Requirements</div>
+          <div class="gr-section-body"><ul class="gr-req-list">${items}</ul></div>
+        </div>`;
+    }
+
+    // Practical application
+    let practHtml = '';
+    if (detail.practical_application) {
+      practHtml = `
+        <div class="gr-section">
+          <div class="gr-section-header">Practical Application</div>
+          <div class="gr-section-body">${esc(detail.practical_application)}</div>
+        </div>`;
+    }
+
+    // Common issues
+    let issuesHtml = '';
+    if (detail.common_issues && detail.common_issues.length) {
+      const items = detail.common_issues.map(issue =>
+        `<div class="gr-issue-item">
+          <span class="gr-issue-icon">!</span>
+          <span>${esc(issue)}</span>
+        </div>`
+      ).join('');
+      issuesHtml = `
+        <div class="gr-section">
+          <div class="gr-section-header">Common Issues &amp; Pitfalls</div>
+          <div class="gr-section-body" style="padding:0 18px;">${items}</div>
+        </div>`;
+    }
+
+    // Related standards
+    let relatedHtml = '';
+    if (detail.related_standards && detail.related_standards.length) {
+      const cards = detail.related_standards.map(r =>
+        `<div class="gr-related-card">
+          <div class="gr-related-code">${esc(r.code)}</div>
+          <div class="gr-related-title">${esc(r.title)}</div>
+          <div class="gr-related-rel">${esc(r.relationship)}</div>
+        </div>`
+      ).join('');
+      relatedHtml = `
+        <div class="gr-section">
+          <div class="gr-section-header">Related Standards</div>
+          <div class="gr-section-body"><div class="gr-related-grid">${cards}</div></div>
+        </div>`;
+    }
+
+    // Example scenarios
+    let scenariosHtml = '';
+    if (detail.example_scenarios && detail.example_scenarios.length) {
+      const items = detail.example_scenarios.map(s =>
+        `<div class="gr-scenario-item">${esc(s)}</div>`
+      ).join('');
+      scenariosHtml = `
+        <div class="gr-section">
+          <div class="gr-section-header">Example Scenarios</div>
+          <div class="gr-section-body" style="padding:16px 18px;">${items}</div>
+        </div>`;
+    }
+
+    // Recent updates
+    let updatesHtml = '';
+    if (detail.recent_updates) {
+      updatesHtml = `
+        <div class="gr-section">
+          <div class="gr-section-header">Recent Updates</div>
+          <div class="gr-section-body"><div class="gr-updates-box">${esc(detail.recent_updates)}</div></div>
+        </div>`;
+    }
+
+    detailWrap.innerHTML = `
+      <div class="gr-detail-header">
+        <div class="gr-detail-header-top">
+          <div style="flex:1;min-width:0;">
+            <div class="gr-detail-code">
+              <span class="gr-source-badge" style="background:${c.bg};color:${c.text};margin-right:6px;">${esc(result.source)}</span>
+              ${esc(result.code)}
+              ${result.effective_date ? `<span style="font-size:10px;color:var(--text-3);font-family:inherit;font-weight:400;margin-left:8px;">${esc(result.effective_date)}</span>` : ''}
+            </div>
+            <div class="gr-detail-title">${esc(result.title)}</div>
+          </div>
+          <a class="gr-open-btn" href="${esc(result.url)}" target="_blank" rel="noopener">
+            Open Source ↗
+          </a>
+        </div>
+        <div style="margin-top:12px;font-size:13px;color:var(--text-2);line-height:1.55;border-top:1px solid var(--border);padding-top:12px;">
+          ${esc(result.summary)}
+        </div>
+        ${result.tags && result.tags.length ? `<div class="gr-result-tags" style="margin-top:10px;">${result.tags.map(t => `<span class="gr-tag">${esc(t)}</span>`).join('')}</div>` : ''}
+      </div>
+
+      ${detail.overview ? `
+        <div class="gr-section">
+          <div class="gr-section-header">Overview</div>
+          <div class="gr-section-body">${esc(detail.overview)}</div>
+        </div>` : ''}
+
+      ${reqHtml}
+      ${practHtml}
+      ${issuesHtml}
+      ${scenariosHtml}
+      ${relatedHtml}
+      ${updatesHtml}
+    `;
+  }
+
+  function showEmptyState() {
+    document.getElementById('gr-detail-wrap').innerHTML = `
+      <div class="gr-empty-state" id="gr-empty-state">
+        <div class="gr-empty-icon">§</div>
+        <div class="gr-empty-title">Select a result to view guidance</div>
+        <div class="gr-empty-sub">
+          Click any item on the left to see the full standard explanation, key requirements, and practical application notes.
+        </div>
+      </div>`;
+  }
+
+  // ── Keyboard: Enter to search ─────────────────────────────────────────────
+  document.addEventListener('DOMContentLoaded', () => {
+    if (!requireAuth()) return;
+
+    document.getElementById('gr-query').addEventListener('keydown', e => {
+      if (e.key === 'Enter') doSearch();
+    });
+  });
+
+  // ── Helpers ───────────────────────────────────────────────────────────────
+  function esc(s) {
+    return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+</script>
+<script src="js/chat.js"></script>
+</div>
+</body>
+</html>

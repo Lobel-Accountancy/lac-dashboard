@@ -4953,6 +4953,9 @@ OLLAMA_MODEL = 'llama3.2:3b'
 ANTHROPIC_API_KEY = os.getenv('ANTHROPIC_API_KEY', '')
 CLAUDE_MODEL = 'claude-sonnet-4-6'
 
+GEMINI_API_KEY = os.getenv('GEMINI_API_KEY', '')
+GEMINI_MODEL = os.getenv('GEMINI_MODEL', 'gemini-1.5-flash')
+
 _AUDIT_SYSTEM = {
     'ask': (
         'You are an audit assistant. Answer the question based only on the provided documents. '
@@ -5079,6 +5082,30 @@ def _query_claude(system_prompt, context, user_prompt):
         return f'[Claude error: {exc}]'
 
 
+def _query_gemini(system_prompt, context, user_prompt):
+    """Send to Google Gemini API, return response string."""
+    if not GEMINI_API_KEY:
+        return '[Gemini error: GEMINI_API_KEY not set]'
+    full_prompt = f"DOCUMENTS:\n{context}\n\nTASK: {user_prompt}" if context else user_prompt
+    try:
+        resp = requests.post(
+            f'https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent?key={GEMINI_API_KEY}',
+            headers={'content-type': 'application/json'},
+            json={
+                'system_instruction': {'parts': [{'text': system_prompt}]},
+                'contents': [{'parts': [{'text': full_prompt}]}],
+                'generationConfig': {'maxOutputTokens': 4096},
+            },
+            timeout=120,
+        )
+        data = resp.json()
+        if resp.status_code != 200:
+            return f'[Gemini error: {data.get("error", {}).get("message", resp.status_code)}]'
+        return data['candidates'][0]['content']['parts'][0]['text']
+    except Exception as exc:
+        return f'[Gemini error: {exc}]'
+
+
 @app.route('/audit-tools/extract', methods=['POST'])
 @require_jwt
 def audit_extract():
@@ -5112,11 +5139,11 @@ def audit_search():
 @app.route('/audit-tools/analyze', methods=['POST'])
 @require_jwt
 def audit_analyze():
-    """Extract text from files and analyze with Ollama or Claude."""
+    """Extract text from files and analyze with Gemini (default), Claude, or Ollama."""
     files = request.files.getlist('files')
     prompt = (request.form.get('prompt') or '').strip()
     mode = (request.form.get('mode') or 'ask').strip()
-    engine = (request.form.get('engine') or 'ollama').strip()
+    engine = (request.form.get('engine') or 'gemini').strip()
 
     if not files or not files[0].filename:
         return jsonify({'error': 'No files uploaded'}), 400
@@ -5124,16 +5151,16 @@ def audit_analyze():
         return jsonify({'error': 'Prompt required'}), 400
     if mode not in _AUDIT_SYSTEM:
         mode = 'ask'
-    if engine not in ('ollama', 'claude'):
-        engine = 'ollama'
+    if engine not in ('ollama', 'claude', 'gemini'):
+        engine = 'gemini'
 
     docs = []
     for f in files:
         text = _extract_file_text(f)
         docs.append({'name': f.filename, 'text': text})
 
-    # Claude supports much larger context; Ollama cap stays at 8k per doc
-    doc_cap = 40000 if engine == 'claude' else 8000
+    # Cloud models support much larger context than local Ollama
+    doc_cap = 40000 if engine in ('claude', 'gemini') else 8000
     context = '\n\n'.join(
         f'=== {d["name"]} ===\n{d["text"][:doc_cap]}'
         for d in docs
@@ -5142,6 +5169,8 @@ def audit_analyze():
     system_prompt = _AUDIT_SYSTEM[mode]
     if engine == 'claude':
         answer = _query_claude(system_prompt, context, prompt)
+    elif engine == 'gemini':
+        answer = _query_gemini(system_prompt, context, prompt)
     else:
         answer = _query_ollama(system_prompt, context, prompt)
 
@@ -5157,8 +5186,9 @@ def audit_analyze():
 @app.route('/audit-tools/ollama-status', methods=['GET'])
 @require_jwt
 def audit_ollama_status():
-    """Check if local Ollama is running and whether Claude is configured."""
+    """Check AI engine availability: Gemini, Claude, Ollama."""
     claude_available = bool(ANTHROPIC_API_KEY and not ANTHROPIC_API_KEY.startswith('your_'))
+    gemini_available = bool(GEMINI_API_KEY and not GEMINI_API_KEY.startswith('your_'))
     try:
         req = urllib.request.Request('http://localhost:11434/api/tags', method='GET')
         with urllib.request.urlopen(req, timeout=5) as resp:
@@ -5170,6 +5200,8 @@ def audit_ollama_status():
                 'active_model': OLLAMA_MODEL,
                 'claude_available': claude_available,
                 'claude_model': CLAUDE_MODEL,
+                'gemini_available': gemini_available,
+                'gemini_model': GEMINI_MODEL,
             })
     except Exception:
         return jsonify({
@@ -5178,6 +5210,8 @@ def audit_ollama_status():
             'active_model': OLLAMA_MODEL,
             'claude_available': claude_available,
             'claude_model': CLAUDE_MODEL,
+            'gemini_available': gemini_available,
+            'gemini_model': GEMINI_MODEL,
         })
 
 
@@ -5203,7 +5237,7 @@ def email_summarize():
         'Focus on action items, requests, and important information. '
         'Each bullet should be one concise sentence. Return only the bullets, no preamble.'
     )
-    result = _query_ollama(system_prompt, '', f'From: {from_name}\nSubject: {subject}\n\n{body}')
+    result = _query_gemini(system_prompt, '', f'From: {from_name}\nSubject: {subject}\n\n{body}')
     return jsonify({'summary': result})
 
 
@@ -5222,7 +5256,7 @@ def email_draft():
         'Do not include a subject line, greeting salutation opener like "Dear X", or signature — just the reply body paragraphs. '
         'Be warm but professional. Keep it brief unless a detailed response is clearly needed.'
     )
-    result = _query_ollama(system_prompt, '', f'From: {from_name}\nSubject: {subject}\n\nOriginal email:\n{body}')
+    result = _query_gemini(system_prompt, '', f'From: {from_name}\nSubject: {subject}\n\nOriginal email:\n{body}')
     return jsonify({'draft': result})
 
 
@@ -7352,6 +7386,135 @@ def run_billing_research():
     except Exception as exc:
         app.logger.error('run_billing_research error: %s', exc)
         return jsonify({'error': str(exc)}), 500
+
+
+# ---------------------------------------------------------------------------
+# Accounting Guidance Research
+# ---------------------------------------------------------------------------
+
+_GUIDANCE_SEARCH_SYSTEM = """You are an expert accounting and auditing standards researcher for Jeffrey Lobel, CPA (Lobel Accountancy Corporation, California). Your deep expertise covers:
+
+- US GAAP: FASB Accounting Standards Codification (ASC), all topics ASC 105–985
+- GAAS for private companies: AICPA Statements on Auditing Standards (AU-C sections)
+- SSARS: AICPA Statements on Standards for Accounting and Review Services (AR-C sections)
+- PCAOB Auditing Standards (AS): for public company audits
+- SEC Staff Accounting Bulletins (SABs) and Staff Guidance
+- Deloitte Accounting Research Tool (DART) interpretations
+- COSO Internal Control Framework
+
+When answering:
+1. Cite the exact standard code (e.g., "ASC 606-10-25-1", "AU-C Section 315.06", "AS 2110.10")
+2. Provide practical application notes for a California CPA firm's typical engagements
+3. Note when multiple standards interact
+4. Flag recent ASUs or standard updates
+
+Return ONLY valid JSON with this exact structure (no markdown, no code fences):
+{
+  "answer": "2-3 sentence plain-English answer",
+  "gaap_applicable": true,
+  "gaas_applicable": false,
+  "results": [
+    {
+      "id": "unique-kebab-id",
+      "title": "Descriptive title",
+      "source": "ASC",
+      "code": "ASC 606-10-25-1",
+      "url": "https://asc.fasb.org/",
+      "summary": "2-3 sentence summary",
+      "key_principle": "Single most important rule in 1 sentence",
+      "effective_date": "Currently effective",
+      "tags": ["revenue", "contracts"]
+    }
+  ]
+}
+
+Source values: ASC | PCAOB | AICPA-SAS | AICPA-SSARS | SEC | COSO | Deloitte | Other
+Return 4-8 most relevant results, ordered by relevance. Return ONLY the JSON object."""
+
+
+_GUIDANCE_DETAIL_SYSTEM = """You are an expert accounting and auditing standards researcher for Jeffrey Lobel, CPA. Provide a comprehensive practical explanation of a specific standard.
+
+Return ONLY valid JSON (no markdown, no code fences):
+{
+  "overview": "2-3 paragraph explanation of scope and purpose",
+  "key_requirements": ["requirement 1", "requirement 2"],
+  "practical_application": "2-3 paragraphs on how this applies for a California CPA firm",
+  "common_issues": ["common pitfall 1", "common pitfall 2"],
+  "related_standards": [
+    {"code": "ASC 840", "title": "Leases (superseded)", "relationship": "Previously covered same topic"}
+  ],
+  "recent_updates": "Any recent ASUs or updates affecting this guidance",
+  "example_scenarios": ["Scenario 1 description", "Scenario 2 description"]
+}"""
+
+
+@app.route('/guidance/search', methods=['POST'])
+@require_jwt
+def guidance_search():
+    """Search accounting and auditing guidance using Claude AI."""
+    data = request.get_json(silent=True) or {}
+    query = (data.get('query') or '').strip()
+    sources = data.get('sources', [])
+
+    if not query:
+        return jsonify({'error': 'query required'}), 400
+
+    if not GEMINI_API_KEY or GEMINI_API_KEY.startswith('your_'):
+        return jsonify({'error': 'GEMINI_API_KEY not configured'}), 503
+
+    source_filter = ''
+    if sources and len(sources) < 6:
+        source_filter = f'\n\nLimit results to these sources only: {", ".join(sources)}'
+
+    result_text = _query_gemini(_GUIDANCE_SEARCH_SYSTEM, '', query + source_filter)
+
+    try:
+        text = result_text.strip()
+        # Strip markdown code fences if present
+        if text.startswith('```'):
+            lines = text.split('\n')
+            end = -1 if lines[-1].strip() == '```' else len(lines)
+            text = '\n'.join(lines[1:end])
+        parsed = json.loads(text)
+    except Exception:
+        parsed = {'answer': result_text, 'results': [], 'parse_error': True}
+
+    return jsonify(parsed)
+
+
+@app.route('/guidance/detail', methods=['POST'])
+@require_jwt
+def guidance_detail():
+    """Get detailed explanation of a specific accounting/auditing standard."""
+    data = request.get_json(silent=True) or {}
+    code = (data.get('code') or '').strip()
+    title = (data.get('title') or '').strip()
+    source = (data.get('source') or '').strip()
+    original_query = (data.get('original_query') or '').strip()
+
+    if not code and not title:
+        return jsonify({'error': 'code or title required'}), 400
+
+    if not GEMINI_API_KEY or GEMINI_API_KEY.startswith('your_'):
+        return jsonify({'error': 'GEMINI_API_KEY not configured'}), 503
+
+    prompt = f"Provide a comprehensive explanation of: {code} — {title} (Source: {source})"
+    if original_query:
+        prompt += f"\n\nContext: The user was researching: {original_query}"
+
+    result_text = _query_gemini(_GUIDANCE_DETAIL_SYSTEM, '', prompt)
+
+    try:
+        text = result_text.strip()
+        if text.startswith('```'):
+            lines = text.split('\n')
+            end = -1 if lines[-1].strip() == '```' else len(lines)
+            text = '\n'.join(lines[1:end])
+        parsed = json.loads(text)
+    except Exception:
+        parsed = {'overview': result_text, 'parse_error': True}
+
+    return jsonify(parsed)
 
 
 # ---------------------------------------------------------------------------

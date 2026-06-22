@@ -3,7 +3,7 @@
 const API = 'https://auth.lobelaccountancy.com';
 
 const MODE_DESC = {
-  ask:     'Ask the AI a question about the uploaded documents. Uses local Ollama — no external API.',
+  ask:     'Ask the AI a question about the uploaded documents. Uses Gemini by default — switch to Local for fully private processing.',
   extract: 'Extract all financial figures, dates, and key data points from the documents using AI.',
   crossref:'Find every occurrence of a specified value or term and flag any discrepancies across documents.',
   footing: 'Verify that column and row totals in numerical tables are arithmetically correct.',
@@ -13,7 +13,7 @@ const MODE_DESC = {
 let _files    = [];    // { file: File, id: number }
 let _fileId   = 0;
 let _mode     = 'ask';
-let _engine   = 'ollama';
+let _engine   = 'gemini';
 let _running  = false;
 
 // ---------------------------------------------------------------------------
@@ -47,20 +47,27 @@ document.addEventListener('DOMContentLoaded', () => {
 // ---------------------------------------------------------------------------
 
 async function checkOllamaStatus() {
-  const dot   = document.getElementById('ollama-dot');
-  const label = document.getElementById('ollama-label');
+  const dot       = document.getElementById('ollama-dot');
+  const label     = document.getElementById('ollama-label');
   const claudeTab = document.getElementById('engine-claude-tab');
+  const geminiTab = document.getElementById('engine-gemini-tab');
   try {
     const data = await apiFetch('/audit-tools/ollama-status');
     if (data?.running) {
       dot.className   = 'ollama-dot online';
-      label.textContent = `Local AI ready — ${data.active_model}`;
+      label.textContent = `Local AI ready · ${data.active_model}`;
     } else {
       dot.className   = 'ollama-dot offline';
       label.textContent = 'Local AI offline — search & extract still work';
     }
+    if (data?.gemini_available) {
+      geminiTab.title = data.gemini_model || 'gemini-1.5-flash';
+    } else {
+      geminiTab.style.opacity = '0.45';
+      geminiTab.title = 'Set GEMINI_API_KEY to enable Gemini';
+    }
     if (data?.claude_available) {
-      claudeTab.title = `${data.claude_model}`;
+      claudeTab.title = data.claude_model || '';
     } else {
       claudeTab.style.opacity = '0.45';
       claudeTab.title = 'Set ANTHROPIC_API_KEY to enable Claude';
@@ -193,7 +200,7 @@ async function _runRequest(mode) {
       fd.append('prompt', prompt);
       fd.append('mode', mode);
       fd.append('engine', _engine);
-      const engineLabel = _engine === 'claude' ? 'Claude' : 'local AI';
+      const engineLabel = _engine === 'claude' ? 'Claude' : _engine === 'gemini' ? 'Gemini' : 'local AI';
       setStatus(`Analyzing with ${engineLabel} — this may take 20–60 seconds…`, 'running');
       data = await apiFetchForm('/audit-tools/analyze', fd);
       renderAnalysisResult(data);
@@ -284,7 +291,7 @@ function renderAnalysisResult(data) {
     <div class="result-card">
       <div class="result-card-header" style="justify-content:space-between;">
         <span>${modeIcon[data.mode]||'&#128269;'} ${modeLabel[data.mode]||'Result'}</span>
-        <span style="font-size:11px;opacity:0.75;font-weight:400;">${data.engine === 'claude' ? 'claude-sonnet-4-6 · cloud' : 'llama3.2:3b · local'}</span>
+        <span style="font-size:11px;opacity:0.75;font-weight:400;">${data.engine === 'claude' ? 'claude-sonnet-4-6 · cloud' : data.engine === 'gemini' ? 'gemini-1.5-flash · cloud' : 'llama3.2:3b · local'}</span>
       </div>
       <div class="result-card-body">
         <div style="font-size:11px;color:#8BA7C4;margin-bottom:10px;">Prompt: ${escHtml(data.prompt)}</div>
