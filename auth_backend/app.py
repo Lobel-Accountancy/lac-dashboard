@@ -7530,9 +7530,11 @@ def accounting_news():
     import urllib.request as _ur
 
     FEEDS = [
+        # FASB / standards — highest priority, shown first
+        {'source': 'Journal of Accountancy', 'url': 'https://www.journalofaccountancy.com/rss.html'},
+        {'source': 'CPA Practice Advisor',   'url': 'https://www.cpapracticeadvisor.com/tag/fasb/feed/'},
         # Core accounting & tax
         {'source': 'Going Concern',           'url': 'https://goingconcern.com/feed/'},
-        {'source': 'CPA Practice Advisor',    'url': 'https://www.cpapracticeadvisor.com/rss'},
         {'source': 'Tax Foundation',          'url': 'https://taxfoundation.org/feed/'},
         {'source': 'The CPA Journal',         'url': 'https://www.cpajournal.com/feed/'},
         {'source': 'Thomson Reuters Tax',     'url': 'https://tax.thomsonreuters.com/blog/feed/'},
@@ -7614,6 +7616,65 @@ def accounting_news():
     # Newest first
     items.sort(key=lambda x: x['pub_ts'], reverse=True)
     return jsonify({'items': items[:48]})
+
+
+# ---------------------------------------------------------------------------
+# FASB ASU list — Gemini-powered, cached 12 h
+# ---------------------------------------------------------------------------
+
+_fasb_asu_cache: dict = {'ts': 0.0, 'data': None}
+_FASB_ASU_TTL = 43200  # 12 hours
+
+@app.route('/data/fasb-asus', methods=['GET'])
+@require_jwt
+def fasb_asus():
+    """Return a structured list of recent FASB ASUs via Gemini, cached 12 h."""
+    import time as _time
+    from google import genai as _genai
+
+    now = _time.time()
+    if _fasb_asu_cache['data'] and now - _fasb_asu_cache['ts'] < _FASB_ASU_TTL:
+        return jsonify(_fasb_asu_cache['data'])
+
+    gemini_key   = os.getenv('GEMINI_API_KEY')
+    gemini_model = os.getenv('GEMINI_MODEL', 'gemini-2.5-flash')
+    if not gemini_key:
+        return jsonify({'asus': [], 'error': 'GEMINI_API_KEY not configured'}), 503
+
+    prompt = """You are a technical accounting specialist. Return a JSON array of the 15 most recent
+FASB Accounting Standards Updates (ASUs) issued through your knowledge cutoff, sorted newest first.
+
+For each ASU include:
+  number        string  e.g. "ASU 2024-03"
+  title         string  full FASB title of the ASU
+  topic         string  ASC topic number and name, e.g. "ASC 280 — Segment Reporting"
+  status        string  one of: "New Standard" | "Amended" | "Clarification" | "Simplification"
+  issue_date    string  month and year issued, e.g. "November 2024"
+  effective_date string brief effective date description, e.g. "Fiscal years beginning after Dec 15, 2026"
+  early_adopt   boolean whether early adoption is permitted
+  summary       string  2-3 sentence plain-English summary of what the ASU requires or changes
+  url           string  direct FASB URL if known, otherwise "https://www.fasb.org/standards/accounting-standards-updates"
+
+Return ONLY valid JSON — an array, no markdown, no wrapper object."""
+
+    try:
+        client   = _genai.Client(api_key=gemini_key)
+        response = client.models.generate_content(
+            model=gemini_model,
+            contents=prompt,
+            config=_genai.types.GenerateContentConfig(response_mime_type='application/json'),
+        )
+        raw  = response.text.strip() if response.text else '[]'
+        asus = json.loads(raw)
+        if not isinstance(asus, list):
+            asus = []
+        result = {'asus': asus[:15]}
+        _fasb_asu_cache['ts']   = now
+        _fasb_asu_cache['data'] = result
+        return jsonify(result)
+    except Exception as e:
+        app.logger.warning('FASB ASU Gemini error: %s', e)
+        return jsonify({'asus': [], 'error': str(e)}), 500
 
 
 # ---------------------------------------------------------------------------
