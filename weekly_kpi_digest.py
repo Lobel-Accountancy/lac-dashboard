@@ -83,6 +83,27 @@ def to_date(val):
 # Data parsers
 # ---------------------------------------------------------------------------
 
+def _ar_data_rows(ws):
+    """Skip the AR Aging summary/header block and yield only invoice data rows.
+
+    The sheet has a multi-row preamble (title, instructions, aging summary)
+    before the actual invoice table whose header row contains 'Client' in col A.
+    We locate that header row and stream every subsequent non-empty row.
+    """
+    data_started = False
+    for row in ws.iter_rows(min_row=1, values_only=True):
+        if not row:
+            continue
+        if not data_started:
+            # Detect the column-header row: col A is exactly 'Client'
+            if str(row[0]).strip() == 'Client':
+                data_started = True
+            continue
+        if not row[0]:
+            continue
+        yield row
+
+
 def parse_ar(wb):
     if 'AR Aging' not in wb.sheetnames:
         return {'total_outstanding': 0, 'overdue_amount': 0, 'buckets': {},
@@ -94,16 +115,16 @@ def parse_ar(wb):
     overdue_clients = []
     total_out = overdue_amt = 0.0
 
-    for row in ws.iter_rows(min_row=2, values_only=True):
-        if not row or not row[0]:
-            continue
+    # Column layout (0-indexed) per actual sheet header:
+    #   0=Client  3=Invoice Date  4=Due Date  6=Amount  8=Outstanding  10=Status
+    for row in _ar_data_rows(ws):
         client      = str(row[0]).strip()
-        due_raw     = row[3] if len(row) > 3 else None
-        outstanding = row[6] if len(row) > 6 else None
-        status      = row[8] if len(row) > 8 else None
+        due_raw     = row[4]  if len(row) > 4  else None   # Due Date
+        outstanding = row[8]  if len(row) > 8  else None   # Outstanding ($)
+        status      = row[10] if len(row) > 10 else None   # Status
 
         try:
-            outstanding = float(outstanding) if outstanding else 0.0
+            outstanding = float(outstanding) if outstanding is not None else 0.0
         except (TypeError, ValueError):
             continue
         if outstanding <= 0 or status in ('Paid', 'Written Off'):
@@ -225,13 +246,11 @@ def client_health(wb):
     ws      = wb['AR Aging']
     clients: dict[str, dict] = {}
 
-    for row in ws.iter_rows(min_row=2, values_only=True):
-        if not row or not row[0]:
-            continue
+    for row in _ar_data_rows(ws):
         client      = str(row[0]).strip()
-        outstanding = row[6] if len(row) > 6 else None
-        status      = row[8] if len(row) > 8 else None
-        due_raw     = row[3] if len(row) > 3 else None
+        outstanding = row[8]  if len(row) > 8  else None   # Outstanding ($)
+        status      = row[10] if len(row) > 10 else None   # Status
+        due_raw     = row[4]  if len(row) > 4  else None   # Due Date
 
         try:
             outstanding = float(outstanding) if outstanding else 0.0
