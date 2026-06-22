@@ -533,11 +533,10 @@
     }
     .gr-modal-save:hover { opacity: .85; }
 
-    /* ── Full-screen override — hide sidebar, use full viewport ─────────────── */
-    #lac-sidebar { display: none !important; }
-    .page-body   { margin-left: 0 !important; padding: 0 !important; }
+    /* ── Full-width layout — sidebar intact; content fills remaining width ───── */
+    .main        { max-width: none; padding: 0; }
     body         { overflow: hidden; }
-    .gr-layout   { height: 100vh; }
+    .gr-layout   { height: calc(100vh - 52px); }
 
     /* ── Print/export────────────────────────────────────────────────────── */
     @media print {
