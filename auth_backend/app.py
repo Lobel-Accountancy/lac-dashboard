@@ -416,7 +416,7 @@ _AR_COL = {
     'client': 0, 'client_num': 1, 'invoice': 2, 'inv_date': 3,
     'due_date': 4, 'service': 5, 'amount': 6, 'paid': 7,
     'outstanding': 8, 'days': 9, 'status': 10,
-    'email': 11, 'address': 13, 'reminder': 14,
+    'eng_type': 11, 'email': 12, 'address': 13, 'reminder': 14,
 }
 _EP_DATA_START = 3   # Engagement Pipeline: row 2 = headers, row 3+ = data
 _AR_DATA_START = 13  # AR Aging: row 12 = headers, row 13+ = data
@@ -1872,7 +1872,8 @@ AR_C_PAID        = 7   # Paid ($)
 AR_C_OUTSTANDING = 8   # Outstanding ($)
 AR_C_DAYS        = 9   # Days Outstanding
 AR_C_STATUS      = 10  # Status
-AR_C_EMAIL       = 11  # Client Email
+AR_C_ENG_TYPE    = 11  # Engagement Type
+AR_C_EMAIL       = 12  # Client Email
 AR_C_ADDRESS     = 13  # Client Address  (col N)
 AR_C_REMINDER    = 14  # Last Reminder Sent
 
