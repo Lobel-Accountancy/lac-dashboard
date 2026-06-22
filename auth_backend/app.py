@@ -416,7 +416,7 @@ _AR_COL = {
     'client': 0, 'client_num': 1, 'invoice': 2, 'inv_date': 3,
     'due_date': 4, 'service': 5, 'amount': 6, 'paid': 7,
     'outstanding': 8, 'days': 9, 'status': 10,
-    'email': 11, 'address': 12, 'reminder': 13,
+    'email': 11, 'address': 13, 'reminder': 14,
 }
 _EP_DATA_START = 3   # Engagement Pipeline: row 2 = headers, row 3+ = data
 _AR_DATA_START = 13  # AR Aging: row 12 = headers, row 13+ = data
@@ -1074,6 +1074,9 @@ def _parse_forecast(wb):
 
     if 'AR Aging' in wb.sheetnames:
         for row in wb['AR Aging'].iter_rows(min_row=AR_DATA_START, values_only=True):
+            status  = row[AR_C_STATUS]   if len(row) > AR_C_STATUS   else None
+            if str(status or '').strip() in ('Paid', 'Written Off', 'Void'):
+                continue
             amount  = row[AR_C_AMOUNT]   if len(row) > AR_C_AMOUNT   else None
             due_raw = row[AR_C_INV_DATE] if len(row) > AR_C_INV_DATE else None
             if not amount:
@@ -1870,8 +1873,8 @@ AR_C_OUTSTANDING = 8   # Outstanding ($)
 AR_C_DAYS        = 9   # Days Outstanding
 AR_C_STATUS      = 10  # Status
 AR_C_EMAIL       = 11  # Client Email
-AR_C_ADDRESS     = 12  # Client Address
-AR_C_REMINDER    = 13  # Last Reminder Sent
+AR_C_ADDRESS     = 13  # Client Address  (col N)
+AR_C_REMINDER    = 14  # Last Reminder Sent
 
 
 def _wb_download_fresh():
