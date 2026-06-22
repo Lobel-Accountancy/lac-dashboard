@@ -533,7 +533,13 @@
     }
     .gr-modal-save:hover { opacity: .85; }
 
-    /* ── Print/export ────────────────────────────────────────────────────── */
+    /* ── Full-screen override — hide sidebar, use full viewport ─────────────── */
+    #lac-sidebar { display: none !important; }
+    .page-body   { margin-left: 0 !important; padding: 0 !important; }
+    body         { overflow: hidden; }
+    .gr-layout   { height: 100vh; }
+
+    /* ── Print/export────────────────────────────────────────────────────── */
     @media print {
       aside, .gr-left, .gr-detail-actions, .gr-compare-banner { display: none !important; }
       .gr-layout { display: block !important; height: auto !important; }
