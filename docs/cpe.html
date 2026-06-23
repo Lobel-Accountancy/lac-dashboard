@@ -112,8 +112,15 @@
 <aside id="lac-sidebar"></aside>
 <div class="page-body">
 <main class="main">
-  <div class="greeting">CPE Compliance</div>
-  <div class="date-line" id="date-line"></div>
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;">
+    <div>
+      <div class="greeting">CPE Compliance</div>
+      <div class="date-line" id="date-line"></div>
+    </div>
+    <button id="refresh-btn" onclick="refreshDashboard()" style="margin-top:8px;background:none;border:1px solid var(--border);color:var(--text-2);padding:6px 14px;border-radius:6px;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:6px;transition:border-color .15s,color .15s;" onmouseover="this.style.color='var(--text)';this.style.borderColor='var(--text-3)'" onmouseout="this.style.color='var(--text-2)';this.style.borderColor='var(--border)'">
+      ↻ Refresh
+    </button>
+  </div>
 
   <div class="error-banner" id="error-banner" hidden></div>
 
@@ -126,9 +133,9 @@
     <div class="card-body">
       <div class="upload-zone" id="upload-zone">
         <div class="upload-zone-icon">⬆</div>
-        <div>Drop Becker CSV here or <strong>click to browse</strong></div>
-        <div style="font-size:11px;color:var(--text-3);margin-top:4px;">Columns A–H are read from Becker. ACFE &amp; Fraud Topic are auto-set by formula.</div>
-        <input type="file" id="csv-input" accept=".csv,text/csv">
+        <div>Drop Becker Excel (.xlsx) here or <strong>click to browse</strong></div>
+        <div style="font-size:11px;color:var(--text-3);margin-top:4px;">Export the Compliance Report from Becker as Excel. Courses are deduplicated and written to the CPE Log in the LAC Workbook.</div>
+        <input type="file" id="csv-input" accept=".xlsx,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv">
       </div>
 
       <div id="preview-wrap" hidden>
@@ -190,6 +197,15 @@
   });
 
   // ── Dashboard ─────────────────────────────────────────────────────────────
+
+  async function refreshDashboard() {
+    const btn = document.getElementById('refresh-btn');
+    btn.textContent = '↻ Refreshing…';
+    btn.disabled = true;
+    await loadDashboard();
+    btn.textContent = '↻ Refresh';
+    btn.disabled = false;
+  }
 
   async function loadDashboard() {
     try {
@@ -269,7 +285,7 @@
 
     if (!count) {
       section.innerHTML = `<p style="color:var(--text-2);font-size:13px;padding:8px 0;">
-        No courses in CPE Log yet — import a Becker CSV above to populate.
+        No courses in CPE Log yet — upload the Becker Compliance Report (.xlsx) above to populate.
       </p>`;
       document.getElementById('cpe-content').after(section);
       return;

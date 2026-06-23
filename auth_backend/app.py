@@ -5083,27 +5083,40 @@ def _query_claude(system_prompt, context, user_prompt):
 
 
 def _query_gemini(system_prompt, context, user_prompt):
-    """Send to Google Gemini API, return response string."""
+    """Send to Google Gemini API, return response string. Retries on 503/429."""
     if not GEMINI_API_KEY:
         return '[Gemini error: GEMINI_API_KEY not set]'
     full_prompt = f"DOCUMENTS:\n{context}\n\nTASK: {user_prompt}" if context else user_prompt
-    try:
-        resp = requests.post(
-            f'https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent?key={GEMINI_API_KEY}',
-            headers={'content-type': 'application/json'},
-            json={
-                'system_instruction': {'parts': [{'text': system_prompt}]},
-                'contents': [{'parts': [{'text': full_prompt}]}],
-                'generationConfig': {'maxOutputTokens': 4096},
-            },
-            timeout=120,
-        )
-        data = resp.json()
-        if resp.status_code != 200:
-            return f'[Gemini error: {data.get("error", {}).get("message", resp.status_code)}]'
-        return data['candidates'][0]['content']['parts'][0]['text']
-    except Exception as exc:
-        return f'[Gemini error: {exc}]'
+    payload = {
+        'system_instruction': {'parts': [{'text': system_prompt}]},
+        'contents': [{'parts': [{'text': full_prompt}]}],
+        'generationConfig': {'maxOutputTokens': 4096},
+    }
+    last_error = None
+    for attempt in range(3):
+        try:
+            resp = requests.post(
+                f'https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent?key={GEMINI_API_KEY}',
+                headers={'content-type': 'application/json'},
+                json=payload,
+                timeout=120,
+            )
+            data = resp.json()
+            if resp.status_code == 200:
+                return data['candidates'][0]['content']['parts'][0]['text']
+            msg = data.get('error', {}).get('message', str(resp.status_code))
+            if resp.status_code in (429, 503) and attempt < 2:
+                time.sleep(4 ** attempt)  # 1s, 4s before retries 2 and 3
+                last_error = msg
+                continue
+            return f'[Gemini error: {msg}]'
+        except Exception as exc:
+            if attempt < 2:
+                time.sleep(4 ** attempt)
+                last_error = str(exc)
+                continue
+            return f'[Gemini error: {exc}]'
+    return f'[Gemini error: {last_error}]'
 
 
 @app.route('/audit-tools/extract', methods=['POST'])
@@ -6418,7 +6431,6 @@ _CRON_JOBS = [
     {'name': 'Drive Organizer',       'script': 'drive_organizer.py',       'log': '/home/jlobel/lac_automation/drive_organizer.log',            'schedule': 'Daily 3am'},
     {'name': 'Realization Alert',     'script': 'realization_alert.py',     'log': '/home/jlobel/lac_automation/realization.log',                'schedule': 'Weekly Mon'},
     {'name': 'Weekly KPI Digest',     'script': 'weekly_kpi_digest.py',     'log': '/home/jlobel/lac_automation/phase5/digest.log',              'schedule': 'Weekly Mon'},
-    {'name': 'Daily Briefing',        'script': 'daily_briefing.py',        'log': '/home/jlobel/lac_automation/phase6/daily_briefing.log',      'schedule': 'Daily 7am'},
     {'name': 'Deadline Tracker',      'script': 'deadline_tracker.py',      'log': '/home/jlobel/lac_automation/phase6/deadline_tracker.log',    'schedule': 'Daily 8am'},
     {'name': 'Regulatory Scraper',    'script': 'regulatory_scraper.py',    'log': '/home/jlobel/lac_automation/phase6/regulatory_scraper.log',  'schedule': 'Weekly Sun'},
     {'name': 'Invoice Automation',    'script': 'invoice_automation.py',    'log': '/home/jlobel/lac_automation/invoice.log',                    'schedule': 'Monthly 1st'},
@@ -6427,6 +6439,16 @@ _CRON_JOBS = [
     {'name': 'Paperless Sync',        'script': 'paperless_sync.py',        'log': '/home/jlobel/lac_automation/paperless.log',                  'schedule': 'Hourly'},
     {'name': 'Cash Recon Alert',      'script': 'cash_recon_alert.py',      'log': '/home/jlobel/lac_automation/logs/cash_recon.log',              'schedule': 'Daily 2:15am'},
     {'name': 'Billing Rate Research', 'script': 'billing_rate_research.py', 'log': '/home/jlobel/lac_automation/billing_research.log',             'schedule': 'Weekly Sun 11pm'},
+    {'name': 'Zoho Mail',             'script': 'zoho_mail.py',             'log': '/home/jlobel/lac_automation/zoho_mail.log',                     'schedule': 'Weekly Mon 8am'},
+    {'name': 'Document Assembly',     'script': 'document_assembly.py',     'log': '/home/jlobel/lac_automation/document_assembly.log',             'schedule': 'Daily 8am'},
+    {'name': 'Client Onboarding',     'script': 'client_onboarding.py',     'log': '/home/jlobel/lac_automation/onboarding.log',                    'schedule': 'Daily 8:30am'},
+    {'name': 'Benchmarking',          'script': 'benchmarking.py',          'log': '/home/jlobel/lac_automation/benchmarking.log',                  'schedule': 'Monthly 1st 7am'},
+    {'name': 'Chase Statements',      'script': 'chase_statements.py',      'log': '/home/jlobel/lac_automation/phase9/chase.log',                  'schedule': 'Monthly 2nd-8th 9am'},
+    {'name': 'Budget Sync',           'script': 'sync_budget_to_workbook.py','log': '/home/jlobel/lac_automation/budget_sync.log',                  'schedule': 'Daily 3am'},
+    {'name': 'Plaid Sync',            'script': 'plaid_sync.py',            'log': '/home/jlobel/lac_automation/logs/plaid_sync.log',               'schedule': 'Daily 1:30am'},
+    {'name': 'PBC Archive Cleanup',   'script': 'pbc_archive_cleanup.py',   'log': '/home/jlobel/lac_automation/logs/pbc_cleanup.log',              'schedule': 'Monthly 1st 4am'},
+    {'name': 'Stage Poller',          'script': 'stage_poller.py',          'log': '/home/jlobel/lac_automation/phase8/stage_poller.log',           'schedule': 'Daily 6:30am'},
+    {'name': 'Receipt Ingestor',      'script': 'receipt_ingestor.py',      'log': '/home/jlobel/lac_automation/logs/receipt_ingestor.log',         'schedule': 'Every 5 min'},
 ]
 
 def _parse_log_tail(log_path, n_lines=8):
@@ -6558,7 +6580,7 @@ def cron_log_full():
 
 
 # ---------------------------------------------------------------------------
-# CPE Log — Becker CSV import
+# CPE Log — Becker xlsx / CSV import
 # ---------------------------------------------------------------------------
 
 _CPE_HEADERS = ['Course Name', 'Credits', 'Completed On', 'Delivery Method',
@@ -6566,38 +6588,136 @@ _CPE_HEADERS = ['Course Name', 'Credits', 'Completed On', 'Delivery Method',
 _CPE_DATA_ROW = 4   # first data row in CPE Log (1-based)
 
 
+def _infer_cba_category(field):
+    """Infer CBA category from NASBA field of study string."""
+    f = (field or '').lower()
+    if 'regulatory' in f:
+        return 'Regulatory'
+    if 'ethics' in f:
+        return 'Ethics'
+    technical = ['accounting', 'auditing', 'tax', 'finance', 'economics',
+                 'business law', 'information technology', 'management advisory',
+                 'statistics', 'computer']
+    if any(t in f for t in technical):
+        return 'Technical'
+    return 'Other'
+
+
+def _parse_becker_xlsx(file_bytes):
+    """Parse Becker CPE Compliance report (.xlsx) and return unique course list.
+
+    The export is a hierarchical compliance report with section headers and
+    course detail rows (col A empty, col B = course name).  Courses appear
+    multiple times (once per requirement category they satisfy); we deduplicate
+    by (name, date) and assign the CBA period from the surrounding
+    'Reporting period:' section header.
+    """
+    import io
+    from openpyxl import load_workbook as _lw
+    wb = _lw(io.BytesIO(file_bytes), data_only=True)
+    courses = {}  # (name.lower(), date_str) -> dict
+
+    for sheet_name in wb.sheetnames:
+        ws = wb[sheet_name]
+        current_period = ''
+
+        for row in ws.iter_rows(values_only=True):
+            if not row:
+                continue
+            a = row[0]
+            b = row[1] if len(row) > 1 else None
+            c = row[2] if len(row) > 2 else None
+            d = row[3] if len(row) > 3 else None
+            e = row[4] if len(row) > 4 else None
+            f = row[5] if len(row) > 5 else None
+            g = row[6] if len(row) > 6 else None
+
+            a_str = str(a).strip() if a is not None else ''
+
+            # Track the enclosing reporting period
+            if a_str.startswith('Reporting period:'):
+                raw_period = a_str[len('Reporting period:'):].strip()
+                # Normalise separator: "11/01/2025 to 10/31/2027" → "11/01/2025–10/31/2027"
+                current_period = raw_period.replace(' to ', '–')
+                continue
+
+            # Course rows: col A is None, col B is the course name
+            if a is None and b and str(b).strip() and str(b).strip() != 'Completed course':
+                name = str(b).strip()
+                credit_str = str(c).strip() if c is not None else ''
+                date_str   = str(d).strip() if d is not None else ''
+                delivery   = str(e).strip() if e is not None else ''
+                field      = str(f).strip() if f is not None else ''
+                provider   = str(g).strip() if g is not None else ''
+
+                key = (name.lower(), date_str)
+                if key not in courses:
+                    courses[key] = {
+                        'course_name':     name,
+                        'credits':         credit_str,
+                        'completed_on':    date_str,
+                        'delivery_method': delivery,
+                        'field_of_study':  field,
+                        'provider':        provider,
+                        'cba_period':      current_period,
+                        'cba_category':    _infer_cba_category(field),
+                    }
+
+    return list(courses.values())
+
 
 @app.route('/cpe/preview', methods=['POST'])
 @require_jwt
 def cpe_preview():
-    """Parse uploaded Becker CSV and return rows not already in the log."""
+    """Parse uploaded Becker file (.xlsx or .csv) and return rows not already in the log."""
     try:
-        import csv as _csv, io as _io
         f = request.files.get('file')
         if not f:
             return jsonify({'error': 'No file uploaded'}), 400
 
-        content = f.read().decode('utf-8-sig', errors='replace')
-        reader  = _csv.DictReader(_io.StringIO(content))
-        raw_headers = reader.fieldnames or []
+        fname = (f.filename or '').lower()
+        file_bytes = f.read()
 
-        # Normalise header → index mapping (case-insensitive, strip whitespace)
-        def _norm(s): return s.strip().lower() if s else ''
-        nh = {_norm(h): h for h in raw_headers}
+        if fname.endswith('.xlsx'):
+            raw_rows = _parse_becker_xlsx(file_bytes)
+        else:
+            # CSV fallback
+            import csv as _csv, io as _io
+            content = file_bytes.decode('utf-8-sig', errors='replace')
+            reader  = _csv.DictReader(_io.StringIO(content))
+            raw_headers = reader.fieldnames or []
 
-        # Map Becker column names → CPE Log columns
-        col_map = {
-            'Course Name':      next((nh[k] for k in nh if 'course' in k and 'name' in k or k == 'title'), None),
-            'Credits':          next((nh[k] for k in nh if 'credit' in k), None),
-            'Completed On':     next((nh[k] for k in nh if 'complet' in k and ('date' in k or 'on' in k)), None),
-            'Delivery Method':  next((nh[k] for k in nh if 'delivery' in k or 'method' in k), None),
-            'Field of Study':   next((nh[k] for k in nh if 'field' in k), None),
-            'Provider':         next((nh[k] for k in nh if 'provider' in k), None),
-            'CBA Period':       next((nh[k] for k in nh if 'period' in k or 'cba period' in k), None),
-            'CBA Category':     next((nh[k] for k in nh if 'category' in k or 'cba cat' in k), None),
-        }
+            def _norm(s): return s.strip().lower() if s else ''
+            nh = {_norm(h): h for h in raw_headers}
 
-        def _get(row, col): return str(row.get(col_map.get(col) or '', '') or '').strip()
+            col_map = {
+                'Course Name':     next((nh[k] for k in nh if ('course' in k and 'name' in k) or k == 'title'), None),
+                'Credits':         next((nh[k] for k in nh if 'credit' in k), None),
+                'Completed On':    next((nh[k] for k in nh if 'complet' in k and ('date' in k or 'on' in k)), None),
+                'Delivery Method': next((nh[k] for k in nh if 'delivery' in k or 'method' in k), None),
+                'Field of Study':  next((nh[k] for k in nh if 'field' in k), None),
+                'Provider':        next((nh[k] for k in nh if 'provider' in k), None),
+                'CBA Period':      next((nh[k] for k in nh if 'period' in k or 'cba period' in k), None),
+                'CBA Category':    next((nh[k] for k in nh if 'category' in k or 'cba cat' in k), None),
+            }
+
+            def _get(row, col): return str(row.get(col_map.get(col) or '', '') or '').strip()
+
+            raw_rows = []
+            for r in reader:
+                name = _get(r, 'Course Name')
+                if not name:
+                    continue
+                raw_rows.append({
+                    'course_name':     name,
+                    'credits':         _get(r, 'Credits'),
+                    'completed_on':    _get(r, 'Completed On'),
+                    'delivery_method': _get(r, 'Delivery Method'),
+                    'field_of_study':  _get(r, 'Field of Study'),
+                    'provider':        _get(r, 'Provider'),
+                    'cba_period':      _get(r, 'CBA Period'),
+                    'cba_category':    _get(r, 'CBA Category'),
+                })
 
         # Load existing CPE Log entries to detect duplicates
         wb_read = _workbook()
@@ -6610,30 +6730,8 @@ def cpe_preview():
                 if name:
                     existing.add((name, completed))
 
-        rows = []
-        for r in reader:
-            name       = _get(r, 'Course Name')
-            completed  = _get(r, 'Completed On')
-            if not name:
-                continue
-            if (name.lower(), completed) in existing:
-                continue
-            credits    = _get(r, 'Credits')
-            delivery   = _get(r, 'Delivery Method')
-            field      = _get(r, 'Field of Study')
-            provider   = _get(r, 'Provider')
-            cba_period = _get(r, 'CBA Period')
-            cba_cat    = _get(r, 'CBA Category')
-            rows.append({
-                'course_name':     name,
-                'credits':         credits,
-                'completed_on':    completed,
-                'delivery_method': delivery,
-                'field_of_study':  field,
-                'provider':        provider,
-                'cba_period':      cba_period,
-                'cba_category':    cba_cat,
-            })
+        rows = [r for r in raw_rows
+                if (r['course_name'].lower(), r['completed_on']) not in existing]
 
         return jsonify({'rows': rows, 'existing_count': len(existing)})
     except Exception as exc:
@@ -6651,7 +6749,7 @@ def cpe_import():
         if not rows:
             return jsonify({'error': 'No rows to import'}), 400
 
-        wb, fid, svc = _wb_download_writable()
+        wb, fid, svc = _wb_download_fresh()
         if 'CPE Log' not in wb.sheetnames:
             return jsonify({'error': 'CPE Log sheet not found'}), 404
 
@@ -7826,6 +7924,19 @@ def admin_workbook_reload():
     ts = _dt.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')
     print(f'[workbook-reload] cache cleared by {request.user_email} at {ts}', flush=True)
     return jsonify({'ok': True, 'message': 'Workbook cache cleared — next request will fetch from Drive.'})
+
+
+@app.route('/internal/workbook/cache-bust', methods=['POST'])
+def internal_cache_bust():
+    """Localhost-only endpoint for cron scripts to invalidate the workbook cache after uploading."""
+    if request.remote_addr not in ('127.0.0.1', '::1'):
+        return jsonify({'error': 'Forbidden'}), 403
+    with _wb_lock:
+        _wb_cache['wb'] = None
+        _wb_cache['fetched_at'] = 0.0
+    caller = request.get_json(force=True, silent=True) or {}
+    print(f"[workbook-reload] cache busted by internal caller: {caller.get('caller', 'unknown')}", flush=True)
+    return jsonify({'ok': True})
 
 
 _seed_formula_baseline()
