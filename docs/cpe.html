@@ -421,7 +421,10 @@
     opts.headers = opts.headers || {};
     if (!(opts.body instanceof FormData)) opts.headers['Content-Type'] = opts.headers['Content-Type'] || 'application/json';
     opts.headers['Authorization'] = `Bearer ${jwt}`;
-    return fetch(path, opts).then(r => { if (!r.ok) return r.json().then(d => { throw new Error(d.error || r.statusText); }); return r; });
+    return fetch(`${AUTH_URL}${path}`, opts).then(r => {
+      if (!r.ok) return r.json().catch(() => ({ error: `HTTP ${r.status}` })).then(d => { throw new Error(d.error || r.statusText); });
+      return r;
+    });
   }
 </script>
 <script src="js/card-resize.js?v=20260623"></script>
