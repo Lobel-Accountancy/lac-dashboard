@@ -6826,6 +6826,70 @@ def _safe_float(v):
     except (TypeError, ValueError): return v
 
 
+@app.route('/cpe/clear', methods=['POST'])
+@require_jwt
+def cpe_clear():
+    """Remove all data rows from CPE Log (keeps header rows 1–3)."""
+    try:
+        wb, fid, svc = _wb_download_fresh()
+        if 'CPE Log' not in wb.sheetnames:
+            return jsonify({'error': 'CPE Log sheet not found'}), 404
+        ws = wb['CPE Log']
+        cleared = 0
+        for row in ws.iter_rows(min_row=_CPE_DATA_ROW, max_col=10):
+            if any(cell.value is not None for cell in row):
+                for cell in row:
+                    cell.value = None
+                cleared += 1
+        _wb_upload(wb, fid, svc)
+        _wb_cache['wb'] = None
+        _wb_cache['fetched_at'] = 0
+        return jsonify({'rows_cleared': cleared})
+    except Exception as exc:
+        app.logger.error('cpe_clear error: %s', exc)
+        return jsonify({'error': str(exc)}), 500
+
+
+@app.route('/cpe/flag-fraud', methods=['POST'])
+@require_jwt
+def cpe_flag_fraud():
+    """Set or clear the Fraud Topic flag on a specific course in CPE Log."""
+    try:
+        data        = request.get_json(silent=True) or {}
+        course_name = (data.get('course_name') or '').strip().lower()
+        completed   = (data.get('completed_on') or '').strip()
+        flagged     = bool(data.get('flagged', True))
+        if not course_name:
+            return jsonify({'error': 'course_name required'}), 400
+
+        wb, fid, svc = _wb_download_fresh()
+        if 'CPE Log' not in wb.sheetnames:
+            return jsonify({'error': 'CPE Log sheet not found'}), 404
+        ws = wb['CPE Log']
+
+        updated = 0
+        for row in ws.iter_rows(min_row=_CPE_DATA_ROW):
+            name_cell = row[0]
+            date_cell = row[2] if len(row) > 2 else None
+            if (str(name_cell.value or '').strip().lower() == course_name and
+                    str(date_cell.value or '').strip() == completed):
+                fraud_cell = ws.cell(row=name_cell.row, column=10)
+                fraud_cell.value = 'Yes' if flagged else 'No'
+                updated += 1
+                break
+
+        if not updated:
+            return jsonify({'error': 'Course not found in CPE Log'}), 404
+
+        _wb_upload(wb, fid, svc)
+        _wb_cache['wb'] = None
+        _wb_cache['fetched_at'] = 0
+        return jsonify({'updated': True, 'flagged': flagged})
+    except Exception as exc:
+        app.logger.error('cpe_flag_fraud error: %s', exc)
+        return jsonify({'error': str(exc)}), 500
+
+
 # ---------------------------------------------------------------------------
 # CPE Compliance Dashboard
 # ---------------------------------------------------------------------------
@@ -6945,17 +7009,17 @@ def _read_cpe_log_for_compliance(wb):
 def _compute_earned(req_name, section_period, courses):
     """Compute earned credits for a requirement row from CPE log courses."""
     from datetime import datetime
-    req_lower = req_name.lower()
+    from dateutil import parser as _dp
+    import re as _re
+    req_lower    = req_name.lower()
     period_lower = (section_period or '').lower()
 
     # Parse date window for annual sub-period requirements
     # e.g. "Annual Total CPE (Nov 2025–Oct 2026)"
     annual_start = annual_end = None
-    import re as _re
     date_range = _re.search(r'\(([^)]+)\)', req_name)
     if date_range:
         try:
-            from dateutil import parser as _dp
             parts = _re.split(r'[–—-]', date_range.group(1))
             if len(parts) == 2:
                 annual_start = _dp.parse(parts[0].strip() + ' 2025' if len(parts[0].strip()) < 8 else parts[0].strip())
@@ -6963,25 +7027,27 @@ def _compute_earned(req_name, section_period, courses):
         except Exception:
             pass
 
+    # Parse the section's overall reporting period date range for course filtering.
+    # section_period is like "Current Period 11/01/2025–10/31/2027".
+    # We extract the two MM/DD/YYYY dates and filter courses by completion date.
+    section_start = section_end = None
+    sec_dates = _re.findall(r'\d{1,2}/\d{1,2}/\d{4}', section_period or '')
+    if len(sec_dates) >= 2:
+        try:
+            section_start = _dp.parse(sec_dates[0])
+            section_end   = _dp.parse(sec_dates[1])
+        except Exception:
+            pass
+
     # Determine which courses are in scope for this section
     def in_period(c):
-        # Match CBA period string (partial match; normalise dashes)
-        norm_cp  = c['cba_period'].replace('–','–').replace('-','–').replace('—','–')
-        norm_sec = period_lower.replace('-','–').replace('—','–').replace(' to ','–').replace(' – ','–')
-        if c['cba_period'] and norm_sec:
-            # Check if course period overlaps with section period substring
-            # Use loose substring match on year digits
-            years_in_period = _re.findall(r'\d{4}', norm_sec)
-            years_in_course = _re.findall(r'\d{4}', norm_cp)
-            if years_in_period and years_in_course:
-                if not any(y in years_in_period for y in years_in_course):
-                    return False
-        # If CFE/ACFE section, require ACFE eligible
-        if 'cfe' in period_lower or 'acfe' in period_lower or 'calendar year' in period_lower:
-            if not c['acfe'] and 'fraud' not in req_lower:
-                # Still count non-ACFE if req is for calendar-year total
-                pass
-        # Date window filter for annual sub-period
+        # Filter by actual completion date vs the section's reporting period.
+        # This replaces the old loose year-substring matching that incorrectly
+        # counted courses from adjacent periods (e.g. 2023-2025 toward 2025-2027).
+        if c['completed_dt'] and section_start and section_end:
+            if not (section_start <= c['completed_dt'] <= section_end):
+                return False
+        # Annual sub-period filter (from parenthetical in req_name)
         if annual_start and annual_end and c['completed_dt']:
             if not (annual_start <= c['completed_dt'] <= annual_end):
                 return False

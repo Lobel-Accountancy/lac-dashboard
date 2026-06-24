@@ -128,7 +128,10 @@
   <div class="card" style="margin-bottom:20px;">
     <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
       <span>Import Becker CPE</span>
-      <span id="import-status" style="font-size:12px;font-weight:400;color:var(--text-3);"></span>
+      <div style="display:flex;align-items:center;gap:12px;">
+        <span id="import-status" style="font-size:12px;font-weight:400;color:var(--text-3);"></span>
+        <button onclick="clearCpeLog()" style="background:none;border:none;color:var(--danger,#e05252);font-size:12px;cursor:pointer;padding:0;opacity:.7;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=.7" title="Clear all courses from CPE Log">Clear Log</button>
+      </div>
     </div>
     <div class="card-body">
       <div class="upload-zone" id="upload-zone">
@@ -277,18 +280,31 @@
       return;
     }
 
-    const rows = courses.map(c => `
-      <div class="cpe-row" style="grid-template-columns:1fr 50px 110px 1fr 1fr;">
-        <span class="cpe-label">
-          ${esc(c.course_name)}
-          ${c.acfe_eligible==='Yes'?'<span style="font-size:10px;padding:1px 5px;border-radius:4px;background:rgba(42,184,160,.18);color:#2ab8a0;margin-left:6px;font-weight:700;">ACFE</span>':''}
-          ${c.fraud_topic==='Yes'?'<span style="font-size:10px;padding:1px 5px;border-radius:4px;background:rgba(232,98,42,.18);color:#e8622a;margin-left:4px;font-weight:700;">Fraud</span>':''}
-        </span>
-        <span class="cpe-num">${c.credits%1===0?c.credits:c.credits.toFixed(1)}</span>
-        <span style="font-size:12px;color:var(--text-2);">${esc(c.completed_on)}</span>
-        <span style="font-size:12px;color:var(--text-2);">${esc(c.field_of_study)}</span>
-        <span style="font-size:12px;color:var(--text-3);">${esc(c.cba_period)}</span>
-      </div>`).join('');
+    const rows = courses.map(c => {
+      const isFraud = c.fraud_topic === 'Yes';
+      const fraudBtn = `<button
+          onclick="toggleFraud(this,'${esc(c.course_name).replace(/'/g,"\\'")}','${esc(c.completed_on)}')"
+          title="${isFraud ? 'Remove fraud flag' : 'Flag as fraud-related'}"
+          style="background:none;border:1px solid ${isFraud ? 'rgba(232,98,42,.5)' : 'var(--border)'};
+                 border-radius:5px;padding:2px 7px;cursor:pointer;font-size:11px;
+                 color:${isFraud ? '#e8622a' : 'var(--text-3)'};
+                 transition:all .15s;white-space:nowrap;"
+          onmouseover="this.style.borderColor='#e8622a';this.style.color='#e8622a'"
+          onmouseout="this.style.borderColor='${isFraud ? 'rgba(232,98,42,.5)' : 'var(--border)'}';this.style.color='${isFraud ? '#e8622a' : 'var(--text-3)'}'">
+          ${isFraud ? '🚩 Fraud' : 'Flag Fraud'}
+        </button>`;
+      return `
+        <div class="cpe-row" style="grid-template-columns:1fr 50px 110px 1fr 100px;">
+          <span class="cpe-label">
+            ${esc(c.course_name)}
+            ${c.acfe_eligible==='Yes'?'<span style="font-size:10px;padding:1px 5px;border-radius:4px;background:rgba(42,184,160,.18);color:#2ab8a0;margin-left:6px;font-weight:700;">ACFE</span>':''}
+          </span>
+          <span class="cpe-num">${c.credits%1===0?c.credits:c.credits.toFixed(1)}</span>
+          <span style="font-size:12px;color:var(--text-2);">${esc(c.completed_on)}</span>
+          <span style="font-size:12px;color:var(--text-2);">${esc(c.field_of_study)}</span>
+          <span style="display:flex;align-items:center;">${fraudBtn}</span>
+        </div>`;
+    }).join('');
 
     section.innerHTML = `
       <div class="card">
@@ -298,9 +314,9 @@
             ${count} course${count!==1?'s':''} · ${total%1===0?total:total.toFixed(1)} total credits
           </span>
         </div>
-        <div class="cpe-header" style="grid-template-columns:1fr 50px 110px 1fr 1fr;">
+        <div class="cpe-header" style="grid-template-columns:1fr 50px 110px 1fr 100px;">
           <span>Course</span><span style="text-align:right">Cr</span>
-          <span>Completed</span><span>Field</span><span>Period</span>
+          <span>Completed</span><span>Field</span><span>Fraud</span>
         </div>
         <div style="max-height:400px;overflow-y:auto;">${rows}</div>
       </div>`;
@@ -433,6 +449,43 @@
 
   function setImportStatus(msg) {
     document.getElementById('import-status').textContent = msg;
+  }
+
+  // ── Fraud flag ────────────────────────────────────────────────────────────
+
+  async function toggleFraud(btn, courseName, completedOn) {
+    const isFraud = btn.textContent.trim().startsWith('🚩');
+    const newFlagged = !isFraud;
+    btn.disabled = true;
+    btn.textContent = '…';
+    try {
+      await apiFetch('/cpe/flag-fraud', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ course_name: courseName, completed_on: completedOn, flagged: newFlagged }),
+      });
+      // Refresh course log to reflect updated fraud topic
+      const log = await apiFetch('/data/cpe-log').catch(() => null);
+      if (log) renderCourseLog(log);
+      showToast(newFlagged ? 'Flagged as fraud-related' : 'Fraud flag removed', 'success');
+    } catch (err) {
+      showToast(`Error: ${err.message}`, 'error');
+      btn.disabled = false;
+      btn.textContent = isFraud ? '🚩 Fraud' : 'Flag Fraud';
+    }
+  }
+
+  // ── Clear log ─────────────────────────────────────────────────────────────
+
+  async function clearCpeLog() {
+    if (!confirm('This will remove all courses from the CPE Log in the LAC Workbook. Are you sure?')) return;
+    try {
+      const data = await apiFetch('/cpe/clear', { method: 'POST' });
+      showToast(`CPE Log cleared (${data.rows_cleared} rows removed)`, 'success');
+      loadDashboard();
+    } catch (err) {
+      showToast(`Clear failed: ${err.message}`, 'error');
+    }
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────
