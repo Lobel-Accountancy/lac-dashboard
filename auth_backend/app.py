@@ -6803,12 +6803,12 @@ def cpe_import():
             ws.cell(row=rn, column=7).value  = r.get('cba_period', '')
             ws.cell(row=rn, column=8).value  = r.get('cba_category', '')
             # ACFE Eligible: Yes whenever a course name is present
-            ws.cell(row=rn, column=9).value  = f'=IF(A{rn}<>"","Yes","")'
-            # Fraud Topic: Yes if "fraud" appears in course name or field of study
-            ws.cell(row=rn, column=10).value = (
-                f'=IF(OR(ISNUMBER(SEARCH("fraud",A{rn})),'
-                f'ISNUMBER(SEARCH("fraud",E{rn}))),"Yes","No")'
-            )
+            # Write plain values — formulas are not evaluated when read back with data_only=True
+            ws.cell(row=rn, column=9).value  = 'Yes'  # ACFE Eligible: all CPE qualifies
+            fraud_kw = 'fraud'
+            auto_fraud = (fraud_kw in r.get('course_name', '').lower() or
+                          fraud_kw in r.get('field_of_study', '').lower())
+            ws.cell(row=rn, column=10).value = 'Yes' if auto_fraud else 'No'
             next_row += 1
             added += 1
 
@@ -7065,24 +7065,39 @@ def _compute_earned(req_name, section_period, courses):
 
     # Is this a CFE / calendar-year section?
     is_cfe_section = 'cfe' in period_lower or 'acfe' in period_lower or 'calendar year' in period_lower
-    cal_year = None
+    cfe_start = cfe_end = None
+    cal_year  = None
     if is_cfe_section:
-        yr_match = _re.search(r'(\d{4})', period_lower)
-        if yr_match:
-            cal_year = int(yr_match.group(1))
+        # Prefer explicit MM/DD/YYYY date range (e.g. "01/01/2025–10/31/2026")
+        cfe_dates = _re.findall(r'\d{1,2}/\d{1,2}/\d{4}', section_period or '')
+        if len(cfe_dates) >= 2:
+            try:
+                cfe_start = _dp.parse(cfe_dates[0])
+                cfe_end   = _dp.parse(cfe_dates[1])
+            except Exception:
+                pass
+        if not cfe_start:
+            # Fall back to single calendar year extracted from period label
+            yr_match = _re.search(r'(\d{4})', period_lower)
+            if yr_match:
+                cal_year = int(yr_match.group(1))
 
     total = 0.0
     for c in courses:
         if is_cfe_section:
-            if cal_year and not in_calendar_year(c, cal_year):
-                continue
+            # Filter by date range or calendar year
+            if cfe_start and cfe_end:
+                if c['completed_dt'] and not (cfe_start <= c['completed_dt'] <= cfe_end):
+                    continue
+            elif cal_year:
+                if not in_calendar_year(c, cal_year):
+                    continue
             if 'fraud' in req_lower:
                 if c['fraud']:
                     total += c['credits']
             else:
-                # ACFE annual total — count all ACFE-eligible
-                if c['acfe']:
-                    total += c['credits']
+                # Annual Total CPE: all CPE qualifies for ACFE maintenance
+                total += c['credits']
         else:
             if not in_period(c):
                 continue
