@@ -283,7 +283,7 @@ _DRIVE_SCOPES     = ['https://www.googleapis.com/auth/drive.readonly']
 _DRIVE_RW_SCOPES  = ['https://www.googleapis.com/auth/drive']
 
 _wb_cache: dict = {'wb': None, 'fetched_at': 0.0}
-_WB_TTL = 600  # 10-minute cache
+_WB_TTL = 90  # 90-second cache
 _wb_lock = threading.Lock()
 _wb_file_id_cache: dict = {'id': None}  # permanent cache — file ID never changes
 

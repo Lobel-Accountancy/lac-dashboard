@@ -183,6 +183,7 @@
     if (!requireAuth()) return;
     loadDashboard();
     initUpload();
+    setInterval(loadDashboard, 3 * 60 * 1000);
   });
 
   // ── Dashboard ─────────────────────────────────────────────────────────────

@@ -39,6 +39,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   loadBI();
+  setInterval(loadBI, 3 * 60 * 1000);
 });
 
 function switchTab(tab) {

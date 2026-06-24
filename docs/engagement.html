@@ -399,6 +399,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   document.addEventListener('keydown', e => { if (e.key === 'Escape') closePanel(); });
   Promise.all([loadTemplates(), loadEngagements()]);
+  setInterval(loadEngagements, 3 * 60 * 1000);
 });
 
 // ---------------------------------------------------------------------------

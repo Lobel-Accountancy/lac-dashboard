@@ -1,4 +1,4 @@
-const REFRESH_INTERVAL = 5 * 60 * 1000;
+const REFRESH_INTERVAL = 3 * 60 * 1000;
 
 let _pipelineChart   = null;
 let _arDonutChart    = null;

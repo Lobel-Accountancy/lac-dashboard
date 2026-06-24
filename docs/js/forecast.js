@@ -22,6 +22,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const p = jwtPayload(getJWT());
   document.getElementById('nav-user').textContent = (p?.email || '').split('@')[0];
   loadForecast();
+  setInterval(loadForecast, 3 * 60 * 1000);
 });
 
 async function loadForecast() {
