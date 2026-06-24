@@ -139,28 +139,14 @@
       </div>
 
       <div id="preview-wrap" hidden>
-        <div style="display:flex;align-items:center;justify-content:space-between;margin:16px 0 10px;">
-          <span id="preview-count" style="font-size:13px;color:var(--text-2);"></span>
-          <div style="display:flex;gap:10px;align-items:center;">
-            <button onclick="resetUpload()" style="background:none;border:none;color:var(--text-3);cursor:pointer;font-size:12px;">✕ Cancel</button>
-            <button class="import-btn" id="confirm-btn" onclick="confirmImport()">Import to CPE Log</button>
-          </div>
+        <div style="margin:16px 0 12px;">
+          <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:4px;">Select periods to import</div>
+          <div id="existing-note" style="font-size:12px;color:var(--text-3);"></div>
         </div>
-        <div class="preview-scroll">
-          <table class="preview-table">
-            <thead>
-              <tr>
-                <th>Course Name</th>
-                <th>Credits</th>
-                <th>Completed On</th>
-                <th>Field of Study</th>
-                <th>CBA Period</th>
-                <th>CBA Category</th>
-                <th>Fraud?</th>
-              </tr>
-            </thead>
-            <tbody id="preview-body"></tbody>
-          </table>
+        <div id="period-list" style="display:flex;flex-direction:column;gap:8px;"></div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-top:16px;">
+          <button onclick="resetUpload()" style="background:none;border:none;color:var(--text-3);cursor:pointer;font-size:12px;">✕ Cancel</button>
+          <button class="import-btn" id="confirm-btn" onclick="confirmImport()">Import to CPE Log</button>
         </div>
       </div>
     </div>
@@ -338,6 +324,8 @@
     });
   }
 
+  let _periodData = [];  // [{period, count, is_current, is_expired, courses}]
+
   async function handleFile(file) {
     setImportStatus('Parsing…');
     const form = new FormData();
@@ -346,36 +334,72 @@
       const res = await apiFetchRaw('/cpe/preview', { method: 'POST', body: form });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
-      _pendingRows = data.rows || [];
-      if (!_pendingRows.length) {
+      _periodData = data.periods || [];
+      const totalNew = _periodData.reduce((s, p) => s + p.count, 0);
+      if (!totalNew) {
         setImportStatus(`All ${data.existing_count} courses already in log — nothing to import.`);
         return;
       }
-      showPreview(_pendingRows, data.existing_count);
+      showPeriodPicker(_periodData, data.existing_count);
       setImportStatus('');
     } catch (err) {
       setImportStatus(`Error: ${err.message}`);
     }
   }
 
-  function showPreview(rows, existingCount) {
+  function showPeriodPicker(periods, existingCount) {
     document.getElementById('upload-zone').hidden = true;
     document.getElementById('preview-wrap').hidden = false;
-    document.getElementById('preview-count').textContent =
-      `${rows.length} new course${rows.length !== 1 ? 's' : ''} to import` +
-      (existingCount ? ` · ${existingCount} already in log (skipped)` : '');
+    document.getElementById('existing-note').textContent =
+      existingCount ? `${existingCount} course${existingCount !== 1 ? 's' : ''} already in log (skipped)` : '';
 
-    const isFraud = r => /fraud/i.test(r.course_name + ' ' + r.field_of_study);
-    document.getElementById('preview-body').innerHTML = rows.map(r => `
-      <tr>
-        <td>${esc(r.course_name)}</td>
-        <td style="text-align:right">${esc(r.credits)}</td>
-        <td>${esc(r.completed_on)}</td>
-        <td>${esc(r.field_of_study)}</td>
-        <td>${esc(r.cba_period)}</td>
-        <td>${esc(r.cba_category)}</td>
-        <td>${isFraud(r) ? '<span class="fraud-yes">Yes</span>' : '<span style="color:var(--text-3)">No</span>'}</td>
-      </tr>`).join('');
+    document.getElementById('period-list').innerHTML = periods.map((p, i) => {
+      const checked = p.is_current ? 'checked' : '';
+      const label   = p.is_current ? 'Current' : p.is_expired ? 'Expired' : 'Future';
+      const labelColor = p.is_current
+        ? 'background:rgba(76,175,125,.18);color:#4caf7d;'
+        : p.is_expired
+          ? 'background:rgba(255,255,255,.08);color:var(--text-3);'
+          : 'background:rgba(100,160,255,.18);color:#64a0ff;';
+      return `
+        <label style="display:flex;align-items:center;gap:12px;padding:12px 16px;
+               border:1px solid var(--border);border-radius:8px;cursor:pointer;
+               transition:border-color .15s,background .15s;"
+               onmouseover="this.style.borderColor='var(--text-3)'"
+               onmouseout="this.style.borderColor='var(--border)'">
+          <input type="checkbox" data-idx="${i}" ${checked}
+                 onchange="updatePendingRows()"
+                 style="width:16px;height:16px;accent-color:var(--accent-green,#4caf7d);cursor:pointer;">
+          <div style="flex:1;">
+            <div style="font-size:13px;font-weight:600;color:var(--text);">${esc(p.period)}</div>
+            <div style="font-size:12px;color:var(--text-3);margin-top:2px;">
+              ${p.count} course${p.count !== 1 ? 's' : ''}
+            </div>
+          </div>
+          <span style="font-size:11px;font-weight:700;padding:3px 9px;border-radius:10px;white-space:nowrap;${labelColor}">${label}</span>
+        </label>`;
+    }).join('');
+
+    updatePendingRows();
+  }
+
+  function updatePendingRows() {
+    const checkboxes = document.querySelectorAll('#period-list input[type=checkbox]');
+    _pendingRows = [];
+    checkboxes.forEach(cb => {
+      if (cb.checked) {
+        const p = _periodData[parseInt(cb.dataset.idx)];
+        _pendingRows.push(...p.courses);
+      }
+    });
+    const btn = document.getElementById('confirm-btn');
+    if (_pendingRows.length) {
+      btn.disabled = false;
+      btn.textContent = `Import ${_pendingRows.length} course${_pendingRows.length !== 1 ? 's' : ''} to CPE Log`;
+    } else {
+      btn.disabled = true;
+      btn.textContent = 'Select a period above';
+    }
   }
 
   async function confirmImport() {
@@ -394,12 +418,13 @@
     } catch (err) {
       showToast(`Import failed: ${err.message}`, 'error');
       btn.disabled = false;
-      btn.textContent = 'Import to CPE Log';
+      updatePendingRows();
     }
   }
 
   function resetUpload() {
     _pendingRows = [];
+    _periodData  = [];
     document.getElementById('upload-zone').hidden = false;
     document.getElementById('preview-wrap').hidden = true;
     document.getElementById('csv-input').value = '';

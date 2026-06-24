@@ -6730,10 +6730,41 @@ def cpe_preview():
                 if name:
                     existing.add((name, completed))
 
-        rows = [r for r in raw_rows
-                if (r['course_name'].lower(), r['completed_on']) not in existing]
+        # Filter out already-imported courses
+        new_rows = [r for r in raw_rows
+                    if (r['course_name'].lower(), r['completed_on']) not in existing]
 
-        return jsonify({'rows': rows, 'existing_count': len(existing)})
+        # Group by CBA period and annotate each with current/expired status
+        from collections import defaultdict as _dd
+        from datetime import date as _date
+        import re as _re
+        today = _date.today()
+        groups = _dd(list)
+        for r in new_rows:
+            groups[r['cba_period'] or 'Unknown'].append(r)
+
+        periods = []
+        for period_str, courses in sorted(groups.items()):
+            is_current = is_expired = False
+            try:
+                dates = _re.findall(r'\d{2}/\d{2}/\d{4}', period_str)
+                if len(dates) >= 2:
+                    from dateutil import parser as _dp
+                    start = _dp.parse(dates[0]).date()
+                    end   = _dp.parse(dates[1]).date()
+                    is_current = start <= today <= end
+                    is_expired = end < today
+            except Exception:
+                pass
+            periods.append({
+                'period':     period_str,
+                'count':      len(courses),
+                'is_current': is_current,
+                'is_expired': is_expired,
+                'courses':    courses,
+            })
+
+        return jsonify({'periods': periods, 'existing_count': len(existing)})
     except Exception as exc:
         app.logger.error('cpe_preview error: %s', exc)
         return jsonify({'error': str(exc)}), 500
