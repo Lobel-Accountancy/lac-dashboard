@@ -7096,8 +7096,10 @@ def _compute_earned(req_name, section_period, courses):
                 if c['fraud']:
                     total += c['credits']
             else:
-                # Annual Total CPE: all CPE qualifies for ACFE maintenance
-                total += c['credits']
+                # Annual Total CPE: count courses with ACFE Eligible = "Yes"
+                # (import writes "Yes" directly; old formula-based rows read as None and are excluded)
+                if c['acfe']:
+                    total += c['credits']
         else:
             if not in_period(c):
                 continue
