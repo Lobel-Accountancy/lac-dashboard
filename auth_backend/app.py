@@ -1,5 +1,8 @@
 import io
 import imaplib
+import shutil
+import subprocess
+import tempfile
 import threading
 import ipaddress
 import json
@@ -319,6 +322,51 @@ def _drive_service():
     return build('drive', 'v3', credentials=creds)
 
 
+# Excel error strings returned by LibreOffice / openpyxl for unresolvable formulas
+_XLSX_ERRORS = frozenset({
+    '#NULL!', '#DIV/0!', '#VALUE!', '#REF!', '#NAME?',
+    '#NUM!', '#N/A', '#GETTING_DATA', '#SPILL!',
+})
+
+def _xlsx_safe(v):
+    """Return None if v is an Excel error string (e.g. '#NAME?'), else return v unchanged."""
+    if isinstance(v, str) and v.strip() in _XLSX_ERRORS:
+        return None
+    return v
+
+
+def _load_wb_with_lo(raw_bytes):
+    """Run LibreOffice headless to compute all formulas, then load with openpyxl data_only=True.
+    Returns the computed workbook, or falls back to cached-values-only if LibreOffice fails."""
+    try:
+        with tempfile.TemporaryDirectory(prefix='lac_lo_') as tmpdir:
+            infile  = os.path.join(tmpdir, 'workbook.xlsx')
+            outdir  = os.path.join(tmpdir, 'out')
+            os.makedirs(outdir)
+            with open(infile, 'wb') as fh:
+                fh.write(raw_bytes)
+
+            result = subprocess.run(
+                ['libreoffice', '--headless', '--norestore',
+                 '--calc', '--convert-to', 'xlsx',
+                 '--outdir', outdir, infile],
+                capture_output=True, text=True, timeout=120,
+            )
+            outfile = os.path.join(outdir, 'workbook.xlsx')
+            if result.returncode == 0 and os.path.exists(outfile) and os.path.getsize(outfile) > 1000:
+                with open(outfile, 'rb') as fh:
+                    computed = io.BytesIO(fh.read())
+                return load_xlsx(computed, read_only=True, data_only=True)
+            else:
+                app.logger.warning('[workbook] LibreOffice rc=%d: %s',
+                                   result.returncode, result.stderr.strip()[:200])
+    except Exception as lo_err:
+        app.logger.warning('[workbook] LibreOffice formula compute error: %s', lo_err)
+
+    # Fallback — read with openpyxl cached values only
+    return load_xlsx(io.BytesIO(raw_bytes), read_only=True, data_only=True)
+
+
 def _fetch_workbook():
     svc = _drive_service()
     file_id = _wb_file_id_cache.get('id')
@@ -340,8 +388,8 @@ def _fetch_workbook():
     done = False
     while not done:
         _, done = dl.next_chunk()
-    buf.seek(0)
-    return load_xlsx(buf, read_only=True, data_only=True)
+    raw = buf.getvalue()
+    return _load_wb_with_lo(raw)
 
 
 def _workbook():
@@ -3868,11 +3916,8 @@ def _patch_pl_totals(pl_rows, txn_data, available_months):
 
 
 def _patch_bs_equity(bs_rows, txn_data, available_months):
-    """Inject net income into equity section using all-months total.
-    Includes pre-entered future-dated JEs (annual depreciation schedules etc.) so
-    the balance sheet net income matches the equity rollforward."""
-    rev_by_mo, exp_by_mo = _group_txn_by_month(txn_data)
-    total_ni = round(sum(rev_by_mo.values()) - sum(exp_by_mo.values()), 2)
+    """Inject YTD net income into equity section so balance sheet foots to zero."""
+    ytd_ni         = _ytd_net_income(txn_data, available_months)
     avail_mo_names = [MONTHS[mi - 1] for mi in available_months]
 
     in_equity = False
@@ -3889,8 +3934,8 @@ def _patch_bs_equity(bs_rows, txn_data, available_months):
 
         if in_equity:
             if lbl.startswith('Net Income') or lbl.startswith('NET INCOME'):
-                for mo in avail_mo_names:
-                    row['months'][mo] = total_ni
+                for mo, v in ytd_ni.items():
+                    row['months'][mo] = v
                 row['is_total'] = False
                 equity_items.append(row)
             elif lbl_up.startswith('TOTAL EQUITY'):
@@ -7451,30 +7496,35 @@ def _parse_asset_schedule_tab(ws):
             continue
 
         def _d(v):
+            v = _xlsx_safe(v)
             if v is None:
                 return None
             if isinstance(v, (date, datetime)):
                 return v.strftime('%Y-%m-%d')
             return str(v)
 
+        def _fn(v):
+            v = _xlsx_safe(v)
+            return round(float(v), 2) if isinstance(v, (int, float)) else None
+
         year_vals = {}
         for i, (col, yr) in enumerate(year_hdrs):
             idx = col - 1  # 0-based
-            v   = row[idx] if idx < len(row) else None
-            if v is not None:
+            v   = _xlsx_safe(row[idx] if idx < len(row) else None)
+            if isinstance(v, (int, float)):
                 year_vals[str(yr)] = round(float(v), 2)
 
         assets.append({
-            'number':              asset_num,
-            'je':                  str(row[1] or '') or None,
-            'description':         str(row[2] or '') or None,
-            'asset_type':          str(row[3] or '') or None,
-            'useful_life':         int(row[4]) if row[4] is not None else None,
-            'start_date':          _d(row[5] if len(row) > 5 else None),
-            'end_date':            _d(row[6] if len(row) > 6 else None),
-            'cost':                round(float(row[7]), 2) if row[7] is not None else None,
-            'monthly_amortization': round(float(row[8]), 2) if (len(row) > 8 and row[8] is not None) else None,
-            'year_totals':         year_vals,
+            'number':               asset_num,
+            'je':                   str(_xlsx_safe(row[1]) or '') or None,
+            'description':          str(_xlsx_safe(row[2]) or '') or None,
+            'asset_type':           str(_xlsx_safe(row[3]) or '') or None,
+            'useful_life':          int(row[4]) if isinstance(row[4], (int, float)) else None,
+            'start_date':           _d(row[5] if len(row) > 5 else None),
+            'end_date':             _d(row[6] if len(row) > 6 else None),
+            'cost':                 _fn(row[7] if len(row) > 7 else None),
+            'monthly_amortization': _fn(row[8] if len(row) > 8 else None),
+            'year_totals':          year_vals,
         })
     return assets
 
@@ -7492,6 +7542,7 @@ def _parse_shareholder_reimb_tab(ws):
             continue
 
         def _d(v):
+            v = _xlsx_safe(v)
             if v is None:
                 return None
             if isinstance(v, (date, datetime)):
@@ -7499,17 +7550,21 @@ def _parse_shareholder_reimb_tab(ws):
             return str(v)
 
         def _f(v):
-            return round(float(v), 2) if v is not None else None
+            v = _xlsx_safe(v)
+            if v is None or not isinstance(v, (int, float)):
+                return None
+            return round(float(v), 2)
 
         # Left side: transaction ledger (cols A–H, indices 0–7)
         has_left = any(row[i] is not None for i in range(8) if i < len(row))
         if has_left:
+            raw_gl = _xlsx_safe(row[3] if len(row) > 3 else None)
             bal = _f(row[7] if len(row) > 7 else None)
             transactions.append({
                 'date':              _d(row[0] if len(row) > 0 else None),
                 'je':                je,
-                'description':       str(row[2] or '') or None if len(row) > 2 else None,
-                'gl_account':        int(float(row[3])) if (len(row) > 3 and row[3] is not None) else None,
+                'description':       str(_xlsx_safe(row[2]) or '') or None if len(row) > 2 else None,
+                'gl_account':        int(float(raw_gl)) if isinstance(raw_gl, (int, float)) else None,
                 'amount_paid':       _f(row[4] if len(row) > 4 else None),
                 'date_reimbursed':   _d(row[5] if len(row) > 5 else None),
                 'amount_reimbursed': _f(row[6] if len(row) > 6 else None),
@@ -7521,10 +7576,10 @@ def _parse_shareholder_reimb_tab(ws):
         if exp_type:
             home_office.append({
                 'expense_type':  exp_type,
-                'gl_num':        int(float(row[10])) if (len(row) > 10 and row[10] is not None) else None,
-                'vendor':        str(row[11] or '') or None if len(row) > 11 else None,
+                'gl_num':        int(float(row[10])) if (len(row) > 10 and isinstance(_xlsx_safe(row[10]), (int, float))) else None,
+                'vendor':        str(_xlsx_safe(row[11]) or '') or None if len(row) > 11 else None,
                 'cost':          _f(row[12] if len(row) > 12 else None),
-                'period':        str(row[13] or '') or None if len(row) > 13 else None,
+                'period':        str(_xlsx_safe(row[13]) or '') or None if len(row) > 13 else None,
                 'pct_allocated': _f(row[14] if len(row) > 14 else None),
                 'amt_allocated': _f(row[15] if len(row) > 15 else None),
             })
@@ -7548,11 +7603,15 @@ def _compute_equity_rollforward(wb):
     txn_data   = _build_txn_data(wb)
     last_month = max(available)
 
-    # Sum ALL months (includes pre-entered future JEs like annual depreciation)
+    # YTD net income through current period — matches balance sheet formula
+    ytd_ni     = _ytd_net_income(txn_data, available)
+    net_income = ytd_ni.get(MONTHS[last_month - 1], 0.0)
+
+    # Revenue/expense totals through current period only (exclude pre-entered future JEs)
     rev_by_mo, exp_by_mo = _group_txn_by_month(txn_data)
-    rev_total  = round(sum(rev_by_mo.values()), 2)
-    exp_total  = round(sum(exp_by_mo.values()), 2)
-    net_income = round(rev_total - exp_total, 2)
+    rev_total = round(sum(rev_by_mo[m] for m in range(1, last_month + 1)), 2)
+    exp_total = round(sum(exp_by_mo[m] for m in range(1, last_month + 1)), 2)
+
     contributions = round(_txn_cumulative(txn_data, 3100, last_month), 2)
     distributions = round(_txn_cumulative(txn_data, 3200, last_month), 2)
     retained      = round(_txn_cumulative(txn_data, 3000, last_month), 2)
