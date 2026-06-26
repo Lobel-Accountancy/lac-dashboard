@@ -229,38 +229,40 @@ async function openTxnModal(acct, monthNum, label, monthName) {
     const totalDebit  = txns.reduce((s, t) => s + (t.debit  || 0), 0);
     const totalCredit = txns.reduce((s, t) => s + (t.credit || 0), 0);
 
-    const bodyRows = txns.map(t => `
-      <tr style="border-bottom:1px solid var(--border);">
-        <td style="padding:8px 12px;white-space:nowrap;font-size:12px;color:var(--text-2);">${t.date}</td>
-        <td style="padding:8px 12px;font-family:monospace;font-size:12px;color:var(--navy);">${t.je}</td>
-        <td style="padding:8px 12px;font-size:13px;">${t.desc}</td>
-        <td style="padding:8px 12px;text-align:right;font-size:13px;">${t.debit  != null ? n2(t.debit)  : ''}</td>
-        <td style="padding:8px 12px;text-align:right;font-size:13px;">${t.credit != null ? n2(t.credit) : ''}</td>
-        <td style="padding:8px 12px;font-size:11px;color:var(--text-3);">${t.notes || ''}</td>
-      </tr>`).join('');
+    const cards = txns.map(t => {
+      const hasDr = t.debit  != null;
+      const hasCr = t.credit != null;
+      let amtHtml = '';
+      if (hasDr && hasCr) {
+        amtHtml = `<span style="color:var(--danger);">Dr&nbsp;${n2(t.debit)}</span>&ensp;<span style="color:var(--ok);">Cr&nbsp;${n2(t.credit)}</span>`;
+      } else if (hasDr) {
+        amtHtml = `<span style="color:var(--navy);font-weight:600;">${n2(t.debit)}</span>`;
+      } else if (hasCr) {
+        amtHtml = `<span style="color:var(--ok);font-weight:600;">${n2(t.credit)}</span>`;
+      } else {
+        amtHtml = `<span style="color:var(--text-3);">—</span>`;
+      }
+      const meta = [t.date, t.je, t.notes].filter(Boolean).join(' · ');
+      return `
+        <div style="padding:12px 16px;border-bottom:1px solid #F0F2F5;">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;">
+            <div style="font-size:14px;color:var(--navy);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${t.desc || '—'}</div>
+            <div style="font-size:14px;white-space:nowrap;flex-shrink:0;">${amtHtml}</div>
+          </div>
+          <div style="font-size:11px;color:var(--text-2);margin-top:3px;">${meta}</div>
+        </div>`;
+    }).join('');
 
-    document.getElementById('txn-body').innerHTML = `
-      <table style="width:100%;border-collapse:collapse;">
-        <thead>
-          <tr style="background:#FAFBFC;border-bottom:2px solid var(--border);">
-            <th style="padding:8px 12px;text-align:left;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--text-2);">Date</th>
-            <th style="padding:8px 12px;text-align:left;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--text-2);">JE #</th>
-            <th style="padding:8px 12px;text-align:left;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--text-2);">Description</th>
-            <th style="padding:8px 12px;text-align:right;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--text-2);">Debit</th>
-            <th style="padding:8px 12px;text-align:right;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--text-2);">Credit</th>
-            <th style="padding:8px 12px;text-align:left;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--text-2);">Notes</th>
-          </tr>
-        </thead>
-        <tbody>${bodyRows}</tbody>
-        <tfoot>
-          <tr style="background:#F7F9FC;border-top:2px solid var(--navy);">
-            <td colspan="3" style="padding:8px 12px;font-size:12px;font-weight:700;color:var(--navy);">Total</td>
-            <td style="padding:8px 12px;text-align:right;font-size:13px;font-weight:700;color:var(--navy);">${totalDebit  > 0 ? n2(totalDebit)  : ''}</td>
-            <td style="padding:8px 12px;text-align:right;font-size:13px;font-weight:700;color:var(--navy);">${totalCredit > 0 ? n2(totalCredit) : ''}</td>
-            <td></td>
-          </tr>
-        </tfoot>
-      </table>`;
+    const totalLine = [
+      totalDebit  > 0 ? `Dr&nbsp;${n2(totalDebit)}`  : '',
+      totalCredit > 0 ? `Cr&nbsp;${n2(totalCredit)}` : '',
+    ].filter(Boolean).join('&ensp;');
+
+    document.getElementById('txn-body').innerHTML = cards + `
+      <div style="padding:12px 16px;background:#F7F9FC;border-top:2px solid var(--navy);display:flex;justify-content:space-between;align-items:center;">
+        <span style="font-size:12px;font-weight:700;color:var(--navy);">Total · ${txns.length} txn${txns.length !== 1 ? 's' : ''}</span>
+        <span style="font-size:13px;font-weight:700;color:var(--navy);">${totalLine}</span>
+      </div>`;
   } catch (err) {
     document.getElementById('txn-body').innerHTML =
       `<div style="padding:24px;color:var(--danger);">Error: ${err.message}</div>`;
