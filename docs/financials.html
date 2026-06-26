@@ -66,15 +66,17 @@
       min-width: 320px;
       border-collapse: collapse;
       font-size: 13px;
-      table-layout: fixed;
+      table-layout: auto;
     }
     .stmt-table col.col-label  { width: 56%; }
-    .stmt-table col.col-month  { width: 22%; }
-    .stmt-table col.col-ytd    { width: 22%; }
+    .stmt-table col.col-month  { width: auto; }
+    .stmt-table col.col-ytd    { width: auto; }
     .stmt-table td {
       padding: 6px 12px;
       border-bottom: 1px solid #F0F2F5;
       color: var(--text);
+    }
+    .stmt-table td:first-child {
       overflow: hidden;
       text-overflow: ellipsis;
     }
