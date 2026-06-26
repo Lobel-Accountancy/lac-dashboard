@@ -11,6 +11,7 @@ const NAV_GROUPS = [
   { label: 'Finance', items: [
     { label: 'AR Aging',      href: 'clients.html',     icon: '◎' },
     { label: 'Journal',       href: 'journal.html',     icon: '◫' },
+    { label: 'Accounting',    href: 'accounting.html',  icon: '◧' },
     { label: 'Analytics',     href: 'bi.html',          icon: '▤' },
     { label: 'Forecast',      href: 'forecast.html',    icon: '◬' },
     { label: 'Financials',    href: 'financials.html',  icon: '▧' },

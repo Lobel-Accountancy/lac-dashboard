@@ -7335,6 +7335,284 @@ def get_journal():
         return jsonify({'error': str(exc)}), 500
 
 
+# ---------------------------------------------------------------------------
+# Accounting — Bank Reconciliation, Assets, Reimbursements, Equity Rollforward
+# ---------------------------------------------------------------------------
+
+def _parse_bank_recon_tab(ws):
+    """Parse the Bank Reconciliation tab written by plaid_sync.py."""
+    import re as _re
+    MONTH_NAMES = {'january','february','march','april','may','june',
+                   'july','august','september','october','november','december'}
+    result = {'account': None, 'last_synced': None, 'current_balance': None, 'periods': []}
+
+    # Row 2: "Account: Chase Business Checking     Last synced: YYYY-MM-DD"
+    meta = str(ws.cell(2, 1).value or '')
+    m = _re.search(r'Account:\s*(.+?)\s{2,}Last synced:\s*(\S+)', meta)
+    if m:
+        result['account']     = m.group(1).strip()
+        result['last_synced'] = m.group(2).strip()
+
+    current_period = None
+    in_deposits    = False
+    in_withdrawals = False
+
+    for row in ws.iter_rows(min_row=3, max_row=ws.max_row, values_only=True):
+        if not row:
+            continue
+        raw   = str(row[0]) if row[0] is not None else None
+        label = raw.strip() if raw is not None else None
+        value = row[2] if len(row) > 2 else None
+
+        # Footer: current live balance
+        if label and 'CURRENT ACCOUNT BALANCE' in label.upper():
+            if current_period:
+                result['periods'].append(current_period)
+                current_period = None
+            continue
+        if label and 'Balance as of today' in label:
+            result['current_balance'] = float(value) if value is not None else None
+            continue
+
+        # Month section header: "June 2026", "May 2026", etc.
+        if label and any(label.lower().startswith(mn) for mn in MONTH_NAMES):
+            if current_period:
+                result['periods'].append(current_period)
+            current_period = {
+                'month': label, 'opening_balance': None,
+                'deposits': [], 'total_deposits': None,
+                'withdrawals': [], 'total_withdrawals': None,
+                'closing_balance': None, 'balanced': None,
+            }
+            in_deposits = in_withdrawals = False
+            continue
+
+        if current_period is None:
+            continue
+
+        if label == 'Opening Balance':
+            current_period['opening_balance'] = float(value) if value is not None else None
+        elif 'DEPOSITS' in (label or '').upper() and 'TOTAL' not in (label or '').upper():
+            in_deposits, in_withdrawals = True, False
+        elif 'WITHDRAWALS' in (label or '').upper() and 'TOTAL' not in (label or '').upper():
+            in_deposits, in_withdrawals = False, True
+        elif label and 'Total Deposits' in label:
+            current_period['total_deposits'] = float(value) if value is not None else None
+        elif label and 'Total Withdrawals' in label:
+            current_period['total_withdrawals'] = float(value) if value is not None else None
+        elif label and label.startswith('Closing Balance'):
+            current_period['closing_balance'] = float(value) if value is not None else None
+            in_deposits = in_withdrawals = False
+        elif raw is None and value is not None and isinstance(value, str):
+            # Status cell: "✓  Balanced" or "⚠  Review"
+            current_period['balanced'] = '✓' in value
+        elif raw and raw.startswith('    ') and value is not None:
+            cat = label  # stripped version as display name
+            if in_deposits:
+                current_period['deposits'].append({'category': cat, 'amount': float(value)})
+            elif in_withdrawals:
+                current_period['withdrawals'].append({'category': cat, 'amount': float(value)})
+
+    if current_period:
+        result['periods'].append(current_period)
+    return result
+
+
+def _parse_asset_schedule_tab(ws):
+    """Parse Fixed Assets or Prepaid Expenses tab (both share the same layout)."""
+    assets = []
+    # Row 1 = title, Row 2 = headers, Row 3+ = data
+    # Headers: Fixed Asset Number | Journal Entry | Asset Description | Asset Type |
+    #          Useful Life | Start Date | End Date | Asset Cost | Monthly Amortization | 2026 | ...
+    hdr_row = ws.cell(2, 1).value  # "Fixed Asset Number"
+    if not hdr_row:
+        return assets
+
+    # Read year column headers (col 10+)
+    year_hdrs = []
+    for col in range(10, ws.max_column + 1):
+        v = ws.cell(2, col).value
+        if v is not None:
+            year_hdrs.append((col, int(v)))
+        else:
+            break
+
+    for row in ws.iter_rows(min_row=3, max_row=ws.max_row, values_only=True):
+        if not row or row[0] is None:
+            break
+        try:
+            asset_num = int(float(row[0]))
+        except (TypeError, ValueError):
+            continue
+
+        def _d(v):
+            if v is None:
+                return None
+            if isinstance(v, (date, datetime)):
+                return v.strftime('%Y-%m-%d')
+            return str(v)
+
+        year_vals = {}
+        for i, (col, yr) in enumerate(year_hdrs):
+            idx = col - 1  # 0-based
+            v   = row[idx] if idx < len(row) else None
+            if v is not None:
+                year_vals[str(yr)] = round(float(v), 2)
+
+        assets.append({
+            'number':              asset_num,
+            'je':                  str(row[1] or '') or None,
+            'description':         str(row[2] or '') or None,
+            'asset_type':          str(row[3] or '') or None,
+            'useful_life':         int(row[4]) if row[4] is not None else None,
+            'start_date':          _d(row[5] if len(row) > 5 else None),
+            'end_date':            _d(row[6] if len(row) > 6 else None),
+            'cost':                round(float(row[7]), 2) if row[7] is not None else None,
+            'monthly_amortization': round(float(row[8]), 2) if (len(row) > 8 and row[8] is not None) else None,
+            'year_totals':         year_vals,
+        })
+    return assets
+
+
+def _parse_shareholder_reimb_tab(ws):
+    """Parse Shareholder Reimbursements tab. Returns transactions + home office schedule."""
+    transactions = []
+    home_office  = []
+
+    for row in ws.iter_rows(min_row=4, max_row=ws.max_row, values_only=True):
+        if not row:
+            continue
+        je = str(row[1] or '').strip() if len(row) > 1 else ''
+        if not je:
+            continue
+
+        def _d(v):
+            if v is None:
+                return None
+            if isinstance(v, (date, datetime)):
+                return v.strftime('%m/%d/%Y')
+            return str(v)
+
+        def _f(v):
+            return round(float(v), 2) if v is not None else None
+
+        # Left side: transaction ledger (cols A–H, indices 0–7)
+        has_left = any(row[i] is not None for i in range(8) if i < len(row))
+        if has_left:
+            bal = _f(row[7] if len(row) > 7 else None)
+            transactions.append({
+                'date':              _d(row[0] if len(row) > 0 else None),
+                'je':                je,
+                'description':       str(row[2] or '') or None if len(row) > 2 else None,
+                'gl_account':        int(float(row[3])) if (len(row) > 3 and row[3] is not None) else None,
+                'amount_paid':       _f(row[4] if len(row) > 4 else None),
+                'date_reimbursed':   _d(row[5] if len(row) > 5 else None),
+                'amount_reimbursed': _f(row[6] if len(row) > 6 else None),
+                'balance_owed':      bal,
+            })
+
+        # Right side: home office deduction schedule (cols J–P, indices 9–15)
+        exp_type = str(row[9] or '').strip() if len(row) > 9 else ''
+        if exp_type:
+            home_office.append({
+                'expense_type':  exp_type,
+                'gl_num':        int(float(row[10])) if (len(row) > 10 and row[10] is not None) else None,
+                'vendor':        str(row[11] or '') or None if len(row) > 11 else None,
+                'cost':          _f(row[12] if len(row) > 12 else None),
+                'period':        str(row[13] or '') or None if len(row) > 13 else None,
+                'pct_allocated': _f(row[14] if len(row) > 14 else None),
+                'amt_allocated': _f(row[15] if len(row) > 15 else None),
+            })
+
+    return {'transactions': transactions, 'home_office': home_office}
+
+
+def _compute_equity_rollforward(wb):
+    """Compute equity rollforward from Transactions tab.
+    Returns: beginning, contributions (3100), distributions (3200),
+             retained (3000), net_income, ending — all as floats.
+    Also returns monthly net income list for the sparkline."""
+    available = _available_months()
+    if not available:
+        return {
+            'beginning': 0, 'contributions': 0, 'distributions': 0,
+            'retained': 0, 'net_income': 0, 'ending': 0,
+            'monthly': [], 'revenue_total': 0, 'expense_total': 0,
+        }
+
+    txn_data   = _build_txn_data(wb)
+    last_month = max(available)
+
+    # Revenue = net credits on 4xxx accounts (YTD)
+    rev_total = round(sum(
+        v.get('credit', 0) - v.get('debit', 0)
+        for (a, _m), v in txn_data.items()
+        if 4000 <= a <= 4999
+    ), 2)
+
+    # Expenses = net debits on 5xxx–9xxx accounts (YTD)
+    exp_total = round(sum(
+        v.get('debit', 0) - v.get('credit', 0)
+        for (a, _m), v in txn_data.items()
+        if 5000 <= a <= 9999
+    ), 2)
+
+    net_income    = round(rev_total - exp_total, 2)
+    contributions = round(_txn_cumulative(txn_data, 3100, last_month), 2)
+    distributions = round(_txn_cumulative(txn_data, 3200, last_month), 2)
+    retained      = round(_txn_cumulative(txn_data, 3000, last_month), 2)
+    beginning     = 0.0
+    ending        = round(beginning + contributions + distributions + retained + net_income, 2)
+
+    monthly_ni = _monthly_net_income(txn_data, available)
+    monthly = [{'month': mo, 'net_income': v} for mo, v in monthly_ni.items()]
+
+    return {
+        'beginning':     beginning,
+        'contributions': contributions,
+        'distributions': distributions,
+        'retained':      retained,
+        'net_income':    net_income,
+        'ending':        ending,
+        'monthly':       monthly,
+        'revenue_total': rev_total,
+        'expense_total': exp_total,
+    }
+
+
+@app.route('/data/accounting', methods=['GET'])
+@require_jwt
+def get_accounting():
+    """Return bank reconciliation, asset schedules, reimbursements, and equity rollforward."""
+    try:
+        wb = _workbook()
+
+        bank_recon = _parse_bank_recon_tab(wb['Bank Reconciliation']) \
+            if 'Bank Reconciliation' in wb.sheetnames else None
+
+        fixed_assets = _parse_asset_schedule_tab(wb['Fixed Assets']) \
+            if 'Fixed Assets' in wb.sheetnames else []
+
+        prepaid = _parse_asset_schedule_tab(wb['Prepaid Expenses']) \
+            if 'Prepaid Expenses' in wb.sheetnames else []
+
+        reimb = _parse_shareholder_reimb_tab(wb['Shareholder Reimbursements']) \
+            if 'Shareholder Reimbursements' in wb.sheetnames else {'transactions': [], 'home_office': []}
+
+        equity = _compute_equity_rollforward(wb)
+
+        return jsonify({
+            'bank_reconciliation':        bank_recon,
+            'fixed_assets':               fixed_assets,
+            'prepaid_expenses':           prepaid,
+            'shareholder_reimbursements': reimb,
+            'equity_rollforward':         equity,
+        })
+    except Exception as exc:
+        app.logger.error('get_accounting error: %s', exc)
+        return jsonify({'error': str(exc)}), 500
+
+
 @app.route('/journal/add', methods=['POST'])
 @require_jwt
 def journal_add():
