@@ -80,66 +80,69 @@ function renderBankRecon() {
   const data = acctData?.bank_reconciliation;
   if (!data) { el.innerHTML = '<div class="acct-empty">Bank Reconciliation data not available.</div>'; return; }
 
-  const syncDate = data.last_synced || '—';
-  const curBal   = data.current_balance != null ? fmtD(data.current_balance) : '—';
+  const bankBal = data.current_balance;
+  const glBal   = data.gl_1000_balance;
+  const diff    = (bankBal != null && glBal != null)
+    ? Math.round((bankBal - glBal) * 100) / 100 : null;
+  const reconciled = diff !== null && Math.abs(diff) < 0.005;
 
-  let html = `
-    <div style="padding:16px 24px 0;display:flex;align-items:center;gap:24px;flex-wrap:wrap;">
-      <div class="bank-meta" style="margin:0;">
-        <strong>${esc(data.account || 'Chase Business Checking')}</strong>
-        &nbsp;·&nbsp; Last synced: ${esc(syncDate)}
-      </div>
-      <div style="margin-left:auto;font-size:13px;">
-        Live balance: <strong style="font-size:15px;color:var(--navy);">${curBal}</strong>
-      </div>
-    </div>`;
+  const badge = diff !== null
+    ? (reconciled
+        ? `<span class="bank-badge ok">&#10003;&nbsp;Reconciled</span>`
+        : `<span class="bank-badge err">&#9888;&nbsp;Out of Balance</span>`)
+    : '';
 
-  if (!data.periods || !data.periods.length) {
-    html += '<div class="acct-empty">No reconciliation periods found.</div>';
-    el.innerHTML = html;
-    return;
+  let reconRows = '';
+  if (bankBal != null) {
+    reconRows += `<tr><td>Bank Balance (Plaid)</td><td>${fmtD(bankBal)}</td></tr>`;
+  }
+  if (glBal != null) {
+    reconRows += `<tr><td>GL Balance (Acct 1000 – Cash)</td><td>${fmtD(glBal)}</td></tr>`;
+  }
+  if (diff !== null) {
+    reconRows += `<tr class="hr"><td>Difference</td><td class="${reconciled ? 'val-zero' : 'val-neg'}">${diff === 0 ? '$—' : fmtD(diff)}</td></tr>`;
   }
 
-  data.periods.forEach(p => {
-    const balanced = p.balanced;
-    const badge = balanced === null ? '' :
-      balanced
-        ? `<span class="bank-badge ok">&#10003;&nbsp;Balanced</span>`
-        : `<span class="bank-badge err">&#9888;&nbsp;Review</span>`;
+  let html = `
+    <div class="bank-period">
+      <div class="bank-period-title">
+        ${esc(data.account || 'Chase Business Checking')}
+        ${badge}
+      </div>
+      <div class="bank-meta">Last synced: ${esc(data.last_synced || '—')}</div>
+      <table class="bank-recon-table"><tbody>${reconRows}</tbody></table>
+    </div>`;
 
-    let rows = `
-      <tr><td>Opening Balance</td><td>${fmtD(p.opening_balance)}</td></tr>`;
-
-    if (p.deposits && p.deposits.length) {
-      rows += `<tr class="section-lbl"><td>Deposits (Money In)</td><td></td></tr>`;
-      p.deposits.forEach(d => {
-        rows += `<tr class="cat-row"><td>${esc(d.category)}</td><td class="${valCls(d.amount)}">${fmtD(d.amount)}</td></tr>`;
-      });
-    }
-    if (p.total_deposits !== null) {
-      rows += `<tr class="hr"><td>Total Deposits</td><td class="val-pos">${fmtD(p.total_deposits)}</td></tr>`;
-    }
-
-    if (p.withdrawals && p.withdrawals.length) {
-      rows += `<tr class="section-lbl"><td>Withdrawals (Money Out)</td><td></td></tr>`;
-      p.withdrawals.forEach(w => {
-        rows += `<tr class="cat-row"><td>${esc(w.category)}</td><td class="${valCls(-w.amount)}">${fmtD(w.amount)}</td></tr>`;
-      });
-    }
-    if (p.total_withdrawals !== null) {
-      rows += `<tr class="hr"><td>Total Withdrawals</td><td class="val-neg">(${fmtN(p.total_withdrawals)})</td></tr>`;
-    }
-
-    if (p.closing_balance !== null) {
-      rows += `<tr class="hr"><td><strong>Closing Balance</strong></td><td><strong>${fmtD(p.closing_balance)}</strong></td></tr>`;
-    }
-
-    html += `
-      <div class="bank-period">
-        <div class="bank-period-title">${esc(p.month)} ${badge}</div>
-        <table class="bank-recon-table"><tbody>${rows}</tbody></table>
-      </div>`;
-  });
+  // Monthly bank activity as supporting detail
+  if (data.periods && data.periods.length) {
+    data.periods.forEach(p => {
+      let rows = '';
+      if (p.deposits && p.deposits.length) {
+        rows += `<tr class="section-lbl"><td>Deposits</td><td></td></tr>`;
+        p.deposits.forEach(d => {
+          rows += `<tr class="cat-row"><td>${esc(d.category)}</td><td class="${valCls(d.amount)}">${fmtD(d.amount)}</td></tr>`;
+        });
+      }
+      if (p.total_deposits !== null) {
+        rows += `<tr class="hr"><td>Total Deposits</td><td class="val-pos">${fmtD(p.total_deposits)}</td></tr>`;
+      }
+      if (p.withdrawals && p.withdrawals.length) {
+        rows += `<tr class="section-lbl"><td>Withdrawals</td><td></td></tr>`;
+        p.withdrawals.forEach(w => {
+          rows += `<tr class="cat-row"><td>${esc(w.category)}</td><td class="${valCls(-w.amount)}">${fmtD(w.amount)}</td></tr>`;
+        });
+      }
+      if (p.total_withdrawals !== null) {
+        rows += `<tr class="hr"><td>Total Withdrawals</td><td class="val-neg">(${fmtN(p.total_withdrawals)})</td></tr>`;
+      }
+      if (!rows) return;
+      html += `
+        <div class="bank-period" style="padding-top:12px;">
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text-2);margin-bottom:10px;">${esc(p.month)} Activity</div>
+          <table class="bank-recon-table"><tbody>${rows}</tbody></table>
+        </div>`;
+    });
+  }
 
   el.innerHTML = `<div class="acct-card">${html}</div>`;
 }
@@ -270,9 +273,11 @@ function renderReimb() {
   );
 
   if (txns.length) {
-    const totalPaid   = txns.reduce((s, t) => s + (t.amount_paid || 0), 0);
-    const totalReimb  = txns.reduce((s, t) => s + (t.amount_reimbursed || 0), 0);
-    const totalOwed   = txns.reduce((s, t) => s + (t.balance_owed || 0), 0);
+    const totalPaid  = Math.round(txns.reduce((s, t) => s + (t.amount_paid || 0), 0) * 100) / 100;
+    const totalReimb = Math.round(txns.reduce((s, t) => s + (t.amount_reimbursed || 0), 0) * 100) / 100;
+    // balance_owed is a running balance; the final row holds the total outstanding
+    const lastTxn  = txns[txns.length - 1];
+    const totalOwed = lastTxn?.balance_owed ?? Math.round((totalPaid - totalReimb) * 100) / 100;
 
     const rows = txns.map(t => {
       const owed = t.balance_owed ?? ((t.amount_paid || 0) - (t.amount_reimbursed || 0));

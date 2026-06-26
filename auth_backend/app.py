@@ -3868,8 +3868,13 @@ def _patch_pl_totals(pl_rows, txn_data, available_months):
 
 
 def _patch_bs_equity(bs_rows, txn_data, available_months):
-    """Inject YTD net income into equity section so balance sheet foots to zero."""
-    ytd_ni = _ytd_net_income(txn_data, available_months)
+    """Inject net income into equity section using all-months total.
+    Includes pre-entered future-dated JEs (annual depreciation schedules etc.) so
+    the balance sheet net income matches the equity rollforward."""
+    rev_by_mo, exp_by_mo = _group_txn_by_month(txn_data)
+    total_ni = round(sum(rev_by_mo.values()) - sum(exp_by_mo.values()), 2)
+    avail_mo_names = [MONTHS[mi - 1] for mi in available_months]
+
     in_equity = False
     equity_items = []
     totals = {}
@@ -3884,12 +3889,12 @@ def _patch_bs_equity(bs_rows, txn_data, available_months):
 
         if in_equity:
             if lbl.startswith('Net Income') or lbl.startswith('NET INCOME'):
-                for mo, v in ytd_ni.items():
-                    row['months'][mo] = v
+                for mo in avail_mo_names:
+                    row['months'][mo] = total_ni
                 row['is_total'] = False
                 equity_items.append(row)
             elif lbl_up.startswith('TOTAL EQUITY'):
-                for mo in ytd_ni:
+                for mo in avail_mo_names:
                     row['months'][mo] = round(
                         sum(r['months'].get(mo, 0) for r in equity_items), 2)
                 in_equity = False
@@ -3909,14 +3914,14 @@ def _patch_bs_equity(bs_rows, txn_data, available_months):
     if all(k in totals for k in ('total_liabilities_equity', 'total_liabilities', 'total_equity')):
         tl = totals['total_liabilities']
         te = totals['total_equity']
-        for mo in ytd_ni:
+        for mo in avail_mo_names:
             totals['total_liabilities_equity']['months'][mo] = round(
                 tl['months'].get(mo, 0) + te['months'].get(mo, 0), 2)
 
     if all(k in totals for k in ('balance_check', 'total_assets', 'total_liabilities_equity')):
         ta = totals['total_assets']
         tl_eq = totals['total_liabilities_equity']
-        for mo in ytd_ni:
+        for mo in avail_mo_names:
             totals['balance_check']['months'][mo] = round(
                 ta['months'].get(mo, 0) - tl_eq['months'].get(mo, 0), 2)
 
@@ -7543,21 +7548,11 @@ def _compute_equity_rollforward(wb):
     txn_data   = _build_txn_data(wb)
     last_month = max(available)
 
-    # Revenue = net credits on 4xxx accounts (YTD)
-    rev_total = round(sum(
-        v.get('credit', 0) - v.get('debit', 0)
-        for (a, _m), v in txn_data.items()
-        if 4000 <= a <= 4999
-    ), 2)
-
-    # Expenses = net debits on 5xxx–9xxx accounts (YTD)
-    exp_total = round(sum(
-        v.get('debit', 0) - v.get('credit', 0)
-        for (a, _m), v in txn_data.items()
-        if 5000 <= a <= 9999
-    ), 2)
-
-    net_income    = round(rev_total - exp_total, 2)
+    # Sum ALL months (includes pre-entered future JEs like annual depreciation)
+    rev_by_mo, exp_by_mo = _group_txn_by_month(txn_data)
+    rev_total  = round(sum(rev_by_mo.values()), 2)
+    exp_total  = round(sum(exp_by_mo.values()), 2)
+    net_income = round(rev_total - exp_total, 2)
     contributions = round(_txn_cumulative(txn_data, 3100, last_month), 2)
     distributions = round(_txn_cumulative(txn_data, 3200, last_month), 2)
     retained      = round(_txn_cumulative(txn_data, 3000, last_month), 2)
@@ -7600,6 +7595,69 @@ def get_accounting():
             if 'Shareholder Reimbursements' in wb.sheetnames else {'transactions': [], 'home_office': []}
 
         equity = _compute_equity_rollforward(wb)
+
+        # GL 1000 (cash) balance from Transactions — for bank reconciliation display
+        acct_txn_data = _build_txn_data(wb)
+        acct_available = _available_months()
+        acct_last_mo   = max(acct_available) if acct_available else 12
+        gl_1000 = round(_txn_cumulative(acct_txn_data, 1000, acct_last_mo), 2)
+        if bank_recon:
+            bank_recon['gl_1000_balance'] = gl_1000
+
+        # Enrich shareholder reimbursements from Transactions tab (acct 2100 credits)
+        if 'Transactions' in wb.sheetnames:
+            je_2100: dict = {}
+            ws_txn = wb['Transactions']
+            for _row in ws_txn.iter_rows(min_row=3, values_only=True):
+                if not _row or _row[0] is None:
+                    continue
+                _date, _je, _desc, _acct = _row[0], _row[1], _row[2], _row[3]
+                if not isinstance(_acct, (int, float)) or int(_acct) != 2100:
+                    continue
+                _je_str = str(_je or '').strip()
+                if not _je_str:
+                    continue
+                _dr = float(_row[5]) if isinstance(_row[5], (int, float)) else None
+                _cr = float(_row[6]) if isinstance(_row[6], (int, float)) else None
+                if _dr is None and _cr is None:
+                    continue
+                if _je_str not in je_2100:
+                    if isinstance(_date, (datetime, date)):
+                        _ds = _date.strftime('%m/%d/%Y')
+                    elif isinstance(_date, str):
+                        _ds = _date
+                    else:
+                        _ds = None
+                    je_2100[_je_str] = {
+                        'date': _ds,
+                        'description': str(_desc or ''),
+                        'amount_paid': 0.0,
+                        'amount_reimbursed': 0.0,
+                    }
+                if _cr:
+                    je_2100[_je_str]['amount_paid'] = round(
+                        je_2100[_je_str]['amount_paid'] + _cr, 2)
+                if _dr:
+                    je_2100[_je_str]['amount_reimbursed'] = round(
+                        je_2100[_je_str]['amount_reimbursed'] + _dr, 2)
+
+            running_bal = 0.0
+            for txn in reimb.get('transactions', []):
+                _jk  = txn.get('je', '')
+                _lkp = je_2100.get(_jk)
+                if _lkp:
+                    if txn.get('date') is None:
+                        txn['date'] = _lkp['date']
+                    if not txn.get('description'):
+                        txn['description'] = _lkp['description']
+                    if txn.get('amount_paid') is None:
+                        txn['amount_paid'] = _lkp['amount_paid'] or None
+                    if txn.get('amount_reimbursed') is None:
+                        txn['amount_reimbursed'] = _lkp['amount_reimbursed'] or None
+                paid_a  = txn.get('amount_paid')         or 0.0
+                reimb_a = txn.get('amount_reimbursed')   or 0.0
+                running_bal = round(running_bal + paid_a - reimb_a, 2)
+                txn['balance_owed'] = running_bal
 
         return jsonify({
             'bank_reconciliation':        bank_recon,
